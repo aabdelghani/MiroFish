@@ -982,6 +982,44 @@ def get_simulation_history():
         }), 500
 
 
+@simulation_bp.route('/<simulation_id>', methods=['DELETE'])
+def delete_simulation(simulation_id: str):
+    """
+    删除模拟及其所有相关数据
+
+    Args:
+        simulation_id: 模拟ID
+
+    Returns:
+        {
+            "success": true,
+            "message": "删除成功"
+        }
+    """
+    try:
+        manager = SimulationManager()
+        success = manager.delete_simulation(simulation_id)
+
+        if success:
+            return jsonify({
+                "success": True,
+                "message": "删除成功"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "删除失败，模拟可能不存在"
+            }), 404
+
+    except Exception as e:
+        logger.error(f"删除模拟失败: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "traceback": traceback.format_exc()
+        }), 500
+
+
 @simulation_bp.route('/<simulation_id>/profiles', methods=['GET'])
 def get_simulation_profiles(simulation_id: str):
     """
