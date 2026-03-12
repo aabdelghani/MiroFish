@@ -31,6 +31,7 @@ class Config:
     LLM_API_KEY = os.environ.get('LLM_API_KEY')
     LLM_BASE_URL = os.environ.get('LLM_BASE_URL', 'https://api.openai.com/v1')
     LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME', 'gpt-4o-mini')
+    LLM_MAX_TOKENS = int(os.environ.get('LLM_MAX_TOKENS', '4096'))
 
     # 嵌入模型配置（用于 Graphiti local 模式，可独立配置）
     EMBEDDING_API_KEY = os.environ.get('EMBEDDING_API_KEY')  # 可选，默认使用 LLM_API_KEY
