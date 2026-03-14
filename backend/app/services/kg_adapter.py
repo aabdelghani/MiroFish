@@ -109,9 +109,36 @@ class ZepCloudAdapter(KnowledgeGraphAdapter):
     def get_episode(self, episode_uuid: str) -> Any:
         return self.client.graph.episode.get(uuid_=episode_uuid)
 
-    def search(self, graph_id: str, query: str, limit: int = 10, scope: str = "all", reranker: str = None) -> List[Dict]:
+    def search(self, graph_id: str, query: str, limit: int = 10, scope: str = "all", reranker: str = None):
+        """搜索图谱，返回兼容对象格式
+
+        返回格式与 GraphitiAdapter 一致：
+        - scope="edges": 返回带 .edges 属性的对象
+        - scope="nodes": 返回带 .nodes 属性的对象
+        - scope="all": 返回带 .edges 和 .nodes 属性的对象
+        """
+        from dataclasses import dataclass, field
+
+        @dataclass
+        class SearchResult:
+            edges: list = field(default_factory=list)
+            nodes: list = field(default_factory=list)
+
         result = self.client.graph.search(graph_id=graph_id, query=query, limit=limit, scope=scope, reranker=reranker)
-        return [r.model_dump() for r in result.results] if hasattr(result, 'results') else []
+
+        search_result = SearchResult()
+
+        if hasattr(result, 'results') and result.results:
+            for r in result.results:
+                item = r.model_dump() if hasattr(r, 'model_dump') else r
+
+                # 根据 scope 将结果分配到 edges 或 nodes
+                if scope in ['all', 'edges']:
+                    search_result.edges.append(item)
+                if scope in ['all', 'nodes']:
+                    search_result.nodes.append(item)
+
+        return search_result
 
     def get_nodes(self, graph_id: str, limit: int = 100, cursor: str = None) -> List[Any]:
         kwargs = {"limit": limit}
