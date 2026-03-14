@@ -408,59 +408,6 @@ class GraphitiAdapter(KnowledgeGraphAdapter):
         logger.info(f"Graphiti 实体全部构建完成: {graph_id}, 共 {len(results)} 条")
         return results
 
-    def _call_llm_for_entities(self, text: str) -> str:
-        """调用 LLM 提取实体"""
-        from openai import OpenAI
-
-        client = OpenAI(
-            api_key=Config.LLM_API_KEY,
-            base_url=Config.LLM_BASE_URL
-        )
-
-        prompt = f"""从以下文本中提取实体和关系。
-
-重要：直接返回JSON数组，不要任何markdown格式，不要```标记。
-
-要求返回格式：
-[
-  {{
-    "name": "实体名",
-    "type": "实体类型",
-    "description": "描述",
-    "relationships": [
-      {{"target": "目标实体", "type": "关系类型", "fact": "事实描述"}}
-    ]
-  }}
-]
-
-文本内容：
-{text[:3000]}
-
-直接返回JSON数组："""
-
-        try:
-            response = client.chat.completions.create(
-                model=Config.LLM_MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": "你是一个实体关系提取助手。"},
-                    {"role": "user", "content": prompt}
-                ],
-                temperature=0.1,
-                max_tokens=2000
-            )
-            # 清理 JSON（去除 markdown 代码块）
-            content = response.choices[0].message.content
-            content = content.strip()
-            # 去除 ```json 和 ``` 标记
-            if content.startswith("```"):
-                content = content.split("\n", 1)[1] if "\n" in content else content
-            if content.endswith("```"):
-                content = content.rsplit("```", 1)[0]
-            return content.strip()
-        except Exception as e:
-            logger.error(f"LLM 实体提取失败: {e}")
-            return "[]"
-
     def get_episode(self, episode_uuid: str) -> Any:
         """使用同步驱动获取 episode"""
         with self._sync_driver.session() as session:
@@ -657,22 +604,17 @@ class GraphitiAdapter(KnowledgeGraphAdapter):
     def delete(self, graph_id: str) -> bool:
         """使用同步驱动删除图谱"""
         with self._sync_driver.session() as session:
-            # 删除关联边
+            # 删除关联边（使用 group_id 属性）
             session.run("""
                 MATCH (e1:Entity)-[r]-(e2:Entity)
-                WHERE e1.group = $group OR e2.group = $group
+                WHERE e1.group_id = $group_id OR e2.group_id = $group_id
                 DELETE r
-            """, group=graph_id)
-            # 删除实体节点
+            """, group_id=graph_id)
+            # 删除实体节点（使用 group_id 属性）
             session.run("""
-                MATCH (e:Entity)-[:MEMBER_OF]->(g:Group {name: $group})
+                MATCH (e:Entity {group_id: $group_id})
                 DELETE e
-            """, group=graph_id)
-            # 删除组节点
-            session.run("""
-                MATCH (g:Group {name: $group})
-                DELETE g
-            """, group=graph_id)
+            """, group_id=graph_id)
 
         if graph_id in self._graph_id_to_group:
             del self._graph_id_to_group[graph_id]
