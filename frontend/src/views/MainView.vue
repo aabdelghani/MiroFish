@@ -15,7 +15,7 @@
             :class="{ active: viewMode === mode }"
             @click="viewMode = mode"
           >
-            {{ { graph: '图谱', split: '双栏', workbench: '工作台' }[mode] }}
+            {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
           </button>
         </div>
       </div>
@@ -30,6 +30,9 @@
           <span class="dot"></span>
           {{ statusText }}
         </span>
+        <button class="lang-toggle" @click="toggleLang">
+          {{ locale === 'en' ? '中文' : 'EN' }}
+        </button>
       </div>
     </header>
 
@@ -77,6 +80,7 @@
 <script setup>
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step1GraphBuild from '../components/Step1GraphBuild.vue'
 import Step2EnvSetup from '../components/Step2EnvSetup.vue'
@@ -85,13 +89,19 @@ import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 
 const route = useRoute()
 const router = useRouter()
+const { t, locale } = useI18n()
+
+const toggleLang = () => {
+  locale.value = locale.value === 'en' ? 'zh' : 'en'
+  localStorage.setItem('locale', locale.value)
+}
 
 // Layout State
 const viewMode = ref('split') // graph | split | workbench
 
 // Step State
 const currentStep = ref(1) // 1: 图谱构建, 2: 环境搭建, 3: 开始模拟, 4: 报告生成, 5: 深度互动
-const stepNames = ['图谱构建', '环境搭建', '开始模拟', '报告生成', '深度互动']
+const stepNames = computed(() => t('mainView.stepNames'))
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -159,11 +169,11 @@ const toggleMaximize = (target) => {
 const handleNextStep = (params = {}) => {
   if (currentStep.value < 5) {
     currentStep.value++
-    addLog(`进入 Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(t('mainView.enterStep', { step: currentStep.value, name: stepNames.value[currentStep.value - 1] }))
     
     // 如果是从 Step 2 进入 Step 3，记录模拟轮数配置
     if (currentStep.value === 3 && params.maxRounds) {
-      addLog(`自定义模拟轮数: ${params.maxRounds} 轮`)
+      addLog(t('mainView.customRounds', { rounds: params.maxRounds }))
     }
   }
 }
@@ -171,7 +181,7 @@ const handleNextStep = (params = {}) => {
 const handleGoBack = () => {
   if (currentStep.value > 1) {
     currentStep.value--
-    addLog(`返回 Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(t('mainView.returnStep', { step: currentStep.value, name: stepNames.value[currentStep.value - 1] }))
   }
 }
 
@@ -516,6 +526,23 @@ onUnmounted(() => {
 .status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
 .status-indicator.completed .dot { background: #4CAF50; }
 .status-indicator.error .dot { background: #F44336; }
+
+.lang-toggle {
+  border: 1px solid #E0E0E0;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lang-toggle:hover {
+  background: #F5F5F5;
+  color: #000;
+}
 
 @keyframes pulse { 50% { opacity: 0.5; } }
 

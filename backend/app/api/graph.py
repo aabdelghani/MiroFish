@@ -153,6 +153,7 @@ def generate_ontology():
         simulation_requirement = request.form.get('simulation_requirement', '')
         project_name = request.form.get('project_name', 'Unnamed Project')
         additional_context = request.form.get('additional_context', '')
+        language = request.form.get('language', 'zh')
         
         logger.debug(f"项目名称: {project_name}")
         logger.debug(f"模拟需求: {simulation_requirement[:100]}...")
@@ -213,7 +214,7 @@ def generate_ontology():
         
         # 生成本体
         logger.info("调用 LLM 生成本体定义...")
-        generator = OntologyGenerator()
+        generator = OntologyGenerator(language=language)
         ontology = generator.generate(
             document_texts=document_texts,
             simulation_requirement=simulation_requirement,

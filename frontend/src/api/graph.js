@@ -6,7 +6,11 @@ import service, { requestWithRetry } from './index'
  * @returns {Promise}
  */
 export function generateOntology(formData) {
-  return requestWithRetry(() => 
+  // Attach the user's selected language so backend generates content in the right language
+  if (!formData.has('language')) {
+    formData.append('language', localStorage.getItem('locale') || 'en')
+  }
+  return requestWithRetry(() =>
     service({
       url: '/api/graph/ontology/generate',
       method: 'post',
