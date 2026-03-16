@@ -20,9 +20,16 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
-from .zep_entity_reader import EntityNode, ZepEntityReader
+from .zep_entity_reader import EntityNode
 
 logger = get_logger('mirofish.simulation_config')
+
+# 语言指令（根据 locale 动态追加到 LLM 提示词）
+LANGUAGE_INSTRUCTIONS = {
+    'zh': "\n\n【语言要求】所有输出必须使用中文。",
+    'en': "\n\n【Language requirement】All output MUST be in English.",
+    'ko': "\n\n【언어 요구사항】모든 출력은 반드시 한국어로 작성해야 합니다.",
+}
 
 # 中国作息时间配置（北京时间）
 CHINA_TIMEZONE_CONFIG = {
@@ -250,10 +257,11 @@ class SimulationConfigGenerator:
         enable_twitter: bool = True,
         enable_reddit: bool = True,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        locale: str = 'zh',
     ) -> SimulationParameters:
         """
         智能生成完整的模拟配置（分步生成）
-        
+
         Args:
             simulation_id: 模拟ID
             project_id: 项目ID
@@ -264,12 +272,16 @@ class SimulationConfigGenerator:
             enable_twitter: 是否启用Twitter
             enable_reddit: 是否启用Reddit
             progress_callback: 进度回调函数(current_step, total_steps, message)
-            
+            locale: 语言偏好 ('zh', 'en', 'ko')
+
         Returns:
             SimulationParameters: 完整的模拟参数
         """
         logger.info(f"开始智能生成模拟配置: simulation_id={simulation_id}, 实体数={len(entities)}")
-        
+
+        # 保存 locale 供内部方法使用
+        self._locale = locale
+
         # 计算总步骤数
         num_batches = math.ceil(len(entities) / self.AGENTS_PER_BATCH)
         total_steps = 3 + num_batches  # 时间配置 + 事件配置 + N批Agent + 平台配置
@@ -432,7 +444,6 @@ class SimulationConfigGenerator:
     
     def _call_llm_with_retry(self, prompt: str, system_prompt: str) -> Dict[str, Any]:
         """带重试的LLM调用，包含JSON修复逻辑"""
-        import re
         
         max_attempts = 3
         last_error = None
@@ -520,13 +531,13 @@ class SimulationConfigGenerator:
             
             try:
                 return json.loads(json_str)
-            except:
+            except:  # noqa: E722
                 # 尝试移除所有控制字符
                 json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', json_str)
                 json_str = re.sub(r'\s+', ' ', json_str)
                 try:
                     return json.loads(json_str)
-                except:
+                except:  # noqa: E722
                     pass
         
         return None
@@ -585,7 +596,9 @@ class SimulationConfigGenerator:
 - reasoning (string): 简要说明为什么这样配置"""
 
         system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合中国人作息习惯。"
-        
+        lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
+        system_prompt += lang_inst
+
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
         except Exception as e:
@@ -650,7 +663,7 @@ class SimulationConfigGenerator:
         """生成事件配置"""
         
         # 获取可用的实体类型列表，供 LLM 参考
-        entity_types_available = list(set(
+        list(set(
             e.get_entity_type() or "Unknown" for e in entities
         ))
         
@@ -701,7 +714,9 @@ class SimulationConfigGenerator:
 }}"""
 
         system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
-        
+        lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
+        system_prompt += lang_inst
+
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
         except Exception as e:
@@ -864,7 +879,9 @@ class SimulationConfigGenerator:
 }}"""
 
         system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合中国人作息习惯。"
-        
+        lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
+        system_prompt += lang_inst
+
         try:
             result = self._call_llm_with_retry(prompt, system_prompt)
             llm_configs = {cfg["agent_id"]: cfg for cfg in result.get("agent_configs", [])}
