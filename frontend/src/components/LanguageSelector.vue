@@ -1,6 +1,6 @@
 <template>
   <div class="language-selector" :class="{ light: light }">
-    <button 
+    <button
       class="lang-btn"
       :class="{ active: locale === 'zh' }"
       @click="setLocale('zh')"
@@ -8,12 +8,20 @@
       {{ $t('nav.zh') }}
     </button>
     <span class="lang-sep">/</span>
-    <button 
+    <button
       class="lang-btn"
       :class="{ active: locale === 'en' }"
       @click="setLocale('en')"
     >
       {{ $t('nav.en') }}
+    </button>
+    <span class="lang-sep">/</span>
+    <button
+      class="lang-btn"
+      :class="{ active: locale === 'ko' }"
+      @click="setLocale('ko')"
+    >
+      {{ $t('nav.ko') }}
     </button>
   </div>
 </template>
@@ -31,7 +39,8 @@ const { locale } = useI18n()
 const setLocale = (lang) => {
   locale.value = lang
   setStoredLocale(lang)
-  document.documentElement.lang = lang === 'zh' ? 'zh-CN' : 'en'
+  const langMap = { zh: 'zh-CN', en: 'en', ko: 'ko-KR' }
+  document.documentElement.lang = langMap[lang] || lang
 }
 </script>
 

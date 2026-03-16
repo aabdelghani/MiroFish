@@ -35,6 +35,7 @@ export default {
     language: 'Language',
     zh: '中文',
     en: 'English',
+    ko: '한국어',
   },
   home: {
     tagline: 'Simple & Universal Swarm Intelligence Engine',

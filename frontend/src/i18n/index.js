@@ -1,13 +1,15 @@
 import { createI18n } from 'vue-i18n'
 import zh from './locales/zh'
 import en from './locales/en'
+import ko from './locales/ko'
 
 const LOCALE_KEY = 'mirofish-locale'
+const SUPPORTED_LOCALES = ['zh', 'en', 'ko']
 
 export function getStoredLocale() {
   try {
     const stored = localStorage.getItem(LOCALE_KEY)
-    if (stored === 'zh' || stored === 'en') return stored
+    if (SUPPORTED_LOCALES.includes(stored)) return stored
   } catch (_) {}
   return 'zh'
 }
@@ -30,6 +32,7 @@ const i18n = createI18n({
   messages: {
     zh,
     en,
+    ko,
   },
 })
 

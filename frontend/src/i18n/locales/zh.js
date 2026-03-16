@@ -35,6 +35,7 @@ export default {
     language: '语言',
     zh: '中文',
     en: 'English',
+    ko: '한국어',
   },
   home: {
     tagline: '简洁通用的群体智能引擎',
