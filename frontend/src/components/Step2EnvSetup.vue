@@ -97,14 +97,14 @@
                   <span class="profile-profession">{{ profile.profession || $t('step2.unknownProfession') }}</span>
                 </div>
                 <p class="profile-bio">{{ profile.bio || $t('step2.noBio') }}</p>
-                <div v-if="profile.interested_topics?.length" class="profile-topics">
-                  <span 
-                    v-for="topic in profile.interested_topics.slice(0, 3)" 
-                    :key="topic" 
+                <div v-if="parsedTopics(profile.interested_topics).length" class="profile-topics">
+                  <span
+                    v-for="topic in parsedTopics(profile.interested_topics).slice(0, 3)"
+                    :key="topic"
                     class="topic-tag"
                   >{{ topic }}</span>
-                  <span v-if="profile.interested_topics.length > 3" class="topic-more">
-                    +{{ profile.interested_topics.length - 3 }}
+                  <span v-if="parsedTopics(profile.interested_topics).length > 3" class="topic-more">
+                    +{{ parsedTopics(profile.interested_topics).length - 3 }}
                   </span>
                 </div>
               </div>
@@ -574,9 +574,9 @@
           <div class="modal-section" v-if="selectedProfile.interested_topics?.length">
             <span class="section-label">{{ $t('step2Profile.relatedTopics') }}</span>
             <div class="topics-grid">
-              <span 
-                v-for="topic in selectedProfile.interested_topics" 
-                :key="topic" 
+              <span
+                v-for="topic in parsedTopics(selectedProfile.interested_topics)"
+                :key="topic"
                 class="topic-item"
               >{{ topic }}</span>
             </div>
@@ -665,6 +665,14 @@ const simulationConfig = ref(null)
 const selectedProfile = ref(null)
 const showProfilesDetail = ref(true)
 
+const parsedTopics = (topics) => {
+  if (Array.isArray(topics)) return topics
+  if (typeof topics === 'string') {
+    try { return JSON.parse(topics) } catch { return [topics] }
+  }
+  return []
+}
+
 // 日志去重：记录上一次输出的关键信息
 let lastLoggedMessage = ''
 let lastLoggedProfileCount = 0
@@ -730,7 +738,7 @@ const getAgentUsername = (agentId) => {
 // 计算所有人设的关联话题总数
 const totalTopicsCount = computed(() => {
   return profiles.value.reduce((sum, p) => {
-    return sum + (p.interested_topics?.length || 0)
+    return sum + (parsedTopics(p.interested_topics).length)
   }, 0)
 })
 
