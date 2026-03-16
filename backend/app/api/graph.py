@@ -11,6 +11,7 @@ from flask import request, jsonify
 from . import graph_bp
 from ..config import Config
 from ..utils.request_locale import get_request_locale
+from ..utils.error_messages import get_error_message
 from ..services.ontology_generator import OntologyGenerator
 from ..services.graph_builder import GraphBuilderService
 from ..services.text_processor import TextProcessor
@@ -373,53 +374,61 @@ def build_graph():
         project.graph_build_task_id = task_id
         ProjectManager.save_project(project)
         
+        # Capture locale before entering background thread (no Flask request context there)
+        locale = get_request_locale()
+
+        def _msg(key, **kwargs):
+            """Helper to get localized task message."""
+            msg = get_error_message(key, locale)
+            return msg.format(**kwargs) if kwargs else msg
+
         # 启动后台任务
         def build_task():
             build_logger = get_logger('mirofish.build')
             try:
                 build_logger.info(f"[{task_id}] 开始构建图谱...")
                 task_manager.update_task(
-                    task_id, 
+                    task_id,
                     status=TaskStatus.PROCESSING,
-                    message="初始化图谱构建服务..."
+                    message=_msg('init_graph_service')
                 )
-                
+
                 # 创建图谱构建服务
                 builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-                
+
                 # 分块
                 task_manager.update_task(
                     task_id,
-                    message="文本分块中...",
+                    message=_msg('text_chunking'),
                     progress=5
                 )
                 chunks = TextProcessor.split_text(
-                    text, 
-                    chunk_size=chunk_size, 
+                    text,
+                    chunk_size=chunk_size,
                     overlap=chunk_overlap
                 )
                 total_chunks = len(chunks)
-                
+
                 # 创建图谱
                 task_manager.update_task(
                     task_id,
-                    message="创建Zep图谱...",
+                    message=_msg('creating_zep_graph'),
                     progress=10
                 )
                 graph_id = builder.create_graph(name=graph_name)
-                
+
                 # 更新项目的graph_id
                 project.graph_id = graph_id
                 ProjectManager.save_project(project)
-                
+
                 # 设置本体
                 task_manager.update_task(
                     task_id,
-                    message="设置本体定义...",
+                    message=_msg('setting_ontology'),
                     progress=15
                 )
                 builder.set_ontology(graph_id, ontology)
-                
+
                 # 添加文本（progress_callback 签名是 (msg, progress_ratio)）
                 def add_progress_callback(msg, progress_ratio):
                     progress = 15 + int(progress_ratio * 40)  # 15% - 55%
@@ -428,27 +437,28 @@ def build_graph():
                         message=msg,
                         progress=progress
                     )
-                
+
                 task_manager.update_task(
                     task_id,
-                    message=f"开始添加 {total_chunks} 个文本块...",
+                    message=_msg('adding_text_chunks', count=total_chunks),
                     progress=15
                 )
-                
+
                 episode_uuids = builder.add_text_batches(
-                    graph_id, 
+                    graph_id,
                     chunks,
                     batch_size=3,
-                    progress_callback=add_progress_callback
+                    progress_callback=add_progress_callback,
+                    locale=locale
                 )
-                
+
                 # 等待Zep处理完成（查询每个episode的processed状态）
                 task_manager.update_task(
                     task_id,
-                    message="等待Zep处理数据...",
+                    message=_msg('waiting_zep'),
                     progress=55
                 )
-                
+
                 def wait_progress_callback(msg, progress_ratio):
                     progress = 55 + int(progress_ratio * 35)  # 55% - 90%
                     task_manager.update_task(
@@ -456,30 +466,30 @@ def build_graph():
                         message=msg,
                         progress=progress
                     )
-                
-                builder._wait_for_episodes(episode_uuids, wait_progress_callback)
-                
+
+                builder._wait_for_episodes(episode_uuids, wait_progress_callback, locale=locale)
+
                 # 获取图谱数据
                 task_manager.update_task(
                     task_id,
-                    message="获取图谱数据...",
+                    message=_msg('fetching_graph_data'),
                     progress=95
                 )
                 graph_data = builder.get_graph_data(graph_id)
-                
+
                 # 更新项目状态
                 project.status = ProjectStatus.GRAPH_COMPLETED
                 ProjectManager.save_project(project)
-                
+
                 node_count = graph_data.get("node_count", 0)
                 edge_count = graph_data.get("edge_count", 0)
                 build_logger.info(f"[{task_id}] 图谱构建完成: graph_id={graph_id}, 节点={node_count}, 边={edge_count}")
-                
+
                 # 完成
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.COMPLETED,
-                    message="图谱构建完成",
+                    message=_msg('graph_build_complete'),
                     progress=100,
                     result={
                         "project_id": project_id,
@@ -489,20 +499,20 @@ def build_graph():
                         "chunk_count": total_chunks
                     }
                 )
-                
+
             except Exception as e:
                 # 更新项目状态为失败
                 build_logger.error(f"[{task_id}] 图谱构建失败: {str(e)}")
                 build_logger.debug(traceback.format_exc())
-                
+
                 project.status = ProjectStatus.FAILED
                 project.error = str(e)
                 ProjectManager.save_project(project)
-                
+
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.FAILED,
-                    message=f"构建失败: {str(e)}",
+                    message=_msg('build_failed', error=str(e)),
                     error=traceback.format_exc()
                 )
         
@@ -515,7 +525,7 @@ def build_graph():
             "data": {
                 "project_id": project_id,
                 "task_id": task_id,
-                "message": "图谱构建任务已启动，请通过 /task/{task_id} 查询进度"
+                "message": _msg('graph_build_started', task_id=task_id)
             }
         })
         
