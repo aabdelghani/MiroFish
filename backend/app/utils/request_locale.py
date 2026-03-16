@@ -23,6 +23,6 @@ def get_request_locale(default: str = 'zh') -> str:
     if not locale:
         locale = (request.form.get('locale') or request.form.get('language') or '').strip().lower()
     
-    if locale in ('en', 'zh'):
+    if locale in ('en', 'zh', 'ko'):
         return locale
     return default

@@ -17,10 +17,17 @@ MESSAGES = {
         'project_not_found': 'Project not found',
         'missing_graph_id': 'Missing graph ID',
     },
+    'ko': {
+        'missing_simulation_id': 'simulation_id를 입력하세요',
+        'missing_message': 'message를 입력하세요',
+        'simulation_not_found': '시뮬레이션을 찾을 수 없습니다',
+        'project_not_found': '프로젝트를 찾을 수 없습니다',
+        'missing_graph_id': '그래프 ID가 누락되었습니다',
+    },
 }
 
 
 def get_error_message(key: str, locale: str = 'zh') -> str:
     """Return localized error message. Fallback to zh if key missing for locale."""
-    lang = 'en' if locale == 'en' else 'zh'
+    lang = locale if locale in MESSAGES else 'zh'
     return MESSAGES.get(lang, MESSAGES['zh']).get(key, MESSAGES['zh'].get(key, str(key)))
