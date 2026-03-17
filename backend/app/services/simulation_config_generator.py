@@ -14,6 +14,7 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.llm_client import _is_minimax, _clamp_temperature, _inject_json_instruction, parse_json_from_response
 from .zep_entity_reader import EntityNode, ZepEntityReader
 
 logger = get_logger('mirofish.simulation_config')
@@ -345,8 +346,38 @@ class SimulationConfigGenerator:
                     response_format={"type": "json_object"},
                     temperature=0.7 - (attempt * 0.1)
                 )
+        """带重试的LLM调用，包含JSON修复逻辑"""
+        import re
+
+        max_attempts = 3
+        last_error = None
+        use_minimax = _is_minimax(self.model_name, self.base_url)
+
+        for attempt in range(max_attempts):
+            try:
+                temperature = _clamp_temperature(0.7 - (attempt * 0.1), self.model_name, self.base_url)
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": prompt}
+                ]
+
+                kwargs = {
+                    "model": self.model_name,
+                    "messages": _inject_json_instruction(messages) if use_minimax else messages,
+                    "temperature": temperature,
+                    # 不设置max_tokens，让LLM自由发挥
+                }
+                if not use_minimax:
+                    kwargs["response_format"] = {"type": "json_object"}
+
+                response = self.client.chat.completions.create(**kwargs)
+
                 content = response.choices[0].message.content
+                # 移除 <think> 标签
+                content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
                 finish_reason = response.choices[0].finish_reason
+
+                # 检查是否被截断
                 if finish_reason == 'length':
                     logger.warning(f"LLM output truncated (attempt {attempt+1})")
                     content = self._fix_truncated_json(content)
@@ -357,6 +388,18 @@ class SimulationConfigGenerator:
                     fixed = self._try_fix_config_json(content)
                     if fixed:
                         return fixed
+
+                # 尝试解析JSON
+                try:
+                    return parse_json_from_response(content)
+                except (json.JSONDecodeError, ValueError) as e:
+                    logger.warning(f"JSON解析失败 (attempt {attempt+1}): {str(e)[:80]}")
+
+                    # 尝试修复JSON
+                    fixed = self._try_fix_config_json(content)
+                    if fixed:
+                        return fixed
+
                     last_error = e
             except Exception as e:
                 logger.warning(f"LLM call failed (attempt {attempt+1}): {str(e)[:80]}")

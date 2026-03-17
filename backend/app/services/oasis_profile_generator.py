@@ -23,6 +23,7 @@ from openai import OpenAI
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.llm_client import _is_minimax, _clamp_temperature, _inject_json_instruction, parse_json_from_response
 from .zep_entity_reader import EntityNode, ZepEntityReader
 from .kg_adapter import get_knowledge_graph_adapter
 
@@ -544,6 +545,33 @@ class OasisProfileGenerator:
                     temperature=0.7 - (attempt * 0.1)
                 )
                 content = response.choices[0].message.content
+        use_minimax = _is_minimax(self.model_name, self.base_url)
+
+        for attempt in range(max_attempts):
+            try:
+                import re as _re
+                temperature = _clamp_temperature(0.7 - (attempt * 0.1), self.model_name, self.base_url)
+                messages = [
+                    {"role": "system", "content": self._get_system_prompt(is_individual)},
+                    {"role": "user", "content": prompt}
+                ]
+
+                kwargs = {
+                    "model": self.model_name,
+                    "messages": _inject_json_instruction(messages) if use_minimax else messages,
+                    "temperature": temperature,
+                    # 不设置max_tokens，让LLM自由发挥
+                }
+                if not use_minimax:
+                    kwargs["response_format"] = {"type": "json_object"}
+
+                response = self.client.chat.completions.create(**kwargs)
+
+                content = response.choices[0].message.content
+                # 移除 <think> 标签
+                content = _re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
+
+                # 检查是否被截断（finish_reason不是'stop'）
                 finish_reason = response.choices[0].finish_reason
                 if finish_reason == 'length':
                     logger.warning(f"LLM output truncated (attempt {attempt+1}), fixing...")
@@ -560,6 +588,11 @@ class OasisProfileGenerator:
                             result['interested_topics']
                         )
                     
+
+                # 尝试解析JSON
+                try:
+                    result = parse_json_from_response(content)
+
                     # 验证必需字段
                     if "bio" not in result or not result["bio"]:
                         result["bio"] = entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}"
@@ -568,6 +601,14 @@ class OasisProfileGenerator:
                     return result
                 except json.JSONDecodeError as je:
                     logger.warning(f"JSON parse failed (attempt {attempt+1}): {str(je)[:80]}")
+                        result["persona"] = entity_summary or f"{entity_name}是一个{entity_type}。"
+
+                    return result
+
+                except (json.JSONDecodeError, ValueError) as je:
+                    logger.warning(f"JSON解析失败 (attempt {attempt+1}): {str(je)[:80]}")
+
+                    # 尝试修复JSON
                     result = self._try_fix_json(content, entity_name, entity_type, entity_summary)
                     if result.get("_fixed"):
                         del result["_fixed"]
