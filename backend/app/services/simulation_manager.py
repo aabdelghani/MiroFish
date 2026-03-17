@@ -18,6 +18,10 @@ from ..utils.error_messages import get_error_message
 from .zep_entity_reader import ZepEntityReader
 from .oasis_profile_generator import OasisProfileGenerator
 from .simulation_config_generator import SimulationConfigGenerator
+from .memory_factory import get_memory_provider
+from .memory_provider import FilteredEntities
+from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
+from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
 
 logger = get_logger('mirofish.simulation')
 
@@ -255,6 +259,14 @@ class SimulationManager:
                 progress_callback("reading", 30, "Reading node data...")
             
             filtered = reader.filter_defined_entities(
+                progress_callback("reading", 0, "正在连接图谱...")
+            
+            provider = get_memory_provider()
+
+            if progress_callback:
+                progress_callback("reading", 30, "正在读取节点数据...")
+
+            filtered = provider.filter_defined_entities(
                 graph_id=state.graph_id,
                 defined_entity_types=defined_entity_types,
                 enrich_with_edges=True

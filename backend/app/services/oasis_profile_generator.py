@@ -28,6 +28,11 @@ from .zep_entity_reader import EntityNode, ZepEntityReader
 from .kg_adapter import get_knowledge_graph_adapter
 from ..utils.error_messages import get_error_message
 from .zep_entity_reader import EntityNode
+from .memory_factory import get_memory_provider
+
+from ..config import Config
+from ..utils.logger import get_logger
+from .memory_provider import EntityNode
 
 logger = get_logger('mirofish.oasis_profile')
 
@@ -272,6 +277,10 @@ class OasisProfileGenerator:
             except Exception as e:
                 logger.warning(f"Zep client init failed: {e}")
 
+        # Memory provider for entity context retrieval
+        self._provider = get_memory_provider()
+        self.graph_id = graph_id
+    
     def generate_profile_from_entity(
         self,
         entity: EntityNode,
@@ -355,6 +364,7 @@ class OasisProfileGenerator:
 
         Zep没有内置混合搜索接口，需要分别搜索edges和nodes然后合并结果。
         使用并行请求同时搜索，提高效率。
+        使用memory provider搜索实体相关的丰富信息。
 
         Args:
             entity: 实体节点对象
@@ -447,11 +457,25 @@ class OasisProfileGenerator:
                 node_future = executor.submit(search_nodes)
                 edge_result = edge_future.result(timeout=30)
                 node_result = node_future.result(timeout=30)
+            logger.debug(f"跳过检索：未设置graph_id")
+            return results
+
+        comprehensive_query = f"关于{entity_name}的所有信息、活动、事件、关系和背景"
+
+        try:
+            edge_result = self._provider.search_for_entity_context(
+                graph_id=self.graph_id,
+                query=comprehensive_query,
+                limit=30,
+            )
+
+            # 处理边搜索结果 — provider returns a list of dicts with 'fact' key
             all_facts = set()
-            if edge_result and hasattr(edge_result, 'edges') and edge_result.edges:
-                for edge in edge_result.edges:
-                    if hasattr(edge, 'fact') and edge.fact:
-                        all_facts.add(edge.fact)
+            if edge_result:
+                for item in edge_result:
+                    fact = item.get("fact") if isinstance(item, dict) else getattr(item, "fact", None)
+                    if fact:
+                        all_facts.add(fact)
             results["facts"] = list(all_facts)
             
             all_summaries = set()
@@ -462,6 +486,8 @@ class OasisProfileGenerator:
                     if hasattr(node, 'name') and node.name and node.name != entity_name:
                         all_summaries.add(f"Related entity: {node.name}")
             results["node_summaries"] = list(all_summaries)
+
+            # 构建综合上下文
             context_parts = []
             if results["facts"]:
                 context_parts.append("Facts:\n" + "\n".join(f"- {f}" for f in results["facts"][:20]))
@@ -477,6 +503,12 @@ class OasisProfileGenerator:
         except Exception as e:
             logger.warning(f"Zep retrieval failed ({entity_name}): {e}")
         
+
+            logger.info(f"Memory provider检索完成: {entity_name}, 获取 {len(results['facts'])} 条事实")
+
+        except Exception as e:
+            logger.warning(f"Memory provider检索失败 ({entity_name}): {e}")
+
         return results
     
     def _build_entity_context(self, entity: EntityNode) -> str:

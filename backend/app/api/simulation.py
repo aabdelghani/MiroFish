@@ -12,7 +12,7 @@ from flask import request, jsonify, send_file
 
 from . import simulation_bp
 from ..config import Config
-from ..services.zep_entity_reader import ZepEntityReader
+from ..services.memory_factory import get_memory_provider
 from ..services.oasis_profile_generator import OasisProfileGenerator
 from ..services.simulation_manager import SimulationManager, SimulationStatus
 from ..services.simulation_runner import SimulationRunner
@@ -196,6 +196,8 @@ def get_graph_entities(graph_id: str):
 
         reader = ZepEntityReader()
         result = reader.filter_defined_entities(
+        provider = get_memory_provider()
+        result = provider.filter_defined_entities(
             graph_id=graph_id,
             defined_entity_types=entity_types,
             enrich_with_edges=enrich
@@ -230,6 +232,9 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
         reader = ZepEntityReader()
         entity = reader.get_entity_with_context(graph_id, entity_uuid)
 
+        provider = get_memory_provider()
+        entity = provider.get_entity_with_context(graph_id, entity_uuid)
+        
         if not entity:
             return jsonify({
                 "success": False,
@@ -267,9 +272,10 @@ def get_entities_by_type(graph_id: str, entity_type: str):
 
         reader = ZepEntityReader()
         entities = reader.get_entities_by_type(
+        provider = get_memory_provider()
+        entities = provider.get_entities_by_type(
             graph_id=graph_id,
-            entity_type=entity_type,
-            enrich_with_edges=enrich
+            entity_type=entity_type
         )
 
         return jsonify({
@@ -795,6 +801,10 @@ def prepare_simulation():
             logger.info(get_error_message('log_sim_sync_entities', locale).format(graph_id=state.graph_id))
             reader = ZepEntityReader()
             filtered_preview = reader.filter_defined_entities(
+            logger.info(f"同步获取实体数量: graph_id={state.graph_id}")
+            provider = get_memory_provider()
+            # 快速读取实体（不需要边信息，只统计数量）
+            filtered_preview = provider.filter_defined_entities(
                 graph_id=state.graph_id,
                 defined_entity_types=entity_types_list,
                 enrich_with_edges=False
@@ -2012,6 +2022,9 @@ def generate_profiles():
 
         reader = ZepEntityReader()
         filtered = reader.filter_defined_entities(
+        
+        provider = get_memory_provider()
+        filtered = provider.filter_defined_entities(
             graph_id=graph_id,
             defined_entity_types=entity_types,
             enrich_with_edges=True

@@ -19,6 +19,8 @@ from queue import Queue
 from ..utils.logger import get_logger
 from .zep_graph_memory_updater import ZepGraphMemoryManager
 from .simulation_ipc import SimulationIPCClient
+from .memory_factory import get_memory_provider
+from .simulation_ipc import SimulationIPCClient, CommandType, IPCResponse
 
 logger = get_logger('mirofish.simulation_runner')
 
@@ -312,7 +314,7 @@ class SimulationRunner:
             if not graph_id:
                 raise ValueError("graph_id is required when graph memory update is enabled")
             try:
-                ZepGraphMemoryManager.create_updater(simulation_id, graph_id)
+                get_memory_provider().create_memory_updater(simulation_id, graph_id)
                 cls._graph_memory_enabled[simulation_id] = True
                 logger.info(f"Graph memory update enabled: simulation_id={simulation_id}, graph_id={graph_id}")
             except Exception as e:
@@ -450,6 +452,8 @@ class SimulationRunner:
                     ZepGraphMemoryManager.stop_updater(simulation_id)
                     logger.info(f"Graph memory updater stopped: simulation_id={simulation_id}")
                     logger.info(f"Graph memory update stopped: simulation_id={simulation_id}")
+                    get_memory_provider().stop_memory_updater(simulation_id)
+                    logger.info(f"已停止图谱记忆更新: simulation_id={simulation_id}")
                 except Exception as e:
                     logger.error(f"Failed to stop graph memory updater: {e}")
                 cls._graph_memory_enabled.pop(simulation_id, None)
@@ -480,7 +484,7 @@ class SimulationRunner:
         graph_memory_enabled = cls._graph_memory_enabled.get(state.simulation_id, False)
         graph_updater = None
         if graph_memory_enabled:
-            graph_updater = ZepGraphMemoryManager.get_updater(state.simulation_id)
+            graph_updater = get_memory_provider().get_memory_updater(state.simulation_id)
         
         try:
             with open(log_path, 'r', encoding='utf-8') as f:
@@ -650,6 +654,8 @@ class SimulationRunner:
             try:
                 ZepGraphMemoryManager.stop_updater(simulation_id)
                 logger.info(f"Graph memory updater stopped: simulation_id={simulation_id}")
+                get_memory_provider().stop_memory_updater(simulation_id)
+                logger.info(f"已停止图谱记忆更新: simulation_id={simulation_id}")
             except Exception as e:
                 logger.error(f"Failed to stop graph memory updater: {e}")
             cls._graph_memory_enabled.pop(simulation_id, None)
@@ -959,7 +965,7 @@ class SimulationRunner:
         
         # 首先停止所有图谱记忆更新器（stop_all 内部会打印日志）
         try:
-            ZepGraphMemoryManager.stop_all()
+            get_memory_provider().stop_all_memory_updaters()
         except Exception as e:
             logger.error(f"Failed to stop graph memory updaters: {e}")
         cls._graph_memory_enabled.clear()

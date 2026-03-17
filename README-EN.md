@@ -240,8 +240,13 @@ LLM_MODEL_NAME=qwen-plus
 # AZURE_OPENAI_DEPLOYMENT=your-deployment-name
 
 # Zep Cloud Configuration
+# Zep Cloud Configuration (default memory provider)
 # Free monthly quota is sufficient for simple usage: https://app.getzep.com/
 ZEP_API_KEY=your_zep_api_key
+
+# Or use Mem0 as memory provider (optional)
+# MEMORY_PROVIDER=mem0
+# MEM0_API_KEY=your_mem0_api_key
 ```
 
 <details>
@@ -265,6 +270,18 @@ For users in China: `LLM_BASE_URL=https://api.minimaxi.com/v1`
 API Documentation: [OpenAI Compatible API](https://platform.minimax.io/docs/api-reference/text-openai-api)
 
 </details>
+#### Memory Provider Configuration
+
+MiroFish supports two memory backends:
+
+| Provider | Config | Pros |
+|----------|--------|------|
+| **Zep Cloud** (default) | `ZEP_API_KEY` in `.env` | Built-in ontology, temporal facts |
+| **Mem0** | `MEMORY_PROVIDER=mem0` + `MEM0_API_KEY` in `.env` | Self-hosted option, per-agent isolation, no node caps |
+
+To use Mem0 instead of Zep:
+1. Set `MEMORY_PROVIDER=mem0` in your `.env`
+2. Set `MEM0_API_KEY` for Platform mode, or `OPENAI_API_KEY` for OSS mode
 
 #### 2. Install Dependencies
 #### 2. Install dependencies

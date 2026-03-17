@@ -16,7 +16,7 @@ from ..config import Config
 from ..utils.request_locale import get_request_locale
 from ..utils.error_messages import get_error_message
 from ..services.ontology_generator import OntologyGenerator
-from ..services.graph_builder import GraphBuilderService
+from ..services.memory_factory import get_memory_provider
 from ..services.text_processor import TextProcessor
 from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
@@ -456,6 +456,8 @@ def build_graph():
         errors = []
         if not Config.ZEP_API_KEY:
             errors.append("ZEP_API_KEY is not configured")
+        # 检查配置
+        errors = Config.validate()
         if errors:
             logger.error(f"Configuration error: {errors}")
             logger.error(f"Configuration errors: {errors}")
@@ -729,6 +731,8 @@ def build_graph():
 
                 # 创建图谱构建服务
                 builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
+                # 创建图谱构建服务
+                provider = get_memory_provider()
 
                 # 分块
                 task_manager.update_task(
@@ -760,6 +764,14 @@ def build_graph():
                     progress=10
                 )
                 graph_id = builder.create_graph(name=graph_name)
+
+                # 创建图谱
+                task_manager.update_task(
+                    task_id,
+                    message="创建图谱...",
+                    progress=10
+                )
+                graph_id = provider.create_graph(name=graph_name)
 
                 # 更新项目的graph_id
                 project.graph_id = graph_id
@@ -795,6 +807,7 @@ def build_graph():
                 
 
                 # Add text batches. The callback signature is (msg, progress_ratio).
+                provider.set_ontology(graph_id, ontology)
 
                 # 添加文本（progress_callback 签名是 (msg, progress_ratio)）
                 def add_progress_callback(msg, progress_ratio):
@@ -817,6 +830,7 @@ def build_graph():
                 )
 
                 episode_uuids = builder.add_text_batches(
+                episode_uuids = provider.add_text_batches(
                     graph_id,
                     chunks,
                     batch_size=3,
@@ -834,6 +848,11 @@ def build_graph():
                     task_id,
                     message="Waiting for Zep to process data...",
                     message=_msg('waiting_zep'),
+
+                # 等待处理完成（查询每个episode的processed状态）
+                task_manager.update_task(
+                    task_id,
+                    message="等待数据处理...",
                     progress=55
                 )
 
@@ -848,6 +867,9 @@ def build_graph():
                 builder._wait_for_episodes(episode_uuids, wait_progress_callback)
                 
                 # 实体去重
+                provider.wait_for_processing(episode_uuids, wait_progress_callback)
+
+                # 获取图谱数据
                 task_manager.update_task(
                     task_id,
                     message="执行实体去重...",
@@ -886,7 +908,7 @@ def build_graph():
                     message="Fetching graph data...",
                     progress=95
                 )
-                graph_data = builder.get_graph_data(graph_id)
+                graph_data = provider.get_graph_data(graph_id)
                 
 
                 # Mark the project as completed.
@@ -1051,6 +1073,9 @@ def get_graph_data(graph_id: str):
         builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
         graph_data = builder.get_graph_data(graph_id)
 
+        provider = get_memory_provider()
+        graph_data = provider.get_graph_data(graph_id)
+        
         return jsonify({
             "success": True,
             "data": graph_data
@@ -1078,6 +1103,8 @@ def delete_graph(graph_id: str):
 
         builder = GraphBuilderService()
         builder.delete_graph(graph_id)
+        provider = get_memory_provider()
+        provider.delete_graph(graph_id)
         
         return jsonify({
             "success": True,

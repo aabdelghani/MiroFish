@@ -16,6 +16,7 @@ from ..config import Config
 from ..utils.logger import get_logger
 from ..utils.llm_client import _is_minimax, _clamp_temperature, _inject_json_instruction, parse_json_from_response
 from .zep_entity_reader import EntityNode, ZepEntityReader
+from .memory_provider import EntityNode
 
 logger = get_logger('mirofish.simulation_config')
 
