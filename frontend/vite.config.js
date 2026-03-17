@@ -10,6 +10,7 @@ export default defineConfig({
     port: 3000,
     port: Number.isNaN(frontendPort) ? 3000 : frontendPort,
     open: true,
+    allowedHosts: ['mirofish-pwse.onrender.com'],
     proxy: {
       '/api': {
         target: 'http://localhost:5001',
