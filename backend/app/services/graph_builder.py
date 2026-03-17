@@ -118,8 +118,6 @@ class GraphBuilderService:
                 progress=5,
                 message="Starting graph build..."
             )
-                message=_msg('building_graph')
-            )
 
             # 1. 创建图谱
             graph_id = self.create_graph(graph_name)
@@ -127,8 +125,6 @@ class GraphBuilderService:
                 task_id,
                 progress=10,
                 message=f"Graph created: {graph_id}"
-            )
-                message=_msg('graph_created', graph_id=graph_id)
             )
 
             # 2. 设置本体
@@ -138,8 +134,6 @@ class GraphBuilderService:
                 progress=15,
                 message="Ontology set"
             )
-                message=_msg('ontology_set')
-            )
 
             # 3. 文本分块
             chunks = TextProcessor.split_text(text, chunk_size, chunk_overlap)
@@ -148,8 +142,6 @@ class GraphBuilderService:
                 task_id,
                 progress=20,
                 message=f"Text split into {total_chunks} chunks"
-            )
-                message=_msg('text_split', count=total_chunks)
             )
 
             # 4. 分批发送数据
@@ -167,12 +159,6 @@ class GraphBuilderService:
                 task_id,
                 progress=60,
                 message="Waiting for Zep to process..."
-
-            # 5. 等待Zep处理完成
-            self.task_manager.update_task(
-                task_id,
-                progress=60,
-                message=_msg('waiting_zep')
             )
 
             self._wait_for_episodes(
@@ -192,15 +178,6 @@ class GraphBuilderService:
             )
             graph_info = self._get_graph_info(graph_id)
 
-            # 6. 获取图谱信息
-            self.task_manager.update_task(
-                task_id,
-                progress=90,
-                message=_msg('fetching_graph_info')
-            )
-
-            graph_info = self._get_graph_info(graph_id)
-
             # 完成
             self.task_manager.complete_task(task_id, {
                 "graph_id": graph_id,
@@ -214,7 +191,6 @@ class GraphBuilderService:
             self.task_manager.fail_task(task_id, error_msg)
     
     def create_graph(self, name: str) -> str:
-        """创建图谱（公开方法）"""
         """Create Zep graph (public)."""
         graph_id = f"mirofish_{uuid.uuid4().hex[:16]}"
 
@@ -349,11 +325,6 @@ class GraphBuilderService:
 
             build_logger.debug(f"[add_text_batches] 准备发送批次 {batch_num}/{total_batches}")
 
-            # 发送到图谱
-                    _msg('sending_batch', current=batch_num, total=total_batches, chunks=len(batch_chunks)),
-                    progress
-                )
-
             # 构建episode数据
             episodes = [
                 EpisodeData(data=chunk, type="text")
@@ -370,9 +341,6 @@ class GraphBuilderService:
                 )
                 build_logger.debug(f"[add_text_batches] 批次 {batch_num} 发送完成")
 
-                # 收集返回的 episode uuid（兼容 dict 和对象两种格式）
-                
-
                 # 收集返回的 episode uuid
                 if batch_result and isinstance(batch_result, list):
                     for ep in batch_result:
@@ -386,8 +354,6 @@ class GraphBuilderService:
 
                 # 避免请求过快
                 time.sleep(1)
-
-                time.sleep(1)
             except Exception as e:
                 build_logger.error(f"[add_text_batches] 批次 {batch_num} 发送失败: {str(e)}")
                 if progress_callback:
@@ -395,8 +361,6 @@ class GraphBuilderService:
                 raise
 
         build_logger.debug(f"[add_text_batches] 所有批次发送完成，共 {len(episode_uuids)} 个 episode")
-                    progress_callback(_msg('batch_failed', batch=batch_num, error=str(e)), 0)
-                raise
 
         return episode_uuids
     
@@ -411,14 +375,6 @@ class GraphBuilderService:
         if not episode_uuids:
             if progress_callback:
                 progress_callback("Nothing to wait for", 1.0)
-        """等待所有 episode 处理完成（通过查询每个 episode 的 processed 状态）"""
-        def _msg(key, **kwargs):
-            msg = get_error_message(key, locale)
-            return msg.format(**kwargs) if kwargs else msg
-
-        if not episode_uuids:
-            if progress_callback:
-                progress_callback(_msg('no_episodes'), 1.0)
             return
 
         start_time = time.time()
@@ -428,8 +384,6 @@ class GraphBuilderService:
 
         if progress_callback:
             progress_callback(f"Waiting for {total_episodes} chunks...", 0)
-        
-            progress_callback(_msg('waiting_episodes', count=total_episodes), 0)
 
         while pending_episodes:
             if time.time() - start_time > timeout:
@@ -439,7 +393,7 @@ class GraphBuilderService:
                         completed_count / total_episodes
                     )
                 break
-            
+
             for ep_uuid in list(pending_episodes):
                 try:
                     episode = self.kg.get_episode(ep_uuid)
@@ -448,58 +402,28 @@ class GraphBuilderService:
                         is_processed = episode.get('processed', False)
                     else:
                         is_processed = getattr(episode, 'processed', False)
-                        _msg('episodes_timeout', done=completed_count, total=total_episodes),
-                        completed_count / total_episodes
-                    )
-                break
-
-            # 检查每个 episode 的处理状态
-            for ep_uuid in list(pending_episodes):
-                try:
-                    episode = self.client.graph.episode.get(uuid_=ep_uuid)
-                    is_processed = getattr(episode, 'processed', False)
 
                     if is_processed:
                         pending_episodes.remove(ep_uuid)
                         completed_count += 1
 
-                except Exception as e:
-                except Exception:
-                    # 忽略单个查询错误，继续
-                        
                 except Exception:
                     pass
-            elapsed = int(time.time() - start_time)
-            if progress_callback:
-                progress_callback(
-                    f"Zep: {completed_count}/{total_episodes} done, {len(pending_episodes)} pending ({elapsed}s)",
 
             elapsed = int(time.time() - start_time)
             if progress_callback:
                 progress_callback(
-                    _msg('zep_processing', done=completed_count, total=total_episodes, pending=len(pending_episodes), elapsed=elapsed),
+                    f"Zep: {completed_count}/{total_episodes} done, {len(pending_episodes)} pending ({elapsed}s)",
                     completed_count / total_episodes if total_episodes > 0 else 0
                 )
 
             if pending_episodes:
                 time.sleep(3)
+
         if progress_callback:
             progress_callback(f"Done: {completed_count}/{total_episodes}", 1.0)
-
-                time.sleep(3)  # 每3秒检查一次
-
-        if progress_callback:
-            progress_callback(_msg('processing_done', done=completed_count, total=total_episodes), 1.0)
     
     def _get_graph_info(self, graph_id: str) -> GraphInfo:
-        """获取图谱信息"""
-        # 获取节点（使用适配器）
-        nodes = self.kg.get_nodes(graph_id, limit=2000)
-
-        # 获取边（使用适配器）
-        edges = self.kg.get_edges(graph_id, limit=2000)
-
-        # 统计实体类型
         """Get graph info (nodes, edges, entity types)."""
         nodes = fetch_all_nodes(self.client, graph_id)
         edges = fetch_all_edges(self.client, graph_id)

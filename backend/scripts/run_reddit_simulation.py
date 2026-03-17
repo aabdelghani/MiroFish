@@ -102,10 +102,6 @@ class MaxTokensWarningFilter(logging.Filter):
     """Filter out camel-ai max_tokens warning (we intentionally leave max_tokens unset)."""
 
     def filter(self, record):
-    """Filter camel-ai warnings about max_tokens (we intentionally leave it unset so the model can decide)"""
-    
-    def filter(self, record):
-        # Filter log messages containing max_tokens warnings
         if "max_tokens" in record.getMessage() and "Invalid or missing" in record.getMessage():
             return False
         return True
@@ -264,48 +260,17 @@ class IPCHandler:
     async def handle_interview(self, command_id: str, agent_id: int, prompt: str) -> bool:
         """Handle single-agent interview. Returns True on success."""
         try:
-            # Get agent
             agent = self.agent_graph.get_agent(agent_id)
-            
-        """
-        Handle a single‑agent interview command.
-
-        Returns:
-            True on success, False on failure.
-        """
-        try:
-            # Get the agent
-            agent = self.agent_graph.get_agent(agent_id)
-            
-        """
-        Handle a single-agent interview command.
-
-        Returns:
-            True on success, False on failure.
-        """
-        try:
-            # Get the agent
-            agent = self.agent_graph.get_agent(agent_id)
-            
-            # Create the Interview action
             interview_action = ManualAction(
                 action_type=ActionType.INTERVIEW,
                 action_args={"prompt": prompt}
             )
-            
             actions = {agent: interview_action}
             await self.env.step(actions)
-            # Execute the Interview
-            actions = {agent: interview_action}
-            await self.env.step(actions)
-            
-            # Get the result from the database
             result = self._get_interview_result(agent_id)
             self.send_response(command_id, "completed", result=result)
-            print(f"  Interview done: agent_id={agent_id}")
             print(f"  Interview completed: agent_id={agent_id}")
             return True
-            
         except Exception as e:
             error_msg = str(e)
             print(f"  Interview failed: agent_id={agent_id}, error={error_msg}")
@@ -317,21 +282,9 @@ class IPCHandler:
         try:
             actions = {}
             agent_prompts = {}
-        """
-        Handle a batch interview command.
-
-        Args:
-            interviews: [{"agent_id": int, "prompt": str}, ...]
-        """
-        try:
-            # Build the action dictionary
-            actions = {}
-            agent_prompts = {}  # Record each agent's prompt
-            
             for interview in interviews:
                 agent_id = interview.get("agent_id")
                 prompt = interview.get("prompt", "")
-                
                 try:
                     agent = self.agent_graph.get_agent(agent_id)
                     actions[agent] = ManualAction(
@@ -342,27 +295,20 @@ class IPCHandler:
                 except Exception as e:
                     print(f"  Warning: cannot get agent {agent_id}: {e}")
 
-                    print(f"  Warning: failed to get agent {agent_id}: {e}")
-            
             if not actions:
                 self.send_response(command_id, "failed", error="No valid agents")
                 return False
-            
+
             await self.env.step(actions)
-            # Execute batch Interview
-            await self.env.step(actions)
-            
-            # Get all results
             results = {}
             for agent_id in agent_prompts.keys():
                 result = self._get_interview_result(agent_id)
                 results[agent_id] = result
-            
+
             self.send_response(command_id, "completed", result={
                 "interviews_count": len(results),
                 "results": results
             })
-            print(f"  Batch interview done: {len(results)} agents")
             print(f"  Batch interview completed: {len(results)} agents")
             return True
 
@@ -389,7 +335,6 @@ class IPCHandler:
 
     def _get_interview_result(self, agent_id: int) -> Dict[str, Any]:
         """Get latest interview result from DB."""
-        """Get the latest interview result from the database."""
         db_path = os.path.join(self.simulation_dir, "reddit_simulation.db")
 
         result = {
@@ -579,40 +524,25 @@ class RedditSimulationRunner:
         return os.path.join(self.simulation_dir, "reddit_simulation.db")
     
     def _create_model(self):
-        """
-        Create the LLM model.
-
-        Always prefer project‑root .env configuration (highest priority):
-        Always prefer project-root .env configuration (highest priority):
-        - LLM_API_KEY: API key
-        - LLM_BASE_URL: API base URL
-        - LLM_MODEL_NAME: Model name
-        """
-        # Read from .env first
+        """Create LLM model. Uses .env: LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME."""
         llm_api_key = os.environ.get("LLM_API_KEY", "")
         llm_base_url = os.environ.get("LLM_BASE_URL", "")
         llm_model = os.environ.get("LLM_MODEL_NAME", "")
-        
-        # If .env does not have a model, fall back to config
+
         if not llm_model:
             llm_model = self.config.get("llm_model", "gpt-4o-mini")
-        
-        # Set environment variables required by camel‑ai
-        # Set environment variables required by camel-ai
+
         if llm_api_key:
             os.environ["OPENAI_API_KEY"] = llm_api_key
+
         if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("Missing API key. Set LLM_API_KEY in project root .env")
-        if llm_base_url:
-            os.environ["OPENAI_API_BASE_URL"] = llm_base_url
-        print(f"LLM: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
             raise ValueError("Missing API key configuration. Set LLM_API_KEY in the project-root .env file")
-        
+
         if llm_base_url:
             os.environ["OPENAI_API_BASE_URL"] = llm_base_url
-        
+
         print(f"LLM configuration: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
-        
+
         return ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
             model_type=llm_model,
@@ -622,9 +552,6 @@ class RedditSimulationRunner:
         self, env, current_hour: int, round_num: int
     ) -> List:
         """Select agents to activate this round based on time and config."""
-        """
-        Decide which agents should be active this round based on time and configuration.
-        """
         time_config = self.config.get("time_config", {})
         agent_configs = self.config.get("agent_configs", [])
         
@@ -751,49 +678,23 @@ class RedditSimulationRunner:
             total_rounds = min(total_rounds, max_rounds)
             if total_rounds < original_rounds:
                 print(f"\nRounds capped: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
-        print(f"\nParams: total_hours={total_hours}, min/round={minutes_per_round}, rounds={total_rounds}, agents={len(self.config.get('agent_configs', []))}")
+        print(f"\nSimulation parameters:")
+        print(f"  - Total simulation time: {total_hours} hours")
+        print(f"  - Time per round: {minutes_per_round} minutes")
+        print(f"  - Total rounds: {total_rounds}")
         if max_rounds:
-            print(f"  max_rounds={max_rounds}")
+            print(f"  - Max round limit: {max_rounds}")
+        print(f"  - Agent count: {len(self.config.get('agent_configs', []))}")
+
         print("\nInitializing LLM...")
         model = self._create_model()
+
         print("Loading agent profiles...")
         profile_path = self._get_profile_path()
         if not os.path.exists(profile_path):
             print(f"Error: profile file not found: {profile_path}")
-        
-        print(f"\nSimulation parameters:")
-        print(f"  - Total simulation time: {total_hours} hours")
-        print(f"  - Time per round: {minutes_per_round} minutes")
-        print(f"  - Total rounds: {total_rounds}")
-        if max_rounds:
-            print(f"  - Max round limit: {max_rounds}")
-        print(f"  - Agent count: {len(self.config.get('agent_configs', []))}")
-        
-        print("\nInitialize the LLM model...")
-        model = self._create_model()
-        
-        print("Load agent profiles...")
-        profile_path = self._get_profile_path()
-        if not os.path.exists(profile_path):
-            print(f"Error: profile file does not exist: {profile_path}")
             return
-        
-        print(f"\nSimulation parameters:")
-        print(f"  - Total simulation time: {total_hours} hours")
-        print(f"  - Time per round: {minutes_per_round} minutes")
-        print(f"  - Total rounds: {total_rounds}")
-        if max_rounds:
-            print(f"  - Max round limit: {max_rounds}")
-        print(f"  - Agent count: {len(self.config.get('agent_configs', []))}")
-        
-        print("\nInitialize the LLM model...")
-        model = self._create_model()
-        
-        print("Load agent profiles...")
-        profile_path = self._get_profile_path()
-        if not os.path.exists(profile_path):
-            print(f"Error: profile file does not exist: {profile_path}")
-            return
+
         self.agent_graph = await generate_reddit_agent_graph(
             profile_path=profile_path,
             model=model,
@@ -804,59 +705,36 @@ class RedditSimulationRunner:
         if os.path.exists(db_path):
             os.remove(db_path)
             print(f"Removed old DB: {db_path}")
+
         print("Creating OASIS environment...")
-            print(f"Deleted old database: {db_path}")
-        
-        print("Create the OASIS environment...")
         self.env = oasis.make(
             agent_graph=self.agent_graph,
             platform=oasis.DefaultPlatformType.REDDIT,
             database_path=db_path,
             semaphore=30,
-            semaphore=30,  # Limit concurrent LLM requests to avoid API overload
         )
         await self.env.reset()
-        print("Environment ready\n")
-        self.ipc_handler = IPCHandler(self.simulation_dir, self.env, self.agent_graph)
-        self.ipc_handler.update_status("running")
         print("Environment initialized\n")
-        
-        # Initialize IPC handler
         self.ipc_handler = IPCHandler(self.simulation_dir, self.env, self.agent_graph)
         self.ipc_handler.update_status("running")
-        
+
         # Run initial events
         event_config = self.config.get("event_config", {})
         initial_posts = event_config.get("initial_posts", [])
         if initial_posts:
             print(f"Running initial events ({len(initial_posts)} posts)...")
-            print(f"Run initial events ({len(initial_posts)} initial posts)...")
             initial_actions = {}
             for post in initial_posts:
                 agent_id = post.get("poster_agent_id", 0)
                 content = post.get("content", "")
                 try:
                     agent = self.env.agent_graph.get_agent(agent_id)
-                    if agent in initial_actions:
-                        if not isinstance(initial_actions[agent], list):
-                            initial_actions[agent] = [initial_actions[agent]]
-                        initial_actions[agent].append(ManualAction(
-                            action_type=ActionType.CREATE_POST,
-                            action_args={"content": content}
-                        ))
-                    else:
-                        initial_actions[agent] = ManualAction(
-                            action_type=ActionType.CREATE_POST,
-                            action_args={"content": content}
-                        )
+                    initial_actions[agent] = ManualAction(
+                        action_type=ActionType.CREATE_POST,
+                        action_args={"content": content}
+                    )
                 except Exception as e:
                     print(f"  Warning: cannot create initial post for agent {agent_id}: {e}")
-            if initial_actions:
-                await self.env.step(initial_actions)
-                print(f"  Published {len(initial_actions)} initial posts")
-        print("\nSimulation loop...")
-                    print(f"  Warning: failed to create an initial post for agent {agent_id}: {e}")
-            
             if initial_actions:
                 await self.env.step(initial_actions)
                 print(f"  Published {len(initial_actions)} initial posts")
@@ -901,21 +779,10 @@ class RedditSimulationRunner:
                 )
         
         total_elapsed = (datetime.now() - start_time).total_seconds()
-        print(f"\nSimulation loop done. Elapsed: {total_elapsed:.1f}s, DB: {db_path}")
-        if self.wait_for_commands:
-            print("\n" + "=" * 60)
-            print("Wait-for-commands mode. Commands: interview, batch_interview, close_env")
         print(f"\nSimulation loop completed!")
         print(f"  - Total elapsed time: {total_elapsed:.1f}s")
         print(f"  - Database: {db_path}")
-        
-        # Optionally enter command‑wait mode
-        if self.wait_for_commands:
-            print("\n" + "=" * 60)
-        print(f"\nSimulation loop completed!")
-        print(f"  - Total elapsed time: {total_elapsed:.1f}s")
-        print(f"  - Database: {db_path}")
-        
+
         # Optionally enter command-wait mode
         if self.wait_for_commands:
             print("\n" + "=" * 60)
@@ -923,8 +790,7 @@ class RedditSimulationRunner:
             print("Supported commands: interview, batch_interview, close_env")
             print("=" * 60)
             self.ipc_handler.update_status("alive")
-            
-            # Command wait loop (uses global _shutdown_event)
+
             try:
                 while not _shutdown_event.is_set():
                     should_continue = await self.ipc_handler.process_commands()
@@ -942,32 +808,9 @@ class RedditSimulationRunner:
             except Exception as e:
                 print(f"\nCommand handling error: {e}")
             print("\nShutting down environment...")
+
         self.ipc_handler.update_status("stopped")
         await self.env.close()
-                        break  # Received shutdown signal
-                    except asyncio.TimeoutError:
-                        pass
-            except KeyboardInterrupt:
-                print("\nReceived interrupt signal")
-            except asyncio.CancelledError:
-                print("\nTask cancelled")
-            except Exception as e:
-                        break  # Received shutdown signal
-                    except asyncio.TimeoutError:
-                        pass
-            except KeyboardInterrupt:
-                print("\nReceived interrupt signal")
-            except asyncio.CancelledError:
-                print("\nTask cancelled")
-            except Exception as e:
-                print(f"\nCommand processing error: {e}")
-            
-            print("\nClose environment...")
-        
-        # Close environment
-        self.ipc_handler.update_status("stopped")
-        await self.env.close()
-        
         print("Environment closed")
         print("=" * 60)
 
@@ -978,34 +821,11 @@ async def main():
     parser.add_argument('--max-rounds', type=int, default=None, help='Cap simulation rounds')
     parser.add_argument('--no-wait', action='store_true', default=False, help='Exit after run, do not wait for commands')
     args = parser.parse_args()
-    parser.add_argument(
-        '--config', 
-        type=str, 
-        required=True,
-        help='Configuration file path (simulation_config.json)'
-    )
-    parser.add_argument(
-        '--max-rounds',
-        type=int,
-        default=None,
-        help='Maximum simulation rounds (optional, used to cap long simulations)'
-    )
-    parser.add_argument(
-        '--no-wait',
-        action='store_true',
-        default=False,
-        help='Exit immediately after completion; do not enter command-wait mode'
-    )
-    
-    args = parser.parse_args()
-    
-    # Create the shutdown event at the start of main
+
     global _shutdown_event
     _shutdown_event = asyncio.Event()
     if not os.path.exists(args.config):
         print(f"Error: config file not found: {args.config}")
-        sys.exit(1)
-        print(f"Error: configuration file does not exist: {args.config}")
         sys.exit(1)
     
     # Initialize logging (fixed filenames, clean old logs)
@@ -1024,26 +844,15 @@ def setup_signal_handlers():
     def signal_handler(signum, frame):
         global _cleanup_done
         sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
-        print(f"\n{sig_name} received, exiting...")
-    """
-    Set up signal handlers so SIGTERM/SIGINT exit cleanly.
-
-    This gives the program a chance to clean up resources (close DB, env, etc.).
-    """
-    def signal_handler(signum, frame):
-        global _cleanup_done
-        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
         print(f"\nReceived {sig_name}, exiting...")
         if not _cleanup_done:
             _cleanup_done = True
             if _shutdown_event:
                 _shutdown_event.set()
         else:
-            print("Forcing exit...")
-            # Only force exit on repeated signals
             print("Force exit...")
             sys.exit(1)
-    
+
     signal.signal(signal.SIGTERM, signal_handler)
     signal.signal(signal.SIGINT, signal_handler)
 
@@ -1053,11 +862,8 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nInterrupted")
         print("\nProgram interrupted")
     except SystemExit:
         pass
     finally:
         print("Simulation process exited")
-
-        print("模拟进程已退出")

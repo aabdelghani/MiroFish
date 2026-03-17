@@ -1,7 +1,5 @@
 """
 Logging configuration.
-Unified log management: console and file output.
-
 Provides unified logging to both the console and files.
 """
 
@@ -13,13 +11,7 @@ from logging.handlers import RotatingFileHandler
 
 
 def _ensure_utf8_stdout():
-    """Ensure stdout/stderr use UTF-8 (fix Windows console encoding)."""
-    if sys.platform == 'win32':
-    """
-    Ensure stdout/stderr use UTF-8 encoding.
-
-    This avoids mojibake in the Windows console.
-    """
+    """Ensure stdout/stderr use UTF-8 encoding (avoids mojibake in the Windows console)."""
     if sys.platform == 'win32':
         # Reconfigure stdout/stderr to UTF-8 on Windows.
         if hasattr(sys.stdout, 'reconfigure'):
@@ -33,75 +25,32 @@ LOG_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__)
 
 
 def setup_logger(name: str = 'mirofish', level: int = logging.DEBUG) -> logging.Logger:
-    """Configure logger. Args: name, level. Returns configured logger."""
-    os.makedirs(LOG_DIR, exist_ok=True)
-
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    logger.propagate = False
-
-    if logger.handlers:
-        return logger
-    
-    """
-    Configure a logger.
-    
-    Args:
-        name: logger name
-        level: log level
-        
-    Returns:
-        Configured logger instance
-    """
+    """Configure a logger. Args: name, level. Returns configured logger instance."""
     # Ensure the log directory exists.
     os.makedirs(LOG_DIR, exist_ok=True)
-    
+
     # Create the logger.
     logger = logging.getLogger(name)
     logger.setLevel(level)
-    
+
     # Prevent propagation to the root logger to avoid duplicate output.
     logger.propagate = False
-    
+
     # Do not add handlers twice.
     if logger.handlers:
         return logger
-    
-    """
-    Configure a logger.
 
-    Args:
-        name: logger name
-        level: log level
-
-    Returns:
-        Configured logger instance
-    """
-    # Ensure the log directory exists.
-    os.makedirs(LOG_DIR, exist_ok=True)
-    
-    # Create the logger.
-    logger = logging.getLogger(name)
-    logger.setLevel(level)
-    
-    # Prevent propagation to the root logger to avoid duplicate output.
-    logger.propagate = False
-    
-    # Do not add handlers twice.
-    if logger.handlers:
-        return logger
-    
     # Log formatters.
     detailed_formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s',
         datefmt='%Y-%m-%d %H:%M:%S'
     )
-    
+
     simple_formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)s: %(message)s',
         datefmt='%H:%M:%S'
     )
-    
+
     # 1. File handler: detailed logs with date-based naming and rotation.
     log_filename = datetime.now().strftime('%Y-%m-%d') + '.log'
     file_handler = RotatingFileHandler(
@@ -112,43 +61,29 @@ def setup_logger(name: str = 'mirofish', level: int = logging.DEBUG) -> logging.
     )
     file_handler.setLevel(logging.DEBUG)
     file_handler.setFormatter(detailed_formatter)
-    
+
     # 2. Console handler: concise logs at INFO and above.
     # Force UTF-8 on Windows to keep console output readable.
     _ensure_utf8_stdout()
     console_handler = logging.StreamHandler(sys.stdout)
     console_handler.setLevel(logging.INFO)
     console_handler.setFormatter(simple_formatter)
-    
+
     # Attach handlers.
     logger.addHandler(file_handler)
     logger.addHandler(console_handler)
-    
+
     return logger
 
 
 def get_logger(name: str = 'mirofish') -> logging.Logger:
-    """Get or create logger by name."""
-    """
-    Get a logger, creating it if needed.
-    
-    Args:
-        name: logger name
-        
-
-    Args:
-        name: logger name
-
-    Returns:
-        Logger instance
-    """
+    """Get a logger by name, creating it if needed."""
     logger = logging.getLogger(name)
     if not logger.handlers:
         return setup_logger(name)
     return logger
 
 
-logger = setup_logger()
 # Create the default logger.
 logger = setup_logger()
 

@@ -320,41 +320,19 @@ class ProjectManager:
     @classmethod
     def save_file_to_project(cls, project_id: str, file_storage, original_filename: str) -> Dict[str, str]:
         """
-        Save uploaded file to project directory.
-
-        Args:
-            project_id: Project ID.
-            file_storage: Flask FileStorage.
-            original_filename: Original filename.
-
-        Returns:
-            Dict with filename, path, size.
-        """
-        files_dir = cls._get_project_files_dir(project_id)
-        os.makedirs(files_dir, exist_ok=True)
-
-        ext = os.path.splitext(original_filename)[1].lower()
-        safe_filename = f"{uuid.uuid4().hex[:8]}{ext}"
-        file_path = os.path.join(files_dir, safe_filename)
-
-        file_storage.save(file_path)
-
-        Save an uploaded file into the project directory.
-        
         Save an uploaded file into the project directory.
 
         Args:
             project_id: project ID
             file_storage: Flask FileStorage object
             original_filename: original filename
-            
 
         Returns:
             File info dict: {filename, path, size}
         """
         files_dir = cls._get_project_files_dir(project_id)
         os.makedirs(files_dir, exist_ok=True)
-        
+
         # Generate a safe filename.
         ext = os.path.splitext(original_filename)[1].lower()
         # Validate file extension
@@ -363,10 +341,10 @@ class ProjectManager:
             raise ValueError(f"不允许的文件类型: {ext}")
         safe_filename = f"{uuid.uuid4().hex[:8]}{ext}"
         file_path = os.path.join(files_dir, safe_filename)
-        
+
         # Save the file.
         file_storage.save(file_path)
-        
+
         # Get the file size.
         file_size = os.path.getsize(file_path)
         
@@ -397,7 +375,6 @@ class ProjectManager:
     
     @classmethod
     def get_project_files(cls, project_id: str) -> List[str]:
-        """Get all file paths for the project."""
         """Get all file paths belonging to a project."""
         files_dir = cls._get_project_files_dir(project_id)
         

@@ -269,14 +269,13 @@ class LLMClient:
                 response_format={"type": "json_object"}
             )
         except Exception as e:
-            # 如果失败，尝试不使用 response_format 重试
             error_str = str(e).lower()
-            if ("response_format" in error_str or 
+            if ("response_format" in error_str or
                 "json_object" in error_str or
                 "unsupported" in error_str or
                 "400" in error_str or
                 "500" in error_str):
-                # 不使用 response_format，依赖系统提示词中的 JSON 格式要求
+                # Retry without response_format, relying on system prompt JSON instruction.
                 response = self.chat(
                     messages=messages,
                     temperature=temperature,
@@ -284,17 +283,8 @@ class LLMClient:
                 )
             else:
                 raise
-        
-        # 清理markdown代码块标记
-        """Send chat request and return parsed JSON. Args: messages, temperature, max_tokens."""
-        response = self.chat(
-            messages=messages,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            response_format={"type": "json_object"}
-        )
-        # Strip markdown code block markers
-        # Strip optional surrounding Markdown code fences
+
+        # Strip optional surrounding Markdown code fences.
         cleaned_response = response.strip()
         cleaned_response = re.sub(r'^```(?:json)?\s*\n?', '', cleaned_response, flags=re.IGNORECASE)
         cleaned_response = re.sub(r'\n?```\s*$', '', cleaned_response)
@@ -303,9 +293,7 @@ class LLMClient:
         try:
             return json.loads(cleaned_response)
         except json.JSONDecodeError:
-            raise ValueError(f"LLM返回的JSON格式无效: {cleaned_response}")
             raise ValueError(f"LLM returned invalid JSON: {cleaned_response}")
-        return parse_json_from_response(response)
 
 
 def _inject_json_instruction(messages: List[Dict[str, str]]) -> List[Dict[str, str]]:
@@ -320,5 +308,4 @@ def _inject_json_instruction(messages: List[Dict[str, str]]) -> List[Dict[str, s
     # 如果没有 system 消息，在开头插入一条
     messages.insert(0, {"role": "system", "content": json_hint.strip()})
     return messages
-            raise ValueError(f"Invalid JSON returned by LLM: {cleaned_response}")
 

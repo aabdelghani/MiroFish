@@ -29,7 +29,6 @@ logger = get_logger('mirofish.api')
 
 
 def allowed_file(filename: str) -> bool:
-    """Check whether the file extension is allowed."""
     """Check whether the uploaded file extension is allowed."""
     if not filename or '.' not in filename:
         return False
@@ -37,18 +36,11 @@ def allowed_file(filename: str) -> bool:
     return ext in Config.ALLOWED_EXTENSIONS
 
 
-# ============== Project management @graph_bp.route('/project/<project_id>', methods=['GET'])
-def get_project(project_id: str):
-    """Get project details."""
-=======
-=======
 # ============== Project management endpoints ==============
 
 @graph_bp.route('/project/<project_id>', methods=['GET'])
 def get_project(project_id: str):
-    """
-    Get project details.
-    """
+    """Get project details."""
     locale = get_request_locale()
     try:
         validate_safe_id(project_id, "project_id")
@@ -60,7 +52,6 @@ def get_project(project_id: str):
     if not project:
         return jsonify({
             "success": False,
-            "error": f"Project not found: {project_id}"
             "error": get_error_message('graph_project_not_found', locale).format(project_id=project_id)
         }), 404
 
@@ -73,9 +64,6 @@ def get_project(project_id: str):
 @graph_bp.route('/project/list', methods=['GET'])
 def list_projects():
     """List all projects."""
-    """
-    List all projects.
-    """
     limit = request.args.get('limit', 50, type=int)
     projects = ProjectManager.list_projects(limit=limit)
 
@@ -88,10 +76,7 @@ def list_projects():
 
 @graph_bp.route('/project/<project_id>', methods=['DELETE'])
 def delete_project(project_id: str):
-    """Delete project."""
-    """
-    Delete a project.
-    """
+    """Delete a project."""
     locale = get_request_locale()
     try:
         validate_safe_id(project_id, "project_id")
@@ -103,24 +88,18 @@ def delete_project(project_id: str):
     if not success:
         return jsonify({
             "success": False,
-            "error": f"Project not found or delete failed: {project_id}"
-            "error": f"Project not found or deletion failed: {project_id}"
             "error": get_error_message('graph_project_delete_failed', locale).format(project_id=project_id)
         }), 404
 
     return jsonify({
         "success": True,
-        "message": f"Project deleted: {project_id}"
         "message": get_error_message('graph_project_deleted', locale).format(project_id=project_id)
     })
 
 
 @graph_bp.route('/project/<project_id>/reset', methods=['POST'])
 def reset_project(project_id: str):
-    """Reset project state (for rebuilding graph)."""
-    """
-    Reset project state so the graph can be rebuilt.
-    """
+    """Reset project state so the graph can be rebuilt."""
     locale = get_request_locale()
     try:
         validate_safe_id(project_id, "project_id")
@@ -132,15 +111,10 @@ def reset_project(project_id: str):
     if not project:
         return jsonify({
             "success": False,
-            "error": f"Project not found: {project_id}"
-        }), 404
-
-    
-    # Reset back to the ontology-generated state.
             "error": get_error_message('graph_project_not_found', locale).format(project_id=project_id)
         }), 404
 
-    # 重置到本体已生成状态
+    # Reset back to the ontology-generated state.
     if project.ontology:
         project.status = ProjectStatus.ONTOLOGY_GENERATED
     else:
@@ -153,82 +127,24 @@ def reset_project(project_id: str):
 
     return jsonify({
         "success": True,
-        "message": f"Project reset: {project_id}",
         "message": get_error_message('graph_project_reset', locale).format(project_id=project_id),
         "data": project.to_dict()
     })
 
 
-# ============== Ontology generation (upload + analyze) ==============
 # ============== Endpoint 1: upload files and generate ontology ==============
 
 @graph_bp.route('/ontology/generate', methods=['POST'])
 def generate_ontology():
-    """
-    Upload files and generate ontology (multipart/form-data).
-    Params: files (required), simulation_requirement (required), project_name, additional_context.
-    Endpoint 1: upload files and analyze them to generate an ontology.
-    
-    Request type: multipart/form-data
-    
-    Endpoint 1: upload files and analyze them to generate an ontology.
-
-    Request type: multipart/form-data
-
-    Parameters:
-        files: uploaded files (PDF/MD/TXT), multiple allowed
-        simulation_requirement: simulation requirement description (required)
-        project_name: project name (optional)
-        additional_context: additional context (optional)
-        
-
-    Returns:
-    接口1：上传文件，分析生成本体定义
-
-    请求方式：multipart/form-data
-
-    参数：
-        files: 上传的文件（PDF/MD/TXT），可多个
-        simulation_requirement: 模拟需求描述（必填）
-        project_name: 项目名称（可选）
-        additional_context: 额外说明（可选）
-
-    返回：
-        {
-            "success": true,
-            "data": {
-                "project_id": "proj_xxxx",
-                "ontology": {
-                    "entity_types": [...],
-                    "edge_types": [...],
-                    "analysis_summary": "..."
-                },
-                "files": [...],
-                "total_text_length": 12345
-            }
-        }
-    """
+    """Upload files and generate ontology (multipart/form-data). Params: files, simulation_requirement, project_name, additional_context."""
     try:
         logger.info("=== Starting ontology generation ===")
-        
 
         # Read form fields.
+        locale = get_request_locale()
         simulation_requirement = request.form.get('simulation_requirement', '')
         project_name = request.form.get('project_name', 'Unnamed Project')
         additional_context = request.form.get('additional_context', '')
-        
-        logger.debug(f"Project name: {project_name}")
-        logger.debug(f"Simulation requirement: {simulation_requirement[:100]}...")
-        
-        if not simulation_requirement:
-            return jsonify({
-                "success": False,
-                "error": "simulation_requirement is required"
-            }), 400
-        
-                "error": "Please provide simulation_requirement"
-            }), 400
-        
         language = request.form.get('language', 'zh')
 
         logger.debug(f"Project name: {project_name}")
@@ -237,63 +153,24 @@ def generate_ontology():
         if not simulation_requirement:
             return jsonify({
                 "success": False,
-                "error": "Please provide simulation_requirement"
-            }), 400
-
-        # Read uploaded files.
-        locale = get_request_locale()
-        logger.info(get_error_message('graph_ontology_start', locale))
-
-        # 获取参数
-        simulation_requirement = request.form.get('simulation_requirement', '')
-        project_name = request.form.get('project_name', 'Unnamed Project')
-        additional_context = request.form.get('additional_context', '')
-
-        logger.debug(f"项目名称: {project_name}")
-        logger.debug(f"模拟需求: {simulation_requirement[:100]}...")
-
-        if not simulation_requirement:
-            return jsonify({
-                "success": False,
                 "error": get_error_message('graph_missing_sim_requirement', locale)
             }), 400
 
-        # 获取上传的文件
+        # Read uploaded files.
+        logger.info(get_error_message('graph_ontology_start', locale))
+
+        # Get uploaded files.
         uploaded_files = request.files.getlist('files')
         if not uploaded_files or all(not f.filename for f in uploaded_files):
             return jsonify({
                 "success": False,
-                "error": "At least one document file is required"
                 "error": get_error_message('graph_missing_files', locale)
             }), 400
 
-        # 创建项目
+        # Create the project.
         project = ProjectManager.create_project(name=project_name)
         project.simulation_requirement = simulation_requirement
-        logger.info(f"创建项目: {project.project_id}")
         logger.info(get_error_message('graph_project_created', locale).format(project_id=project.project_id))
-
-        # 保存文件并提取文本
-        
-        project = ProjectManager.create_project(name=project_name)
-        project.simulation_requirement = simulation_requirement
-        logger.info(f"Created project: {project.project_id}")
-        
-                "error": "Please upload at least one document"
-            }), 400
-        
-        # Create the project.
-        project = ProjectManager.create_project(name=project_name)
-        project.simulation_requirement = simulation_requirement
-        logger.info(f"Created project: {project.project_id}")
-        
-                "error": "Please upload at least one document"
-            }), 400
-
-        # Create the project.
-        project = ProjectManager.create_project(name=project_name)
-        project.simulation_requirement = simulation_requirement
-        logger.info(f"Created project: {project.project_id}")
 
         # Save the files and extract text.
         document_texts = []
@@ -312,9 +189,6 @@ def generate_ontology():
                     "size": file_info["size"]
                 })
 
-                # 提取文本
-                
-                
                 # Extract text.
                 text = FileParser.extract_text(file_info["path"])
                 text = TextProcessor.preprocess_text(text)
@@ -325,45 +199,16 @@ def generate_ontology():
             ProjectManager.delete_project(project.project_id)
             return jsonify({
                 "success": False,
-                "error": "No document was processed successfully; check file format"
-            }), 400
-        
-        project.total_text_length = len(all_text)
-        ProjectManager.save_extracted_text(project.project_id, all_text)
-        logger.info(f"Text extraction done, {len(all_text)} chars")
-
-        logger.info("Calling LLM for ontology definition...")
-                "error": "No documents were processed successfully. Check the file formats."
-            }), 400
-        
-        # Save the extracted text.
-        project.total_text_length = len(all_text)
-        ProjectManager.save_extracted_text(project.project_id, all_text)
-        logger.info(f"Text extraction complete: {len(all_text)} characters")
-        
-        # Generate the ontology.
-        logger.info("Calling the LLM to generate the ontology...")
                 "error": get_error_message('graph_no_docs_processed', locale)
             }), 400
 
-        # 保存提取的文本
+        # Save the extracted text.
         project.total_text_length = len(all_text)
         ProjectManager.save_extracted_text(project.project_id, all_text)
         logger.info(get_error_message('graph_text_extracted', locale).format(length=len(all_text)))
 
-        # 生成本体（传递用户语言，LLM 输出与该语言一致）
+        # Generate the ontology (pass user locale so LLM output matches language).
         logger.info(get_error_message('graph_calling_llm', locale).format(locale=locale))
-        generator = OntologyGenerator()
-                "error": "No documents were processed successfully. Check the file formats."
-            }), 400
-
-        # Save the extracted text.
-        project.total_text_length = len(all_text)
-        ProjectManager.save_extracted_text(project.project_id, all_text)
-        logger.info(f"Text extraction complete: {len(all_text)} characters")
-
-        # Generate the ontology.
-        logger.info("Calling the LLM to generate the ontology...")
         generator = OntologyGenerator(language=language)
         ontology = generator.generate(
             document_texts=document_texts,
@@ -372,20 +217,6 @@ def generate_ontology():
             language=locale
         )
 
-        entity_count = len(ontology.get("entity_types", []))
-        edge_count = len(ontology.get("edge_types", []))
-        logger.info(f"Ontology generated: {entity_count} entity types, {edge_count} relation types")
-        
-        # Save the ontology to the project.
-        entity_count = len(ontology.get("entity_types", []))
-        edge_count = len(ontology.get("edge_types", []))
-        logger.info(f"Ontology generated: {entity_count} entity types, {edge_count} edge types")
-        
-        # Save the ontology to the project.
-        entity_count = len(ontology.get("entity_types", []))
-        edge_count = len(ontology.get("edge_types", []))
-        logger.info(f"Ontology generated: {entity_count} entity types, {edge_count} edge types")
-        # 保存本体到项目
         entity_count = len(ontology.get("entity_types", []))
         edge_count = len(ontology.get("edge_types", []))
         logger.info(get_error_message('graph_ontology_done', locale).format(entity_count=entity_count, edge_count=edge_count))
@@ -397,10 +228,6 @@ def generate_ontology():
         project.analysis_summary = ontology.get("analysis_summary", "")
         project.status = ProjectStatus.ONTOLOGY_GENERATED
         ProjectManager.save_project(project)
-        logger.info(f"=== Ontology generation complete === project_id: {project.project_id}")
-        logger.info(f"=== Ontology generation complete === project_id={project.project_id}")
-        
-        logger.info(f"=== Ontology generation complete === project_id={project.project_id}")
         logger.info(get_error_message('graph_ontology_complete', locale).format(project_id=project.project_id))
 
         return jsonify({
@@ -416,110 +243,34 @@ def generate_ontology():
         })
 
     except Exception as e:
-        logger.exception(f"操作失败: {str(e)}")
+        logger.exception(f"Ontology generation failed: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
 
 
-# ============== Graph build ==============
 # ============== Endpoint 2: build graph ==============
 
 @graph_bp.route('/build', methods=['POST'])
 def build_graph():
-    """
-    Build graph by project_id (JSON).
-    Params: project_id (required), graph_name, chunk_size, chunk_overlap.
-    Endpoint 2: build a graph from project_id.
-    
-    Endpoint 2: build a graph from project_id.
-
-    Request (JSON):
-    接口2：根据project_id构建图谱
-
-    请求（JSON）：
-        {
-            "project_id": "proj_xxxx",  // required, returned by endpoint 1
-            "graph_name": "Graph Name", // optional
-            "chunk_size": 500,          // optional, default 500
-            "chunk_overlap": 50         // optional, default 50
-        }
-        
-
-    Returns:
-
-    返回：
-        {
-            "success": true,
-            "data": {
-                "project_id": "proj_xxxx",
-                "task_id": "task_xxxx",
-                "message": "Graph build task started"
-            }
-        }
-    """
+    """Build graph by project_id (JSON). Params: project_id, graph_name, chunk_size, chunk_overlap."""
     try:
-        logger.info("=== Starting graph build ===")
-        
-        # 检查配置 (cloud 模式需要 Zep Cloud)
-        errors = []
-        if Config.KNOWLEDGE_GRAPH_MODE == 'cloud' and not Config.ZEP_API_KEY:
-            errors.append("ZEP_API_KEY未配置")
         logger.info("=== Starting graph build ===")
 
         # Validate configuration.
-        errors = []
-        if not Config.ZEP_API_KEY:
-            errors.append("ZEP_API_KEY is not configured")
-        # 检查配置
         errors = Config.validate()
         if errors:
-            logger.error(f"Configuration error: {errors}")
             logger.error(f"Configuration errors: {errors}")
             return jsonify({
                 "success": False,
                 "error": "Configuration error: " + "; ".join(errors)
             }), 500
-        
 
         # Parse the request.
-        data = request.get_json() or {}
-        project_id = data.get('project_id')
-        logger.debug(f"Request params: project_id={project_id}")
-        
-        if not project_id:
-            return jsonify({
-                "success": False,
-                "error": "project_id is required"
-            }), 400
-        
-                "error": "Please provide project_id"
-            }), 400
-        
-
-        if not project_id:
-            return jsonify({
-                "success": False,
-                "error": "Please provide project_id"
-            }), 400
-
-        # Load the project.
         locale = get_request_locale()
         logger.info(get_error_message('graph_build_start', locale))
 
-        # 检查配置
-        errors = []
-        if not Config.ZEP_API_KEY:
-            errors.append("ZEP_API_KEY")
-        if errors:
-            logger.error(f"Config errors: {errors}")
-            return jsonify({
-                "success": False,
-                "error": get_error_message('graph_config_error', locale).format(errors="; ".join(errors))
-            }), 500
-
-        # 解析请求
         data = request.get_json() or {}
         project_id = data.get('project_id')
         logger.debug(f"Request params: project_id={project_id}")
@@ -535,35 +286,16 @@ def build_graph():
         except ValueError as e:
             return jsonify({"success": False, "error": str(e)}), 400
 
-        # 获取项目
+        # Load the project.
         project = ProjectManager.get_project(project_id)
         if not project:
             return jsonify({
                 "success": False,
-                "error": f"Project not found: {project_id}"
-            }), 404
-        
-        force = data.get('force', False)
-        # Validate the project state.
-        force = data.get('force', False)  # Force rebuild
-        
-        if project.status == ProjectStatus.CREATED:
-            return jsonify({
-                "success": False,
-                "error": "Project has no ontology yet; call /ontology/generate first"
-
-        # Validate the project state.
-        force = data.get('force', False)  # Force rebuild
-
-        if project.status == ProjectStatus.CREATED:
-            return jsonify({
-                "success": False,
-                "error": "The project ontology has not been generated yet. Call /ontology/generate first."
                 "error": get_error_message('graph_project_not_found', locale).format(project_id=project_id)
             }), 404
 
-        # 检查项目状态
-        force = data.get('force', False)  # 强制重新构建
+        # Validate the project state.
+        force = data.get('force', False)  # Force rebuild
 
         if project.status == ProjectStatus.CREATED:
             return jsonify({
@@ -574,139 +306,59 @@ def build_graph():
         if project.status == ProjectStatus.GRAPH_BUILDING and not force:
             return jsonify({
                 "success": False,
-                "error": "Graph build is in progress; do not resubmit. Add force: true to force rebuild",
-                "task_id": project.graph_build_task_id
-            }), 400
-
-                "error": "Graph build is already in progress. To rebuild anyway, set force: true.",
-                "task_id": project.graph_build_task_id
-            }), 400
-        
-                "error": "Graph build is already in progress. To rebuild anyway, set force: true.",
-                "task_id": project.graph_build_task_id
-            }), 400
-
-        # Reset state for a forced rebuild.
                 "error": get_error_message('graph_building_in_progress', locale),
                 "task_id": project.graph_build_task_id
             }), 400
 
-        # 如果强制重建，重置状态
+        # Reset state for a forced rebuild.
         if force and project.status in [ProjectStatus.GRAPH_BUILDING, ProjectStatus.FAILED, ProjectStatus.GRAPH_COMPLETED]:
             project.status = ProjectStatus.ONTOLOGY_GENERATED
             project.graph_id = None
             project.graph_build_task_id = None
             project.error = None
 
-        
         # Resolve configuration.
         graph_name = data.get('graph_name', project.name or 'MiroFish Graph')
         chunk_size = data.get('chunk_size', project.chunk_size or Config.DEFAULT_CHUNK_SIZE)
         chunk_overlap = data.get('chunk_overlap', project.chunk_overlap or Config.DEFAULT_CHUNK_OVERLAP)
-        
-        project.chunk_size = chunk_size
-        project.chunk_overlap = chunk_overlap
-        
-        # Persist the project settings.
-        project.chunk_size = chunk_size
-        project.chunk_overlap = chunk_overlap
-        
 
         # Persist the project settings.
         project.chunk_size = chunk_size
         project.chunk_overlap = chunk_overlap
 
         # Load the extracted text.
-        # 获取配置
-        graph_name = data.get('graph_name', project.name or 'MiroFish Graph')
-        chunk_size = data.get('chunk_size', project.chunk_size or Config.DEFAULT_CHUNK_SIZE)
-        chunk_overlap = data.get('chunk_overlap', project.chunk_overlap or Config.DEFAULT_CHUNK_OVERLAP)
-
-        # 更新项目配置
-        project.chunk_size = chunk_size
-        project.chunk_overlap = chunk_overlap
-
-        # 获取提取的文本
         text = ProjectManager.get_extracted_text(project_id)
         if not text:
             return jsonify({
                 "success": False,
-                "error": "Extracted text content not found"
-            }), 400
-        
-                "error": "Extracted text content was not found"
-            }), 400
-        
-                "error": "Extracted text content was not found"
-            }), 400
-
-        # Load the ontology.
                 "error": get_error_message('graph_text_not_found', locale)
             }), 400
 
-        # 获取本体
+        # Load the ontology.
         ontology = project.ontology
         if not ontology:
             return jsonify({
                 "success": False,
-                "error": "Ontology definition not found"
-            }), 400
-        
-        task_manager = TaskManager()
-        task_id = task_manager.create_task(f"Build graph: {graph_name}")
-        logger.info(f"Graph build task created: task_id={task_id}, project_id={project_id}")
-        
-                "error": "Ontology definition was not found"
-            }), 400
-        
-        # Create the async task.
-        task_manager = TaskManager()
-        task_id = task_manager.create_task(f"Build graph: {graph_name}")
-        logger.info(f"Created graph build task: task_id={task_id}, project_id={project_id}")
-        
-                "error": "Ontology definition was not found"
+                "error": get_error_message('graph_ontology_not_found', locale)
             }), 400
 
         # Create the async task.
         task_manager = TaskManager()
-        task_id = task_manager.create_task(f"Build graph: {graph_name}")
-        logger.info(f"Created graph build task: task_id={task_id}, project_id={project_id}")
+        task_id = task_manager.create_task(get_error_message('graph_build_task_created', locale).format(graph_name=graph_name))
+        logger.info(get_error_message('graph_build_task_log', locale).format(task_id=task_id, project_id=project_id))
 
         # Update project state.
         project.status = ProjectStatus.GRAPH_BUILDING
         project.graph_build_task_id = task_id
         ProjectManager.save_project(project)
-        
-        def build_task():
-            build_logger = get_logger('mirofish.build')
-            try:
-                build_logger.debug(f"[{task_id}] 开始构建图谱...")
-        # Launch the background task.
-        def build_task():
-            build_logger = get_logger('mirofish.build')
-            try:
-                build_logger.info(f"[{task_id}] Starting graph build...")
-                "error": get_error_message('graph_ontology_not_found', locale)
-            }), 400
 
-        # 创建异步任务
-        task_manager = TaskManager()
-        task_id = task_manager.create_task(get_error_message('graph_build_task_created', locale).format(graph_name=graph_name))
-        logger.info(get_error_message('graph_build_task_log', locale).format(task_id=task_id, project_id=project_id))
-
-        # 更新项目状态
-        project.status = ProjectStatus.GRAPH_BUILDING
-        project.graph_build_task_id = task_id
-        ProjectManager.save_project(project)
-
-        # Capture locale before entering background thread (no Flask request context there)
-
+        # Capture locale before entering background thread (no Flask request context there).
         def _msg(key, **kwargs):
             """Helper to get localized task message."""
             msg = get_error_message(key, locale)
             return msg.format(**kwargs) if kwargs else msg
 
-        # 启动后台任务
+        # Launch the background task.
         def build_task():
             build_logger = get_logger('mirofish.build')
             try:
@@ -714,48 +366,13 @@ def build_graph():
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.PROCESSING,
-                    message="Initializing graph build service..."
-                )
-                
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-
-                task_manager.update_task(
-                    task_id,
-                    message="Chunking text...",
-                    message="Initializing graph builder..."
-                )
-                
-                # Create the graph builder service.
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-                
-
-        # Launch the background task.
-        def build_task():
-            build_logger = get_logger('mirofish.build')
-            try:
-                build_logger.info(f"[{task_id}] Starting graph build...")
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.PROCESSING,
                     message="Initializing graph builder..."
                 )
 
                 # Create the graph builder service.
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-
-                # Split text into chunks.
-                task_manager.update_task(
-                    task_id,
-                    message="Splitting text into chunks...",
-                    message=_msg('init_graph_service')
-                )
-
-                # 创建图谱构建服务
-                builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-                # 创建图谱构建服务
                 provider = get_memory_provider()
 
-                # 分块
+                # Split text into chunks.
                 task_manager.update_task(
                     task_id,
                     message=_msg('text_chunking'),
@@ -767,50 +384,15 @@ def build_graph():
                     overlap=chunk_overlap
                 )
                 total_chunks = len(chunks)
-                
 
                 # Create the graph.
-                task_manager.update_task(
-                    task_id,
-                    message="Creating Zep graph...",
-                    progress=10
-                )
-                graph_id = builder.create_graph(name=graph_name)
-                
-
-                # 创建图谱
                 task_manager.update_task(
                     task_id,
                     message=_msg('creating_zep_graph'),
                     progress=10
                 )
-                graph_id = builder.create_graph(name=graph_name)
-
-                # 创建图谱
-                task_manager.update_task(
-                    task_id,
-                    message="创建图谱...",
-                    progress=10
-                )
                 graph_id = provider.create_graph(name=graph_name)
 
-                # 更新项目的graph_id
-                project.graph_id = graph_id
-                ProjectManager.save_project(project)
-
-                # 设置本体
-                build_logger.debug(f"[{task_id}] 准备设置本体...")
-                task_manager.update_task(
-                    task_id,
-                    message="Setting ontology definition...",
-                # Persist graph_id on the project.
-                project.graph_id = graph_id
-                ProjectManager.save_project(project)
-                
-                # Apply the ontology.
-                task_manager.update_task(
-                    task_id,
-
                 # Persist graph_id on the project.
                 project.graph_id = graph_id
                 ProjectManager.save_project(project)
@@ -818,19 +400,12 @@ def build_graph():
                 # Apply the ontology.
                 task_manager.update_task(
                     task_id,
-                    message="Applying ontology definition...",
                     message=_msg('setting_ontology'),
                     progress=15
                 )
-                build_logger.debug(f"[{task_id}] 开始设置本体...")
-                builder.set_ontology(graph_id, ontology)
-                build_logger.debug(f"[{task_id}] 本体设置完成")
-                
-
-                # Add text batches. The callback signature is (msg, progress_ratio).
                 provider.set_ontology(graph_id, ontology)
 
-                # 添加文本（progress_callback 签名是 (msg, progress_ratio)）
+                # Add text batches. The callback signature is (msg, progress_ratio).
                 def add_progress_callback(msg, progress_ratio):
                     progress = 15 + int(progress_ratio * 40)  # 15% - 55%
                     task_manager.update_task(
@@ -841,16 +416,10 @@ def build_graph():
 
                 task_manager.update_task(
                     task_id,
-                    message=f"Adding {total_chunks} text chunks...",
-                    progress=15
-                )
-
-                build_logger.debug(f"[{task_id}] 准备添加文本，共 {total_chunks} 个块")
                     message=_msg('adding_text_chunks', count=total_chunks),
                     progress=15
                 )
 
-                episode_uuids = builder.add_text_batches(
                 episode_uuids = provider.add_text_batches(
                     graph_id,
                     chunks,
@@ -858,22 +427,11 @@ def build_graph():
                     progress_callback=add_progress_callback,
                     locale=locale
                 )
-                build_logger.debug(f"[{task_id}] 文本添加完成，共 {len(episode_uuids)} 个 episode")
-                
-
-                # 等待Zep处理完成（查询每个episode的processed状态）
-                build_logger.debug(f"[{task_id}] 开始等待处理，共 {len(episode_uuids)} 个 episode")
 
                 # Wait for Zep to finish processing each episode.
                 task_manager.update_task(
                     task_id,
-                    message="Waiting for Zep to process data...",
                     message=_msg('waiting_zep'),
-
-                # 等待处理完成（查询每个episode的processed状态）
-                task_manager.update_task(
-                    task_id,
-                    message="等待数据处理...",
                     progress=55
                 )
 
@@ -885,15 +443,12 @@ def build_graph():
                         progress=progress
                     )
 
-                builder._wait_for_episodes(episode_uuids, wait_progress_callback)
-                
-                # 实体去重
                 provider.wait_for_processing(episode_uuids, wait_progress_callback)
 
-                # 获取图谱数据
+                # Entity deduplication.
                 task_manager.update_task(
                     task_id,
-                    message="执行实体去重...",
+                    message="Deduplicating entities...",
                     progress=80
                 )
                 dedup_result = None
@@ -904,62 +459,37 @@ def build_graph():
                         graph_id=graph_id,
                         progress_callback=lambda msg, prog: task_manager.update_task(
                             task_id,
-                            message=f"去重: {msg}",
+                            message=f"Dedup: {msg}",
                             progress=80 + int(prog * 10),  # 80% - 90%
                         ),
                     )
                     dedup_result = dedup_report.to_dict()
                     build_logger.info(
-                        f"[{task_id}] 实体去重完成: "
-                        f"发现 {dedup_report.groups_found} 组重复, "
-                        f"删除 {dedup_report.nodes_removed} 个节点, "
-                        f"迁移 {dedup_report.edges_migrated} 条边"
+                        f"[{task_id}] Entity deduplication complete: "
+                        f"found {dedup_report.groups_found} groups, "
+                        f"removed {dedup_report.nodes_removed} nodes, "
+                        f"migrated {dedup_report.edges_migrated} edges"
                     )
                 except Exception as dedup_err:
-                    build_logger.warning(f"[{task_id}] 实体去重失败（不影响图谱构建）: {dedup_err}")
-                
-                # 获取图谱数据
-                # Fetch graph data.
-                task_manager.update_task(
-                    task_id,
+                    build_logger.warning(f"[{task_id}] Entity deduplication failed (graph build continues): {dedup_err}")
 
                 # Fetch graph data.
-                task_manager.update_task(
-                    task_id,
-                    message="Fetching graph data...",
-                    progress=95
-                )
-                graph_data = provider.get_graph_data(graph_id)
-                
-
-                # Mark the project as completed.
-                builder._wait_for_episodes(episode_uuids, wait_progress_callback, locale=locale)
-
-                # 获取图谱数据
                 task_manager.update_task(
                     task_id,
                     message=_msg('fetching_graph_data'),
                     progress=95
                 )
-                graph_data = builder.get_graph_data(graph_id)
+                graph_data = provider.get_graph_data(graph_id)
 
-                # 更新项目状态
+                # Mark the project as completed.
                 project.status = ProjectStatus.GRAPH_COMPLETED
                 ProjectManager.save_project(project)
 
                 node_count = graph_data.get("node_count", 0)
                 edge_count = graph_data.get("edge_count", 0)
-                build_logger.info(f"[{task_id}] Graph build complete: graph_id={graph_id}, nodes={node_count}, edges={edge_count}")
-                
-
-                # Mark the task complete.
-                task_manager.update_task(
-                    task_id,
-                    status=TaskStatus.COMPLETED,
-                    message="Graph build complete",
                 build_logger.info(_msg('graph_build_done_log', task_id=task_id, graph_id=graph_id, node_count=node_count, edge_count=edge_count))
 
-                # 完成
+                # Mark the task complete.
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.COMPLETED,
@@ -977,8 +507,6 @@ def build_graph():
 
             except Exception as e:
                 # Mark the project as failed.
-                build_logger.error(f"[{task_id}] Graph build failed: {str(e)}")
-                # 更新项目状态为失败
                 build_logger.error(_msg('graph_build_failed_log', task_id=task_id, error=str(e)))
                 build_logger.debug(traceback.format_exc())
 
@@ -989,17 +517,11 @@ def build_graph():
                 task_manager.update_task(
                     task_id,
                     status=TaskStatus.FAILED,
-                    message=f"Build failed: {str(e)}",
-                    error=traceback.format_exc()
-                )
-        
-
-        # Start the background thread.
                     message=_msg('build_failed', error=str(e)),
                     error=traceback.format_exc()
                 )
 
-        # 启动后台线程
+        # Start the background thread.
         thread = threading.Thread(target=build_task, daemon=True)
         thread.start()
 
@@ -1008,32 +530,23 @@ def build_graph():
             "data": {
                 "project_id": project_id,
                 "task_id": task_id,
-                "message": "Graph build task started; query progress via /task/{task_id}"
-                "message": "Graph build task started. Query progress via /task/{task_id}."
                 "message": _msg('graph_build_started', task_id=task_id)
             }
         })
 
     except Exception as e:
-        logger.exception(f"操作失败: {str(e)}")
+        logger.exception(f"Graph build setup failed: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
         }), 500
 
 
-# ============== Task query @graph_bp.route('/task/<task_id>', methods=['GET'])
-def get_task(task_id: str):
-    """Get task status."""
-=======
-=======
 # ============== Task query endpoints ==============
 
 @graph_bp.route('/task/<task_id>', methods=['GET'])
 def get_task(task_id: str):
-    """
-    Query task status.
-    """
+    """Query task status."""
     locale = get_request_locale()
     try:
         validate_safe_id(task_id, "task_id")
@@ -1045,7 +558,6 @@ def get_task(task_id: str):
     if not task:
         return jsonify({
             "success": False,
-            "error": f"Task not found: {task_id}"
             "error": get_error_message('graph_task_not_found', locale).format(task_id=task_id)
         }), 404
 
@@ -1057,9 +569,7 @@ def get_task(task_id: str):
 
 @graph_bp.route('/tasks', methods=['GET'])
 def list_tasks():
-    """
-    List all tasks.
-    """
+    """List all tasks."""
     tasks = TaskManager().list_tasks()
 
     return jsonify({
@@ -1069,27 +579,13 @@ def list_tasks():
     })
 
 
-# ============== Graph data @graph_bp.route('/data/<graph_id>', methods=['GET'])
-def get_graph_data(graph_id: str):
-    """Get graph data (nodes and edges)."""
-=======
-=======
 # ============== Graph data endpoints ==============
 
 @graph_bp.route('/data/<graph_id>', methods=['GET'])
 def get_graph_data(graph_id: str):
-    """
-    Get graph data (nodes and edges).
-    """
+    """Get graph data (nodes and edges)."""
+    locale = get_request_locale()
     try:
-        if Config.KNOWLEDGE_GRAPH_MODE == 'cloud' and not Config.ZEP_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-
-        builder = GraphBuilderService()
-        locale = get_request_locale()
         validate_safe_id(graph_id, "graph_id")
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -1101,19 +597,16 @@ def get_graph_data(graph_id: str):
                 "error": get_error_message('graph_zep_not_configured', locale)
             }), 500
 
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-        graph_data = builder.get_graph_data(graph_id)
-
         provider = get_memory_provider()
         graph_data = provider.get_graph_data(graph_id)
-        
+
         return jsonify({
             "success": True,
             "data": graph_data
         })
 
     except Exception as e:
-        logger.exception(f"操作失败: {str(e)}")
+        logger.exception(f"Failed to get graph data: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
@@ -1122,11 +615,9 @@ def get_graph_data(graph_id: str):
 
 @graph_bp.route('/delete/<graph_id>', methods=['DELETE'])
 def delete_graph(graph_id: str):
-    """
-    Delete Zep graph.
-    """
+    """Delete a Zep graph."""
+    locale = get_request_locale()
     try:
-        if Config.KNOWLEDGE_GRAPH_MODE == 'cloud' and not Config.ZEP_API_KEY:
         validate_safe_id(graph_id, "graph_id")
     except ValueError as e:
         return jsonify({"success": False, "error": str(e)}), 400
@@ -1135,94 +626,62 @@ def delete_graph(graph_id: str):
         if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
-                "error": "ZEP_API_KEY is not configured"
+                "error": get_error_message('graph_zep_not_configured', locale)
             }), 500
 
-        builder = GraphBuilderService()
-        builder.delete_graph(graph_id)
         provider = get_memory_provider()
         provider.delete_graph(graph_id)
-        
+
         return jsonify({
             "success": True,
-            "message": f"Graph deleted: {graph_id}"
+            "message": get_error_message('graph_deleted', locale).format(graph_id=graph_id)
         })
-        
+
     except Exception as e:
-        logger.exception(f"操作失败: {str(e)}")
+        logger.exception(f"Failed to delete graph: {str(e)}")
         return jsonify({
             "success": False,
-            "error": str(e)
+            "error": str(e),
+            "traceback": traceback.format_exc()
         }), 500
 
 
-# ============== 接口：实体去重 @graph_bp.route('/deduplicate', methods=['POST'])
+# ============== Entity deduplication endpoint ==============
+
+@graph_bp.route('/deduplicate', methods=['POST'])
 def deduplicate_graph():
-    """
-    对已构建的图谱执行实体去重
-    
-    请求（JSON）：
-        {
-            "graph_id": "mirofish_xxxx",  // 必填
-            "dry_run": false               // 可选，默认false。true时仅检测不合并
-        }
-        
-    返回：
-        {
-            "success": true,
-            "data": { ...DeduplicationReport... }
-        }
-=======
-=======
-    Delete a Zep graph.
-    """
+    """Deduplicate entities in a built graph. JSON: graph_id (required), dry_run (optional, default false)."""
     try:
         locale = get_request_locale()
         if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
-                "error": "ZEP_API_KEY is not configured"
-            }), 500
-        
-        if not Config.LLM_API_KEY:
-            return jsonify({
-                "success": False,
-                "error": "LLM_API_KEY未配置（实体去重需要 LLM 支持）"
-            }), 500
-        
-        data = request.get_json() or {}
-        graph_id = data.get('graph_id')
-        dry_run = data.get('dry_run', False)
-        
-        if not graph_id:
-            return jsonify({
-                "success": False,
-                "error": "请提供 graph_id"
-            }), 400
-        
-        from ..services.entity_deduplicator import EntityDeduplicator
-        deduplicator = EntityDeduplicator()
-        report = deduplicator.deduplicate(graph_id=graph_id, dry_run=dry_run)
-        
-        return jsonify({
-            "success": True,
-            "data": report.to_dict()
-
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-        builder.delete_graph(graph_id)
-
-        return jsonify({
-            "success": True,
-            "message": f"Graph deleted: {graph_id}"
                 "error": get_error_message('graph_zep_not_configured', locale)
             }), 500
 
-        builder = GraphBuilderService(api_key=Config.ZEP_API_KEY)
-        builder.delete_graph(graph_id)
+        if not Config.LLM_API_KEY:
+            return jsonify({
+                "success": False,
+                "error": "LLM_API_KEY is not configured (entity deduplication requires LLM support)"
+            }), 500
+
+        data = request.get_json() or {}
+        graph_id = data.get('graph_id')
+        dry_run = data.get('dry_run', False)
+
+        if not graph_id:
+            return jsonify({
+                "success": False,
+                "error": "Please provide graph_id"
+            }), 400
+
+        from ..services.entity_deduplicator import EntityDeduplicator
+        deduplicator = EntityDeduplicator()
+        report = deduplicator.deduplicate(graph_id=graph_id, dry_run=dry_run)
 
         return jsonify({
             "success": True,
-            "message": get_error_message('graph_deleted', locale).format(graph_id=graph_id)
+            "data": report.to_dict()
         })
 
     except Exception as e:

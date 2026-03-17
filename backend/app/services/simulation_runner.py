@@ -685,10 +685,6 @@ class SimulationRunner:
             except Exception as e:
                 logger.error(f"Failed to stop graph memory updater: {e}")
             cls._graph_memory_enabled.pop(simulation_id, None)
-                logger.info(f"Graph memory update stopped: simulation_id={simulation_id}")
-            except Exception as e:
-                logger.error(f"Failed to stop graph memory updater: {e}")
-            cls._graph_memory_enabled.pop(simulation_id, None)
 
         logger.info(f"Simulation stopped: {simulation_id}")
         return state
@@ -866,7 +862,6 @@ class SimulationRunner:
     
     @classmethod
     def get_agent_stats(cls, simulation_id: str) -> List[Dict[str, Any]]:
-        """
         """Get per-agent action statistics."""
         actions = cls.get_actions(simulation_id, limit=10000)
         
@@ -905,28 +900,7 @@ class SimulationRunner:
     def cleanup_simulation_logs(cls, simulation_id: str) -> Dict[str, Any]:
         """Remove run logs and DB files for a simulation (so it can be restarted). Keeps simulation_config.json and profiles."""
         import shutil
-        """
-        清理模拟的运行日志（用于强制重新开始模拟）
-        
-        会删除以下文件：
-        - run_state.json
-        - twitter/actions.jsonl
-        - reddit/actions.jsonl
-        - simulation.log
-        - stdout.log / stderr.log
-        - twitter_simulation.db（模拟数据库）
-        - reddit_simulation.db（模拟数据库）
-        - env_status.json（环境状态）
-        
-        注意：不会删除配置文件（simulation_config.json）和 profile 文件
-        
-        Args:
-            simulation_id: 模拟ID
-            
-        Returns:
-            清理结果信息
-        """
-        
+
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         if not os.path.exists(sim_dir):
             return {"success": True, "message": "Simulation dir does not exist, nothing to clean"}
@@ -984,9 +958,6 @@ class SimulationRunner:
         has_updaters = bool(cls._graph_memory_enabled)
         if not has_processes and not has_updaters:
             return
-        logger.info("Cleaning up all simulation processes...")
-            return  # 没有需要清理的内容，静默返回
-        
         logger.info("Cleaning up all simulation processes...")
         
         # 首先停止所有图谱记忆更新器（stop_all 内部会打印日志）
@@ -1169,9 +1140,6 @@ class SimulationRunner:
         if not ipc_client.check_env_alive():
             raise ValueError(f"Simulation env not running or closed, cannot run Interview: {simulation_id}")
         logger.info(f"Sending Interview: simulation_id={simulation_id}, agent_id={agent_id}, platform={platform}")
-            raise ValueError(f"模拟环境未运行或已关闭，无法执行Interview: {simulation_id}")
-
-        logger.info(f"Sending interview command: simulation_id={simulation_id}, agent_id={agent_id}, platform={platform}")
 
         response = ipc_client.send_interview(
             agent_id=agent_id,
@@ -1205,7 +1173,6 @@ class SimulationRunner:
         platform: str = None,
         timeout: float = 180.0
     ) -> Dict[str, Any]:
-        """
         """Batch interview multiple agents. interviews: list of {agent_id, prompt, platform?}; platform is default."""
         sim_dir = os.path.join(cls.RUN_STATE_DIR, simulation_id)
         if not os.path.exists(sim_dir):
@@ -1216,9 +1183,6 @@ class SimulationRunner:
         if not ipc_client.check_env_alive():
             raise ValueError(f"Simulation env not running or closed, cannot run Interview: {simulation_id}")
         logger.info(f"Sending batch Interview: simulation_id={simulation_id}, count={len(interviews)}, platform={platform}")
-            raise ValueError(f"模拟环境未运行或已关闭，无法执行Interview: {simulation_id}")
-
-        logger.info(f"Sending batch interview command: simulation_id={simulation_id}, count={len(interviews)}, platform={platform}")
 
         response = ipc_client.send_batch_interview(
             interviews=interviews,
@@ -1294,13 +1258,7 @@ class SimulationRunner:
         if not ipc_client.check_env_alive():
             return {"success": True, "message": "Env already closed"}
         logger.info(f"Sending close-env command: simulation_id={simulation_id}")
-            return {
-                "success": True,
-                "message": "环境已经关闭"
-            }
-        
-        logger.info(f"Sending close environment command: simulation_id={simulation_id}")
-        
+
         try:
             response = ipc_client.send_close_env(timeout=timeout)
             return {

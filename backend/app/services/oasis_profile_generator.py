@@ -290,28 +290,13 @@ class OasisProfileGenerator:
     ) -> OasisAgentProfile:
         """Generate OASIS agent profile from a Zep entity."""
         entity_type = entity.get_entity_type() or "Entity"
+
+        # Basic info
         name = entity.name
         user_name = self._generate_username(name)
         context = self._build_entity_context(entity)
-        """
-        从Zep实体生成OASIS Agent Profile
 
-        Args:
-            entity: Zep实体节点
-            user_id: 用户ID（用于OASIS）
-            use_llm: 是否使用LLM生成详细人设
-            locale: 语言偏好 ('zh', 'en', 'ko')
-
-        Returns:
-            OasisAgentProfile
-        """
-        entity_type = entity.get_entity_type() or "Entity"
-
-        # 基础信息
-        name = entity.name
-        user_name = self._generate_username(name)
-
-        # 构建上下文信息
+        # Build context info
         context = self._build_entity_context(entity)
 
         if use_llm:
@@ -385,23 +370,9 @@ class OasisProfileGenerator:
             "context": ""
         }
 
-        # 必须有graph_id才能进行搜索
-        Fetch rich context for an entity via Zep graph search (edges + nodes in parallel).
-        Returns dict with facts, node_summaries, context.
-        """
-        import concurrent.futures
-        if not self.zep_client:
-            return {"facts": [], "node_summaries": [], "context": ""}
-        entity_name = entity.name
-        results = {"facts": [], "node_summaries": [], "context": ""}
         if not self.graph_id:
             logger.debug("Skipping Zep retrieval: graph_id not set")
-            logger.debug("跳过Zep检索：未设置graph_id")
             return results
-
-        # 使用实体名称作为查询，而不是复杂的中文描述
-        # Zep Cloud search 对中文支持有限，尝试直接用实体名搜索
-        comprehensive_query = entity_name
 
         comprehensive_query = f"All information, activities, events, relationships and background about {entity_name}"
         
@@ -451,16 +422,6 @@ class OasisProfileGenerator:
                     else:
                         logger.debug(f"Zep node search failed after {max_retries} attempts: {e}")
             return None
-        try:
-            with concurrent.futures.ThreadPoolExecutor(max_workers=2) as executor:
-                edge_future = executor.submit(search_edges)
-                node_future = executor.submit(search_nodes)
-                edge_result = edge_future.result(timeout=30)
-                node_result = node_future.result(timeout=30)
-            logger.debug(f"跳过检索：未设置graph_id")
-            return results
-
-        comprehensive_query = f"关于{entity_name}的所有信息、活动、事件、关系和背景"
 
         try:
             edge_result = self._provider.search_for_entity_context(
@@ -478,15 +439,6 @@ class OasisProfileGenerator:
                         all_facts.add(fact)
             results["facts"] = list(all_facts)
             
-            all_summaries = set()
-            if node_result and hasattr(node_result, 'nodes') and node_result.nodes:
-                for node in node_result.nodes:
-                    if hasattr(node, 'summary') and node.summary:
-                        all_summaries.add(node.summary)
-                    if hasattr(node, 'name') and node.name and node.name != entity_name:
-                        all_summaries.add(f"Related entity: {node.name}")
-            results["node_summaries"] = list(all_summaries)
-
             # 构建综合上下文
             context_parts = []
             if results["facts"]:
@@ -494,20 +446,10 @@ class OasisProfileGenerator:
             if results["node_summaries"]:
                 context_parts.append("Related entities:\n" + "\n".join(f"- {s}" for s in results["node_summaries"][:10]))
             results["context"] = "\n\n".join(context_parts)
-            logger.info(f"Zep hybrid search done: {entity_name}, {len(results['facts'])} facts, {len(results['node_summaries'])} nodes")
-            
             logger.info(f"Zep hybrid search complete: {entity_name}, got {len(results['facts'])} facts, {len(results['node_summaries'])} related nodes")
-            
-        except concurrent.futures.TimeoutError:
-            logger.warning(f"Zep retrieval timeout ({entity_name})")
+
         except Exception as e:
             logger.warning(f"Zep retrieval failed ({entity_name}): {e}")
-        
-
-            logger.info(f"Memory provider检索完成: {entity_name}, 获取 {len(results['facts'])} 条事实")
-
-        except Exception as e:
-            logger.warning(f"Memory provider检索失败 ({entity_name}): {e}")
 
         return results
     
@@ -586,13 +528,6 @@ class OasisProfileGenerator:
         locale: str = 'zh'
     ) -> Dict[str, Any]:
         """Generate detailed persona via LLM; individual vs group/org prompts."""
-        """
-        使用LLM生成非常详细的人设
-
-        根据实体类型区分：
-        - 个人实体：生成具体的人物设定
-        - 群体/机构实体：生成代表性账号设定
-        """
 
         is_individual = self._is_individual_entity(entity_type)
 
@@ -607,46 +542,6 @@ class OasisProfileGenerator:
 
         max_attempts = 3
         last_error = None
-        for attempt in range(max_attempts):
-            try:
-                kwargs = {
-                    "model": self.model_name,
-                    "messages": [
-                        {"role": "system", "content": self._get_system_prompt(is_individual)},
-
-        for attempt in range(max_attempts):
-            try:
-                response = self.client.chat.completions.create(
-                    model=self.model_name,
-                    messages=[
-                        {"role": "system", "content": self._get_system_prompt(is_individual, locale)},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "temperature": 0.7 - (attempt * 0.1)  # 每次重试降低温度
-                    # 不设置max_tokens，让LLM自由发挥
-                }
-                
-                # 尝试使用 response_format，如果不支持则回退
-                try:
-                    kwargs["response_format"] = {"type": "json_object"}
-                    response = self.client.chat.completions.create(**kwargs)
-                except Exception as api_error:
-                    error_str = str(api_error).lower()
-                    if ("response_format" in error_str or 
-                        "json_object" in error_str or
-                        "unsupported" in error_str or
-                        "400" in error_str or
-                        "500" in error_str):
-                        # 移除 response_format 后重试
-                        kwargs.pop("response_format", None)
-                        response = self.client.chat.completions.create(**kwargs)
-                    else:
-                        raise
-                
-                    response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)
-                )
-                content = response.choices[0].message.content
         use_minimax = _is_minimax(self.model_name, self.base_url)
 
         for attempt in range(max_attempts):
@@ -680,7 +575,7 @@ class OasisProfileGenerator:
                     content = self._fix_truncated_json(content)
                 try:
                     result = json.loads(content)
-                    
+
                     # Normalize types from LLM output
                     for str_field in ('bio', 'persona', 'country', 'profession'):
                         if str_field in result and result[str_field] is not None:
@@ -689,35 +584,24 @@ class OasisProfileGenerator:
                         result['interested_topics'] = _coerce_to_str_list(
                             result['interested_topics']
                         )
-                    
-
-                # 尝试解析JSON
-                try:
-                    result = parse_json_from_response(content)
 
                     # 验证必需字段
                     if "bio" not in result or not result["bio"]:
                         result["bio"] = entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}"
                     if "persona" not in result or not result["persona"]:
-                        result["persona"] = entity_summary or f"{entity_name} is a {entity_type}."
-                        result["persona"] = entity_summary or f"A {entity_type} named {entity_name}." if self.language == 'en' else f"{entity_name}是一个{entity_type}。"
-                    
-                    return result
-                except json.JSONDecodeError as je:
-                    logger.warning(f"JSON parse failed (attempt {attempt+1}): {str(je)[:80]}")
-                        result["persona"] = entity_summary or f"{entity_name}是一个{entity_type}。"
+                        result["persona"] = entity_summary or (f"A {entity_type} named {entity_name}." if self.language == 'en' else f"{entity_name}是一个{entity_type}。")
 
                     return result
 
                 except (json.JSONDecodeError, ValueError) as je:
-                    logger.warning(f"JSON解析失败 (attempt {attempt+1}): {str(je)[:80]}")
+                    logger.warning(f"JSON parse failed (attempt {attempt+1}): {str(je)[:80]}")
 
                     # 尝试修复JSON
                     result = self._try_fix_json(content, entity_name, entity_type, entity_summary)
                     if result.get("_fixed"):
                         del result["_fixed"]
                         return result
-                    
+
                     last_error = je
                     
             except Exception as e:
@@ -733,7 +617,6 @@ class OasisProfileGenerator:
     def _fix_truncated_json(self, content: str) -> str:
         """Try to close truncated JSON (e.g. cut by max_tokens)."""
         import re
-        """修复被截断的JSON（输出被max_tokens限制截断）"""
         
         # 如果JSON被截断，尝试闭合它
         content = content.strip()
@@ -771,32 +654,23 @@ class OasisProfileGenerator:
                     result = json.loads(json_str)
                     result["_fixed"] = True
                     return result
-                except Exception:
-                except:  # noqa: E722
+                except Exception:  # noqa: E722
                     pass
         bio_match = re.search(r'"bio"\s*:\s*"([^"]*)"', content)
         persona_match = re.search(r'"persona"\s*:\s*"([^"]*)', content)
         bio = bio_match.group(1) if bio_match else (entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}")
-        persona = persona_match.group(1) if persona_match else (entity_summary or f"{entity_name} is a {entity_type}.")
         persona = persona_match.group(1) if persona_match else (entity_summary or (f"A {entity_type} named {entity_name}." if self.language == 'en' else f"{entity_name}是一个{entity_type}。"))
-        
+
         # 如果提取到了有意义的内容，标记为已修复
         if bio_match or persona_match:
             logger.info("Extracted partial info from malformed JSON")
             return {"bio": bio, "persona": persona, "_fixed": True}
-        logger.warning("JSON repair failed, returning fallback structure")
-            logger.info("Extracted partial info from broken JSON")
-            return {
-                "bio": bio,
-                "persona": persona,
-                "_fixed": True
-            }
-        
+
         # 7. 完全失败，返回基础结构
         logger.warning("JSON修复失败，返回基础结构")
         return {
             "bio": entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}",
-            "persona": entity_summary or f"{entity_name} is a {entity_type}."
+            "persona": entity_summary or (f"A {entity_type} named {entity_name}." if self.language == 'en' else f"{entity_name}是一个{entity_type}。")
         }
     
     def _get_system_prompt(self, is_individual: bool) -> str:
@@ -830,17 +704,6 @@ class OasisProfileGenerator:
         locale: str = 'zh'
     ) -> str:
         """Build prompt for individual entity persona."""
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
-        context_str = context[:3000] if context else "No extra context"
-        return f"""Generate a detailed social media user persona for this entity.
-        """构建个人实体的详细人设提示词"""
-
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
-        context_str = context[:3000] if context else "无额外上下文"
-        lang_label = _LANG_LABEL.get(locale, '中文')
-
-        return f"""为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
-
         if self.language == 'en':
             attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
             context_str = context[:3000] if context else "No additional context"
@@ -905,28 +768,6 @@ Return JSON with these fields:
 8. interested_topics: array of strings
 
 Rules: all values must be strings or numbers, no newlines; persona must be one coherent paragraph; use Chinese except gender must be "male"/"female"; age must be integer, gender must be "male" or "female".
-1. bio: 社交媒体简介，200字
-2. persona: 详细人设描述（2000字的纯文本），需包含:
-   - 基本信息（年龄、职业、教育背景、所在地）
-   - 人物背景（重要经历、与事件的关联、社会关系）
-   - 性格特征（MBTI类型、核心性格、情绪表达方式）
-   - 社交媒体行为（发帖频率、内容偏好、互动风格、语言特点）
-   - 立场观点（对话题的态度、可能被激怒/感动的内容）
-   - 独特特征（口头禅、特殊经历、个人爱好）
-   - 个人记忆（人设的重要部分，要介绍这个个体与事件的关联，以及这个个体在事件中的已有动作与反应）
-3. age: 年龄数字（必须是整数）
-4. gender: 性别，必须是英文: "male" 或 "female"
-5. mbti: MBTI类型（如INTJ、ENFP等）
-6. country: 国家（使用{lang_label}）
-7. profession: 职业
-8. interested_topics: 感兴趣话题数组
-
-重要:
-- 所有字段值必须是字符串或数字，不要使用换行符
-- persona必须是一段连贯的文字描述
-- 使用{lang_label}（除了gender字段必须用英文male/female）
-- 内容要与实体信息保持一致
-- age必须是有效的整数，gender必须是"male"或"female"
 """
 
     def _build_group_persona_prompt(
@@ -939,16 +780,6 @@ Rules: all values must be strings or numbers, no newlines; persona must be one c
         locale: str = 'zh'
     ) -> str:
         """Build prompt for group/organization entity persona."""
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
-        context_str = context[:3000] if context else "No extra context"
-        return f"""Generate a detailed social media account persona for this organization/group entity.
-        """构建群体/机构实体的详细人设提示词"""
-
-        attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
-        context_str = context[:3000] if context else "无额外上下文"
-        lang_label = _LANG_LABEL.get(locale, '中文')
-
-        return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
 
         if self.language == 'en':
             attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
@@ -991,6 +822,7 @@ Important:
         else:
             attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
             context_str = context[:3000] if context else "无额外上下文"
+            lang_label = _LANG_LABEL.get(locale, '中文')
 
             return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
 
@@ -1002,9 +834,6 @@ Entity attributes: {attrs_str}
 Context:
 {context_str}
 
-Return JSON with: 1. bio: official account bio (~200 chars). 2. persona: detailed account persona (~2000 chars) covering: org basics (name, nature, founding, main functions), account positioning (type, audience, core role), tone and style, content and posting habits, stance and controversy handling, represented group, org memory (link to event and past actions/reactions). 3. age: 30. 4. gender: "other". 5. mbti: e.g. ISTJ for formal style. 6. country: use Chinese. 7. profession: org role. 8. interested_topics: array.
-
-Rules: no nulls; persona one coherent paragraph, no newlines; use Chinese except gender="other"; age=30, gender="other"; tone must match org identity."""
 1. bio: 官方账号简介，200字，专业得体
 2. persona: 详细账号设定描述（2000字的纯文本），需包含:
    - 机构基本信息（正式名称、机构性质、成立背景、主要职能）
@@ -1394,19 +1223,9 @@ Rules: no nulls; persona one coherent paragraph, no newlines; use Chinese except
                 item["profession"] = profession
             if interested_topics:
                 item["interested_topics"] = interested_topics
-            
-                "country": profile.country if profile.country else "China",
-            }
-            if profile.profession:
-                item["profession"] = profile.profession
-            if profile.interested_topics:
-                item["interested_topics"] = profile.interested_topics
             data.append(item)
         with open(file_path, 'w', encoding='utf-8') as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
-        logger.info(f"Saved {len(profiles)} Reddit profiles to {file_path} (JSON with user_id)")
-
-        
         logger.info(f"Saved {len(profiles)} Reddit profiles to {file_path} (JSON format with user_id)")
     
     # 保留旧方法名作为别名，保持向后兼容

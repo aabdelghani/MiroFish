@@ -725,24 +725,18 @@ class ZepToolsService:
             page = self.kg.get_nodes(graph_id, limit=100, cursor=cursor)
             if not page:
                 break
-            # 将 dict 转换为 NodeInfo 对象
             for item in page:
                 if isinstance(item, dict):
                     nodes.append(NodeInfo(item))
                 else:
                     nodes.append(item)
             page_count += 1
-        Returns:
-            节点列表
-        """
-        logger.info(get_error_message('zep_graph_nodes', _ZEP_LOG_LOCALE).format(graph_id=graph_id))
 
             # 如果返回数量 < limit，说明是最后一页
             if len(page) < 100:
                 break
 
             # 尝试获取下一页 - Zep Cloud 使用 uuid_cursor 参数
-            # 由于 API 不返回 next_cursor，我们需要用最后一条的 uuid 作为 cursor
             last_item = page[-1]
             cursor = getattr(last_item, 'uuid_', None) or getattr(last_item, 'uuid', None)
             if not cursor:
@@ -786,10 +780,6 @@ class ZepToolsService:
                 else:
                     edges.append(item)
             page_count += 1
-        Returns:
-            边列表（包含created_at, valid_at, invalid_at, expired_at）
-        """
-        logger.info(get_error_message('zep_graph_edges', _ZEP_LOG_LOCALE).format(graph_id=graph_id))
 
             if len(page) < 100:
                 break
@@ -834,16 +824,9 @@ class ZepToolsService:
         Returns:
             节点信息或None
         """
-        logger.info(f"获取节点详情: {node_uuid[:8]}...")
-
-        try:
-            node = self._call_with_retry(
-                func=lambda: self.kg.get_node(node_uuid),
-                operation_name=f"获取节点详情(uuid={node_uuid[:8]}...)"
         """Get a single node by UUID."""
-        logger.info(f"Getting node detail: {node_uuid[:8]}...")
         logger.info(get_error_message('log_zep_node_detail', _ZEP_LOG_LOCALE).format(uuid=node_uuid[:8]))
-        
+
         try:
             node = self._call_with_retry(
                 func=lambda: self.client.graph.node.get(uuid_=node_uuid),

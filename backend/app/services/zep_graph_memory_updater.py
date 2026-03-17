@@ -58,22 +58,12 @@ class AgentActivity:
     def _describe_create_post(self) -> str:
         content = self.action_args.get("content", "")
         if content:
-            return f"Posted: \"{content}\""
-        return "Posted a post"
             return get_error_message('activity_create_post', _ACTIVITY_LOCALE).format(content=content)
         return get_error_message('activity_create_post_no_content', _ACTIVITY_LOCALE)
 
     def _describe_like_post(self) -> str:
         post_content = self.action_args.get("post_content", "")
         post_author = self.action_args.get("post_author_name", "")
-        if post_content and post_author:
-            return f"Liked {post_author}'s post: \"{post_content}\""
-        elif post_content:
-            return f"Liked a post: \"{post_content}\""
-        elif post_author:
-            return f"Liked one of {post_author}'s posts"
-        return "Liked a post"
-
         if post_content and post_author:
             return get_error_message('activity_like_post_full', _ACTIVITY_LOCALE).format(author=post_author, content=post_content)
         elif post_content:
@@ -86,14 +76,6 @@ class AgentActivity:
         post_content = self.action_args.get("post_content", "")
         post_author = self.action_args.get("post_author_name", "")
         if post_content and post_author:
-            return f"Disliked {post_author}'s post: \"{post_content}\""
-        elif post_content:
-            return f"Disliked a post: \"{post_content}\""
-        elif post_author:
-            return f"Disliked one of {post_author}'s posts"
-        return "Disliked a post"
-
-        if post_content and post_author:
             return get_error_message('activity_dislike_post_full', _ACTIVITY_LOCALE).format(author=post_author, content=post_content)
         elif post_content:
             return get_error_message('activity_dislike_post_content', _ACTIVITY_LOCALE).format(content=post_content)
@@ -104,14 +86,6 @@ class AgentActivity:
     def _describe_repost(self) -> str:
         original_content = self.action_args.get("original_content", "")
         original_author = self.action_args.get("original_author_name", "")
-        if original_content and original_author:
-            return f"Reposted {original_author}'s post: \"{original_content}\""
-        elif original_content:
-            return f"Reposted a post: \"{original_content}\""
-        elif original_author:
-            return f"Reposted one of {original_author}'s posts"
-        return "Reposted a post"
-
         if original_content and original_author:
             return get_error_message('activity_repost_full', _ACTIVITY_LOCALE).format(author=original_author, content=original_content)
         elif original_content:
@@ -124,17 +98,6 @@ class AgentActivity:
         original_content = self.action_args.get("original_content", "")
         original_author = self.action_args.get("original_author_name", "")
         quote_content = self.action_args.get("quote_content", "") or self.action_args.get("content", "")
-        if original_content and original_author:
-            base = f"Quoted {original_author}'s post \"{original_content}\""
-        elif original_content:
-            base = f"Quoted a post \"{original_content}\""
-        elif original_author:
-            base = f"Quoted one of {original_author}'s posts"
-        else:
-            base = "Quoted a post"
-        if quote_content:
-            base += f", commenting: \"{quote_content}\""
-
         if original_content and original_author:
             base = get_error_message('activity_quote_full', _ACTIVITY_LOCALE).format(author=original_author, content=original_content)
         elif original_content:
@@ -151,10 +114,6 @@ class AgentActivity:
     def _describe_follow(self) -> str:
         target_user_name = self.action_args.get("target_user_name", "")
         if target_user_name:
-            return f"Followed user \"{target_user_name}\""
-        return "Followed a user"
-
-        if target_user_name:
             return get_error_message('activity_follow_user', _ACTIVITY_LOCALE).format(user=target_user_name)
         return get_error_message('activity_follow', _ACTIVITY_LOCALE)
 
@@ -162,16 +121,6 @@ class AgentActivity:
         content = self.action_args.get("content", "")
         post_content = self.action_args.get("post_content", "")
         post_author = self.action_args.get("post_author_name", "")
-        if content:
-            if post_content and post_author:
-                return f"Commented on {post_author}'s post \"{post_content}\": \"{content}\""
-            elif post_content:
-                return f"Commented on post \"{post_content}\": \"{content}\""
-            elif post_author:
-                return f"Commented on {post_author}'s post: \"{content}\""
-            return f"Commented: \"{content}\""
-        return "Posted a comment"
-
         if content:
             if post_content and post_author:
                 return get_error_message('activity_comment_full', _ACTIVITY_LOCALE).format(author=post_author, post=post_content, content=content)
@@ -186,14 +135,6 @@ class AgentActivity:
         comment_content = self.action_args.get("comment_content", "")
         comment_author = self.action_args.get("comment_author_name", "")
         if comment_content and comment_author:
-            return f"Liked {comment_author}'s comment: \"{comment_content}\""
-        elif comment_content:
-            return f"Liked a comment: \"{comment_content}\""
-        elif comment_author:
-            return f"Liked one of {comment_author}'s comments"
-        return "Liked a comment"
-
-        if comment_content and comment_author:
             return get_error_message('activity_like_comment_full', _ACTIVITY_LOCALE).format(author=comment_author, content=comment_content)
         elif comment_content:
             return get_error_message('activity_like_comment_content', _ACTIVITY_LOCALE).format(content=comment_content)
@@ -205,14 +146,6 @@ class AgentActivity:
         comment_content = self.action_args.get("comment_content", "")
         comment_author = self.action_args.get("comment_author_name", "")
         if comment_content and comment_author:
-            return f"Disliked {comment_author}'s comment: \"{comment_content}\""
-        elif comment_content:
-            return f"Disliked a comment: \"{comment_content}\""
-        elif comment_author:
-            return f"Disliked one of {comment_author}'s comments"
-        return "Disliked a comment"
-
-        if comment_content and comment_author:
             return get_error_message('activity_dislike_comment_full', _ACTIVITY_LOCALE).format(author=comment_author, content=comment_content)
         elif comment_content:
             return get_error_message('activity_dislike_comment_content', _ACTIVITY_LOCALE).format(content=comment_content)
@@ -222,14 +155,12 @@ class AgentActivity:
 
     def _describe_search(self) -> str:
         query = self.action_args.get("query", "") or self.action_args.get("keyword", "")
-        return f"Searched for \"{query}\"" if query else "Performed a search"
         if query:
             return get_error_message('activity_search', _ACTIVITY_LOCALE).format(query=query)
         return get_error_message('activity_search_generic', _ACTIVITY_LOCALE)
 
     def _describe_search_user(self) -> str:
         query = self.action_args.get("query", "") or self.action_args.get("username", "")
-        return f"Searched for user \"{query}\"" if query else "Searched for users"
         if query:
             return get_error_message('activity_search_user', _ACTIVITY_LOCALE).format(query=query)
         return get_error_message('activity_search_user_generic', _ACTIVITY_LOCALE)
@@ -237,39 +168,15 @@ class AgentActivity:
     def _describe_mute(self) -> str:
         target_user_name = self.action_args.get("target_user_name", "")
         if target_user_name:
-            return f"Muted user \"{target_user_name}\""
-        return "Muted a user"
-
-    def _describe_generic(self) -> str:
-        return f"Performed {self.action_type}"
-
-        if target_user_name:
             return get_error_message('activity_mute_user', _ACTIVITY_LOCALE).format(user=target_user_name)
         return get_error_message('activity_mute', _ACTIVITY_LOCALE)
 
     def _describe_generic(self) -> str:
-        # 对于未知的动作类型，生成通用描述
         return get_error_message('activity_generic', _ACTIVITY_LOCALE).format(action=self.action_type)
 
 
 class ZepGraphMemoryUpdater:
     """
-    图谱记忆更新器
-
-    监控模拟的actions日志文件，将新的agent活动实时更新到图谱中。
-    按平台分组，每累积BATCH_SIZE条活动后批量发送。
-
-    所有有意义的行为都会被更新到图谱，action_args中会包含完整的上下文信息：
-    - 点赞/踩的帖子原文
-    - 转发/引用的帖子原文
-    - 关注/屏蔽的用户名
-    - 点赞/踩的评论原文
-    """
-
-    # 批量发送大小（每个平台累积多少条后发送）
-    BATCH_SIZE = 5
-
-    # 平台名称映射（用于控制台显示）
     Zep graph memory updater.
 
     Watches simulation action logs and pushes new agent activities into the Zep graph.
@@ -285,32 +192,10 @@ class ZepGraphMemoryUpdater:
         "reddit": "World 2",
     }
 
-    # 发送间隔（秒），避免请求过快
-    SEND_INTERVAL = 0.5
-
-    # 重试配置
-    MAX_RETRIES = 3
-    RETRY_DELAY = 2  # 秒
-
-    def __init__(self, graph_id: str, api_key: Optional[str] = None):
-        """
-        初始化更新器
-
-        Args:
-            graph_id: 图谱ID
-            api_key: 保留参数（兼容旧代码）
-        """
-        self.graph_id = graph_id
-        self.api_key = api_key  # 保留参数兼容性
-
-        # 使用适配器
-        self.kg = get_knowledge_graph_adapter()
-        
-        # 活动队列
     SEND_INTERVAL = 0.5
     MAX_RETRIES = 3
     RETRY_DELAY = 2
-    
+
     def __init__(self, graph_id: str, api_key: Optional[str] = None):
         """
         Initialize the updater.
@@ -340,17 +225,6 @@ class ZepGraphMemoryUpdater:
         self._failed_count = 0
         self._skipped_count = 0
 
-        logger.info(
-            f"ZepGraphMemoryUpdater initialized: graph_id={graph_id}, batch_size={self.BATCH_SIZE}"
-        )
-        
-        # 统计
-        self._total_activities = 0  # 实际添加到队列的活动数
-        self._total_sent = 0        # 成功发送到Zep的批次数
-        self._total_items_sent = 0  # 成功发送到Zep的活动条数
-        self._failed_count = 0      # 发送失败的批次数
-        self._skipped_count = 0     # 被过滤跳过的活动数（DO_NOTHING）
-        
         logger.info(f"ZepGraphMemoryUpdater initialized: graph_id={graph_id}, batch_size={self.BATCH_SIZE}")
     
     def _get_platform_display_name(self, platform: str) -> str:
@@ -474,34 +348,21 @@ class ZepGraphMemoryUpdater:
         episode_texts = [activity.to_episode_text() for activity in activities]
         combined_text = "\n".join(episode_texts)
 
-        # 带重试的发送
         for attempt in range(self.MAX_RETRIES):
             try:
                 self.kg.add_episode(
                     graph_id=self.graph_id,
-                    text=combined_text
-                )
-
+                    text=combined_text,
                     type="text",
                     data=combined_text,
                 )
                 self._total_sent += 1
                 self._total_items_sent += len(activities)
                 display_name = self._get_platform_display_name(platform)
-                logger.info(
-                    f"Sent batch of {len(activities)} {display_name} activities to graph {self.graph_id}"
-                )
-                logger.debug(f"Batch preview: {combined_text[:200]}...")
                 logger.info(get_error_message('zep_batch_sent', _ACTIVITY_LOCALE).format(count=len(activities), platform=display_name, graph_id=self.graph_id))
-                logger.debug(f"批量内容预览: {combined_text[:200]}...")
+                logger.debug(f"Batch preview: {combined_text[:200]}...")
                 return
 
-            except Exception as e:
-                if attempt < self.MAX_RETRIES - 1:
-                    logger.warning(f"批量发送到图谱失败 (尝试 {attempt + 1}/{self.MAX_RETRIES}): {e}")
-                    time.sleep(self.RETRY_DELAY * (attempt + 1))
-                else:
-                    logger.error(f"批量发送到图谱失败，已重试{self.MAX_RETRIES}次: {e}")
             except Exception as e:
                 if attempt < self.MAX_RETRIES - 1:
                     logger.warning(

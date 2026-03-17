@@ -217,31 +217,6 @@ class SimulationManager:
         language: str = "zh"
     ) -> SimulationState:
         """Prepare simulation: read entities, generate profiles, LLM config, save files."""
-        locale: str = 'zh'
-    ) -> SimulationState:
-        """
-        准备模拟环境（全程自动化）
-
-        步骤：
-        1. 从Zep图谱读取并过滤实体
-        2. 为每个实体生成OASIS Agent Profile（可选LLM增强，支持并行）
-        3. 使用LLM智能生成模拟配置参数（时间、活跃度、发言频率等）
-        4. 保存配置文件和Profile文件
-        5. 复制预设脚本到模拟目录
-
-        Args:
-            simulation_id: 模拟ID
-            simulation_requirement: 模拟需求描述（用于LLM生成配置）
-            document_text: 原始文档内容（用于LLM理解背景）
-            defined_entity_types: 预定义的实体类型（可选）
-            use_llm_for_profiles: 是否使用LLM生成详细人设
-            progress_callback: 进度回调函数 (stage, progress, message)
-            parallel_profile_count: 并行生成人设的数量，默认3
-            locale: 语言偏好 ('zh', 'en', 'ko')，用于LLM输出语言
-
-        Returns:
-            SimulationState
-        """
         state = self._load_simulation_state(simulation_id)
         if not state:
             raise ValueError(f"Simulation not found: {simulation_id}")
@@ -254,17 +229,11 @@ class SimulationManager:
             
             if progress_callback:
                 progress_callback("reading", 0, "Connecting to Zep graph...")
-            reader = ZepEntityReader()
-            if progress_callback:
-                progress_callback("reading", 30, "Reading node data...")
-            
-            filtered = reader.filter_defined_entities(
-                progress_callback("reading", 0, "正在连接图谱...")
-            
+
             provider = get_memory_provider()
 
             if progress_callback:
-                progress_callback("reading", 30, "正在读取节点数据...")
+                progress_callback("reading", 30, "Reading node data...")
 
             filtered = provider.filter_defined_entities(
                 graph_id=state.graph_id,
@@ -293,14 +262,9 @@ class SimulationManager:
                 progress_callback(
                     "generating_profiles", 0,
                     "Starting...",
-                    "generating_profiles", 0, 
-                    get_error_message('sim_profile_start', locale),
                     current=0,
                     total=total_entities
                 )
-            generator = OasisProfileGenerator(graph_id=state.graph_id)
-            
-            # 传入graph_id以启用Zep检索功能，获取更丰富的上下文
             generator = OasisProfileGenerator(graph_id=state.graph_id, language=language)
             
             def profile_progress(current, total, msg):
@@ -330,12 +294,7 @@ class SimulationManager:
                 graph_id=state.graph_id,
                 parallel_count=parallel_profile_count,
                 realtime_output_path=realtime_output_path,
-                output_platform=realtime_platform
-                graph_id=state.graph_id,  # 传入graph_id用于Zep检索
-                parallel_count=parallel_profile_count,  # 并行生成数量
-                realtime_output_path=realtime_output_path,  # 实时保存路径
-                output_platform=realtime_platform,  # 输出格式
-                locale=locale  # 语言偏好
+                output_platform=realtime_platform,
             )
             
             state.profiles_count = len(profiles)

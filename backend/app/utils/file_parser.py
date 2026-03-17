@@ -1,11 +1,7 @@
 """
-文件解析工具
-支持PDF、Markdown、TXT、XML文件的文本提取
-File parsing utilities.
-Extract text from PDF, Markdown, and TXT files.
 File parsing utilities.
 
-Supports text extraction from PDF, Markdown, and TXT files.
+Supports text extraction from PDF, Markdown, TXT, and XML files.
 """
 
 import os
@@ -15,44 +11,19 @@ from typing import List
 
 
 def _read_text_with_fallback(file_path: str) -> str:
-    """
-    Read text file; on UTF-8 failure, detect encoding.
+    """Read a text file with automatic encoding detection on UTF-8 failure.
+
     Fallback order: UTF-8 -> charset_normalizer -> chardet -> UTF-8 with replace.
     """
     data = Path(file_path).read_bytes()
 
-    Read a text file, automatically detecting encoding if UTF‑8 fails.
-
-    Strategy:
-    1. Try UTF‑8 decode first.
-    2. Use charset_normalizer to detect encoding.
-    3. Fall back to chardet.
-    4. Finally default to UTF‑8 with errors='replace'.
-    Read a text file, automatically detecting encoding if UTF-8 fails.
-
-    Strategy:
-    1. Try UTF-8 decode first.
-    2. Use charset_normalizer to detect encoding.
-    3. Fall back to chardet.
-    4. Finally default to UTF-8 with errors='replace'.
-
-    Args:
-        file_path: File path.
-
-    Returns:
-        Decoded text content.
-    """
-    data = Path(file_path).read_bytes()
-    
-    # First, try UTF‑8
-    # First, try UTF-8
+    # First, try UTF-8.
     try:
         return data.decode('utf-8')
     except UnicodeDecodeError:
         pass
 
-    
-    # Try charset_normalizer to detect encoding
+    # Try charset_normalizer to detect encoding.
     encoding = None
     try:
         from charset_normalizer import from_bytes
@@ -62,8 +33,7 @@ def _read_text_with_fallback(file_path: str) -> str:
     except Exception:
         pass
 
-    
-    # Fall back to chardet
+    # Fall back to chardet.
     if not encoding:
         try:
             import chardet
@@ -72,52 +42,38 @@ def _read_text_with_fallback(file_path: str) -> str:
         except Exception:
             pass
 
-    
-    # Final fallback: UTF‑8 + replace
-    # Final fallback: UTF-8 + replace
+    # Final fallback: UTF-8 with replace.
     if not encoding:
         encoding = 'utf-8'
-    
+
     return data.decode(encoding, errors='replace')
 
 
 class FileParser:
-    """File parser."""
-    """High‑level file parser."""
     """High-level file parser."""
-    
+
     SUPPORTED_EXTENSIONS = {'.pdf', '.md', '.markdown', '.txt', '.xml'}
-    
+
     @classmethod
     def extract_text(cls, file_path: str) -> str:
-        """Extract text from file. Args: file_path. Returns extracted text."""
-        """
-        Extract plain text from a file.
-
-        Args:
-            file_path: Path to the file.
-
-        Returns:
-            Extracted text content.
-        """
+        """Extract plain text from a file. Args: file_path. Returns extracted text."""
         path = Path(file_path)
 
-        # Ensure file is within expected directories (uploads)
+        # Ensure file is within expected directories (uploads).
         from ..config import Config
         base_dir = os.path.realpath(Config.UPLOAD_FOLDER)
         resolved = os.path.realpath(str(path))
         if not resolved.startswith(base_dir + os.sep) and resolved != base_dir:
-            raise ValueError(f"文件路径越界: {file_path}")
+            raise ValueError(f"File path is outside the allowed directory: {file_path}")
 
         if not path.exists():
             raise FileNotFoundError(f"File not found: {file_path}")
-        
+
         suffix = path.suffix.lower()
-        
+
         if suffix not in cls.SUPPORTED_EXTENSIONS:
-            raise ValueError(f"Unsupported file format: {suffix}")
             raise ValueError(f"Unsupported file extension: {suffix}")
-        
+
         if suffix == '.pdf':
             return cls._extract_from_pdf(file_path)
         elif suffix in {'.md', '.markdown'}:
@@ -127,58 +83,38 @@ class FileParser:
         elif suffix == '.xml':
             return cls._extract_from_xml(file_path)
 
-        raise ValueError(f"无法处理的文件格式: {suffix}")
-        
         raise ValueError(f"Unhandled file extension: {suffix}")
-    
-        
-        raise ValueError(f"Unhandled file format: {suffix}")
 
     @staticmethod
     def _extract_from_pdf(file_path: str) -> str:
-        """Extract text from PDF."""
-        try:
-            import fitz  # PyMuPDF
-        except ImportError:
-            raise ImportError("PyMuPDF required: pip install PyMuPDF")
-        """Extract text from a PDF file."""
-        try:
-            import fitz  # PyMuPDF
-        except ImportError:
         """Extract text from a PDF file."""
         try:
             import fitz  # PyMuPDF
         except ImportError:
             raise ImportError("PyMuPDF is required: pip install PyMuPDF")
-        
+
         text_parts = []
         with fitz.open(file_path) as doc:
             for page in doc:
                 text = page.get_text()
                 if text.strip():
                     text_parts.append(text)
-        
+
         return "\n\n".join(text_parts)
-    
+
     @staticmethod
     def _extract_from_md(file_path: str) -> str:
-        """Extract text from Markdown with encoding detection."""
         """Extract text from a Markdown file (with automatic encoding detection)."""
         return _read_text_with_fallback(file_path)
 
     @staticmethod
     def _extract_from_txt(file_path: str) -> str:
-        """Extract text from TXT with encoding detection."""
         """Extract text from a TXT file (with automatic encoding detection)."""
         return _read_text_with_fallback(file_path)
 
     @staticmethod
     def _extract_from_xml(file_path: str) -> str:
-        """
-        从XML文件提取文本，使用流式解析支持大文件。
-        自动检测Wikipedia XML dump格式，提取文章标题和正文。
-        对于普通XML，递归提取所有文本内容。
-        """
+        """Extract text from an XML file (auto-detects MediaWiki dump format)."""
         is_mediawiki = False
         try:
             for event, elem in ET.iterparse(file_path, events=('start',)):
@@ -196,10 +132,7 @@ class FileParser:
 
     @staticmethod
     def _extract_mediawiki_xml(file_path: str) -> str:
-        """
-        流式解析Wikipedia/MediaWiki XML dump。
-        提取每篇文章的标题和正文，适合1GB+大文件。
-        """
+        """Stream-parse a Wikipedia/MediaWiki XML dump and extract article titles and body text."""
         parts = []
         current_title = None
 
@@ -221,13 +154,11 @@ class FileParser:
 
     @staticmethod
     def _extract_generic_xml(file_path: str) -> str:
-        """
-        解析普通XML文件，递归提取所有文本节点内容。
-        """
+        """Parse a generic XML file and recursively extract all text node content."""
         try:
             tree = ET.parse(file_path)
         except ET.ParseError as e:
-            raise ValueError(f"XML解析失败: {e}")
+            raise ValueError(f"XML parse error: {e}")
 
         parts = []
 
@@ -246,16 +177,7 @@ class FileParser:
 
     @classmethod
     def extract_from_multiple(cls, file_paths: List[str]) -> str:
-        """Extract and concatenate text from multiple files. Args: file_paths. Returns concatenated text."""
-        """
-        Extract and concatenate text from multiple files.
-
-        Args:
-            file_paths: List of file paths.
-
-        Returns:
-            Combined text from all files.
-        """
+        """Extract and concatenate text from multiple files."""
         all_texts = []
 
         for i, file_path in enumerate(file_paths, 1):
@@ -265,7 +187,7 @@ class FileParser:
                 all_texts.append(f"=== Document {i}: {filename} ===\n{text}")
             except Exception as e:
                 all_texts.append(f"=== Document {i}: {file_path} (extraction failed: {str(e)}) ===")
-        
+
         return "\n\n".join(all_texts)
 
 
@@ -274,46 +196,30 @@ def split_text_into_chunks(
     chunk_size: int = 500,
     overlap: int = 50
 ) -> List[str]:
-    """Split text into chunks. Args: text, chunk_size, overlap. Returns list of chunks."""
-    """
-    Split a long text into overlapping chunks.
-
-    Args:
-        text: Original text.
-        chunk_size: Target number of characters per chunk.
-        overlap: Number of overlapping characters between chunks.
-
-    Returns:
-        List of text chunks.
-    """
+    """Split a long text into overlapping chunks."""
     if len(text) <= chunk_size:
         return [text] if text.strip() else []
-    
+
     chunks = []
     start = 0
-    
+
     while start < len(text):
         end = start + chunk_size
-        
-        # Prefer splitting at sentence boundaries
+
+        # Try to split at sentence boundaries.
         if end < len(text):
-        # Try to split at sentence boundaries
-        if end < len(text):
-        # Try to split at sentence boundaries
-        if end < len(text):
-            # Look for the nearest sentence terminator
+            # Look for the nearest sentence terminator.
             for sep in ['。', '！', '？', '.\n', '!\n', '?\n', '\n\n', '. ', '! ', '? ']:
                 last_sep = text[start:end].rfind(sep)
                 if last_sep != -1 and last_sep > chunk_size * 0.3:
                     end = start + last_sep + len(sep)
                     break
-        
+
         chunk = text[start:end].strip()
         if chunk:
             chunks.append(chunk)
-        
-        # Next chunk starts from the overlap position
-        start = end - overlap if end < len(text) else len(text)
-    
-    return chunks
 
+        # Next chunk starts from the overlap position.
+        start = end - overlap if end < len(text) else len(text)
+
+    return chunks

@@ -1,11 +1,3 @@
-"""Zep Graph paging utilities.
-
-Zep node/edge list APIs use UUID cursor pagination; this module wraps auto-pagination
-(including per-page retry) and returns full lists transparently to callers.
-"""Zep Graph pagination utilities.
-
-Zep's node/edge listing APIs use UUID cursors for pagination.
-This module wraps automatic page fetching (with per‑page retry) and returns
 """Zep Graph pagination utilities.
 
 Zep's node/edge listing APIs use UUID cursors for pagination.
@@ -40,14 +32,7 @@ def _fetch_page_with_retry(
     page_description: str = "page",
     **kwargs: Any,
 ) -> list[Any]:
-    """Fetch a single page with exponential-backoff retry on transient network/IO errors."""
-    """Fetch a single page with exponential backoff retry.
-
-    Only network/IO‑style transient errors are retried.
-    """Fetch a single page with exponential backoff retry.
-
-    Only network/IO-style transient errors are retried.
-    """
+    """Fetch a single page with exponential backoff retry. Only network/IO transient errors are retried."""
     if max_retries < 1:
         raise ValueError("max_retries must be >= 1")
 
@@ -80,12 +65,7 @@ def fetch_all_nodes(
     max_retries: int = _DEFAULT_MAX_RETRIES,
     retry_delay: float = _DEFAULT_RETRY_DELAY,
 ) -> list[Any]:
-    """Fetch graph nodes with pagination, up to max_items (default 2000). Each page is retried on failure."""
-    """Fetch all graph nodes with automatic pagination and retry.
-
-    At most ``max_items`` nodes are returned (default 2000). Each page
-    request has its own retry logic.
-    """
+    """Fetch all graph nodes with automatic pagination and retry. At most max_items nodes returned (default 2000)."""
     all_nodes: list[Any] = []
     cursor: str | None = None
     page_num = 0
@@ -130,7 +110,6 @@ def fetch_all_edges(
     max_retries: int = _DEFAULT_MAX_RETRIES,
     retry_delay: float = _DEFAULT_RETRY_DELAY,
 ) -> list[Any]:
-    """Fetch all graph edges with pagination. Each page is retried on failure."""
     """Fetch all graph edges with automatic pagination and retry."""
     all_edges: list[Any] = []
     cursor: str | None = None

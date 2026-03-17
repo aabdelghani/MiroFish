@@ -372,43 +372,6 @@ class SimulationConfigGenerator:
     
     def _call_llm_with_retry(self, prompt: str, system_prompt: str) -> Dict[str, Any]:
         """LLM call with retry and JSON repair."""
-        """带重试的LLM调用，包含JSON修复逻辑"""
-        
-        max_attempts = 3
-        last_error = None
-        for attempt in range(max_attempts):
-            try:
-                kwargs = {
-                    "model": self.model_name,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": prompt}
-                    ],
-                    "temperature": 0.7 - (attempt * 0.1)  # 每次重试降低温度
-                    # 不设置max_tokens，让LLM自由发挥
-                }
-                
-                # 尝试使用 response_format，如果不支持则回退
-                try:
-                    kwargs["response_format"] = {"type": "json_object"}
-                    response = self.client.chat.completions.create(**kwargs)
-                except Exception as api_error:
-                    error_str = str(api_error).lower()
-                    if ("response_format" in error_str or 
-                        "json_object" in error_str or
-                        "unsupported" in error_str or
-                        "400" in error_str or
-                        "500" in error_str):
-                        # 移除 response_format 后重试
-                        kwargs.pop("response_format", None)
-                        response = self.client.chat.completions.create(**kwargs)
-                    else:
-                        raise
-                
-                    response_format={"type": "json_object"},
-                    temperature=0.7 - (attempt * 0.1)
-                )
-        """带重试的LLM调用，包含JSON修复逻辑"""
         import re
 
         max_attempts = 3
@@ -501,14 +464,12 @@ class SimulationConfigGenerator:
             try:
                 return json.loads(json_str)
             except Exception:
-            except:  # noqa: E722
                 # 尝试移除所有控制字符
                 json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', json_str)
                 json_str = re.sub(r'\s+', ' ', json_str)
                 try:
                     return json.loads(json_str)
                 except Exception:
-                except:  # noqa: E722
                     pass
         
         return None
@@ -517,8 +478,6 @@ class SimulationConfigGenerator:
         """Generate time config via LLM (China timezone / activity patterns)."""
         context_truncated = context[:self.TIME_CONFIG_CONTEXT_LENGTH]
         max_agents_allowed = max(1, int(num_entities * 0.9))
-        prompt = f"""Generate time simulation config from the simulation requirement below.
-        
         if self.language == 'en':
             prompt = f"""Based on the following simulation requirements, generate time simulation configuration.
 
@@ -591,9 +550,6 @@ Output time config as JSON only (no markdown).
 
 Fields: total_simulation_hours (24-168), minutes_per_round (30-120, suggest 60), agents_per_hour_min/max (1-{max_agents_allowed}), peak_hours, off_peak_hours, morning_hours, work_hours, reasoning."""
 
-        system_prompt = "You are a social simulation expert. Return pure JSON; time config should follow China timezone activity patterns."
-            system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合中国人作息习惯。"
-        
         system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合中国人作息习惯。"
         lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
         system_prompt += lang_inst
@@ -654,14 +610,8 @@ Fields: total_simulation_hours (24-168), minutes_per_round (30-120, suggest 60),
     ) -> Dict[str, Any]:
         """Generate event config (hot topics, narrative, initial posts with poster_type)."""
         entity_types_available = list(set(e.get_entity_type() or "Unknown" for e in entities))
-        """生成事件配置"""
-        
-        # 获取可用的实体类型列表，供 LLM 参考
-        list(set(
-            e.get_entity_type() or "Unknown" for e in entities
-        ))
-        
-        # 为每种类型列出代表性实体名称
+
+        # For each type, list representative entity names
         type_examples = {}
         for e in entities:
             etype = e.get_entity_type() or "Unknown"
@@ -671,8 +621,6 @@ Fields: total_simulation_hours (24-168), minutes_per_round (30-120, suggest 60),
                 type_examples[etype].append(e.name)
         type_info = "\n".join([f"- {t}: {', '.join(examples)}" for t, examples in type_examples.items()])
         context_truncated = context[:self.EVENT_CONFIG_CONTEXT_LENGTH]
-        prompt = f"""Generate event config from the simulation requirement below.
-        
         if self.language == 'en':
             prompt = f"""Based on the following simulation requirements, generate event configuration.
 
@@ -731,9 +679,6 @@ Return JSON only (no markdown):
     "reasoning": "<brief explanation>"
 }}"""
 
-        system_prompt = "You are a narrative/opinion analysis expert. Return pure JSON. poster_type must exactly match an available entity type."
-            system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
-        
         system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
         lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
         system_prompt += lang_inst
@@ -844,7 +789,6 @@ Return JSON only (no markdown):
                 "summary": e.summary[:summary_len] if e.summary else ""
             })
         
-        prompt = f"""Generate social media activity config for each entity below.
         if self.language == 'en':
             prompt = f"""Based on the following information, generate social media activity configuration for each entity.
 
@@ -920,9 +864,6 @@ Return JSON only (no markdown):
     ]
 }}"""
 
-        system_prompt = "You are a social media behavior expert. Return pure JSON; configs should follow China timezone activity patterns."
-            system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合中国人作息习惯。"
-        
         system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合中国人作息习惯。"
         lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
         system_prompt += lang_inst

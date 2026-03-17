@@ -19,8 +19,7 @@ from ..config import Config
 from ..utils.llm_client import LLMClient
 from ..utils.logger import get_logger
 from ..utils.error_messages import get_error_message
-from .zep_tools import (
-    ZepToolsService
+from .zep_tools import ZepToolsService
 from .memory_provider import (
     SearchResult,
     InsightForgeResult,
@@ -96,7 +95,6 @@ class ReportLogger:
                 "simulation_id": simulation_id,
                 "graph_id": graph_id,
                 "simulation_requirement": simulation_requirement,
-                "message": "Report generation started"
                 "message": _rp('report_started', self.locale)
             }
         )
@@ -106,7 +104,6 @@ class ReportLogger:
         self.log(
             action="planning_start",
             stage="planning",
-            details={"message": "Planning report outline"}
             details={"message": _rp('planning_start', self.locale)}
         )
 
@@ -115,7 +112,6 @@ class ReportLogger:
         self.log(
             action="planning_context",
             stage="planning",
-            details={"message": "Fetched simulation context", "context": context}
             details={
                 "message": _rp('getting_context', self.locale),
                 "context": context
@@ -127,7 +123,6 @@ class ReportLogger:
         self.log(
             action="planning_complete",
             stage="planning",
-            details={"message": "Outline planning complete", "outline": outline_dict}
             details={
                 "message": _rp('planning_complete', self.locale),
                 "outline": outline_dict
@@ -141,7 +136,6 @@ class ReportLogger:
             stage="generating",
             section_title=section_title,
             section_index=section_index,
-            details={"message": f"Generating section: {section_title}"}
             details={"message": _rp('section_start', self.locale, title=section_title)}
         )
 
@@ -152,7 +146,6 @@ class ReportLogger:
             stage="generating",
             section_title=section_title,
             section_index=section_index,
-            details={"iteration": iteration, "thought": thought, "message": f"ReACT iteration {iteration}"}
             details={
                 "iteration": iteration,
                 "thought": thought,
@@ -178,7 +171,6 @@ class ReportLogger:
                 "iteration": iteration,
                 "tool_name": tool_name,
                 "parameters": parameters,
-                "message": f"Tool call: {tool_name}"
                 "message": _rp('tool_call', self.locale, name=tool_name)
             }
         )
@@ -202,7 +194,6 @@ class ReportLogger:
                 "tool_name": tool_name,
                 "result": result,
                 "result_length": len(result),
-                "message": f"Tool {tool_name} returned"
                 "message": _rp('tool_result', self.locale, name=tool_name)
             }
         )
@@ -228,7 +219,6 @@ class ReportLogger:
                 "response_length": len(response),
                 "has_tool_calls": has_tool_calls,
                 "has_final_answer": has_final_answer,
-                "message": f"LLM response (tool_calls={has_tool_calls}, final_answer={has_final_answer})"
                 "message": _rp('llm_response', self.locale, tool_calls=has_tool_calls, final_answer=has_final_answer)
             }
         )
@@ -250,7 +240,6 @@ class ReportLogger:
                 "content": content,
                 "content_length": len(content),
                 "tool_calls_count": tool_calls_count,
-                "message": f"Section {section_title} content generated"
                 "message": _rp('section_content_done', self.locale, title=section_title)
             }
         )
@@ -270,7 +259,6 @@ class ReportLogger:
             details={
                 "content": full_content,
                 "content_length": len(full_content),
-                "message": f"Section {section_title} complete"
                 "message": _rp('section_done', self.locale, title=section_title)
             }
         )
@@ -283,7 +271,6 @@ class ReportLogger:
             details={
                 "total_sections": total_sections,
                 "total_time_seconds": round(total_time_seconds, 2),
-                "message": "Report generation complete"
                 "message": _rp('report_complete', self.locale)
             }
         )
@@ -295,7 +282,6 @@ class ReportLogger:
             stage=stage,
             section_title=section_title,
             section_index=None,
-            details={"error": error_message, "message": f"Error: {error_message}"}
             details={
                 "error": error_message,
                 "message": _rp('error_occurred', self.locale, error=error_message)
@@ -815,10 +801,6 @@ Available tools (call 3–5 times per section; mix tools):
 5. 保持与其他章节的逻辑连贯性
 6. 【避免重复】仔细阅读下方已完成的章节内容，不要重复描述相同的信息
 7. 【再次强调】不要添加任何标题！用**粗体**代替小节标题"""
-Workflow: Each reply does exactly one of:
-A) Call one tool: output thought, then <tool_call>{{"name": "…", "parameters": {{…}}}}</tool_call>. Do not fabricate tool results.
-B) Output final content: start with "Final Answer:" and write the section body.
-You must not combine a tool call and Final Answer in one reply. At most one tool per reply."""
 
 SECTION_USER_PROMPT_TEMPLATE = """\
 Completed sections (read carefully to avoid repetition):
@@ -878,12 +860,6 @@ Available tools (use only when needed, max 1–2 calls): {tools_description}
 Tool format: <tool_call>{{"name": "…", "parameters": {{…}}}}</tool_call>
 
 Style: Concise; use > for key quotes; conclusion first, then explanation."""
-【回答风格】
-- 简洁直接，不要长篇大论
-- 使用 > 格式引用关键内容
-- 优先给出结论，再解释原因
-
-【语言】{chat_language_instruction}"""
 
 CHAT_OBSERVATION_SUFFIX = "\n\nAnswer concisely."
 
@@ -907,39 +883,20 @@ class ReportAgent:
         llm_client: Optional[LLMClient] = None,
         zep_tools: Optional[ZepToolsService] = None,
         report_language: str = 'zh'
-        zep_tools: Optional[Any] = None
     ):
         """Initialize Report Agent (graph_id, simulation_id, simulation_requirement; optional llm_client, zep_tools)."""
         self.graph_id = graph_id
         self.simulation_id = simulation_id
         self.simulation_requirement = simulation_requirement
-        """
-        初始化Report Agent
-        
-        Args:
-            graph_id: 图谱ID
-            simulation_id: 模拟ID
-            simulation_requirement: 模拟需求描述
-            llm_client: LLM客户端（可选）
-            zep_tools: Zep工具服务（可选）
-            report_language: 报告输出语言 'zh' 或 'en'，LLM 将用该语言思考和生成
-        """
-        self.graph_id = graph_id
-        self.simulation_id = simulation_id
-        self.simulation_requirement = simulation_requirement
         self.report_language = report_language if report_language in ('zh', 'en', 'ko') else 'zh'
-        
+
         self.llm = llm_client or LLMClient()
         self.zep_tools = zep_tools or ZepToolsService()
-        self.provider = zep_tools or get_memory_provider()
-        
-        # 工具定义
+        self.provider = get_memory_provider()
+
         self.tools = self._define_tools()
         self.report_logger: Optional[ReportLogger] = None
         self.console_logger: Optional[ReportConsoleLogger] = None
-        logger.info(f"ReportAgent initialized: graph_id={graph_id}, simulation_id={simulation_id}")
-
-        
         logger.info(get_error_message('log_report_agent_init', self.report_language).format(graph_id=graph_id, simulation_id=simulation_id))
     
     def _define_tools(self) -> Dict[str, Dict[str, Any]]:
@@ -1244,8 +1201,6 @@ class ReportAgent:
         )
         
         if progress_callback:
-            progress_callback("planning", 30, "Generating report outline...")
-        system_prompt = PLAN_SYSTEM_PROMPT
             progress_callback("planning", 30, _rp('generating_outline', self.report_language))
         
         lang_inst = LANGUAGE_INSTRUCTIONS.get(self.report_language, LANGUAGE_INSTRUCTION_ZH)
@@ -1286,10 +1241,8 @@ class ReportAgent:
                 sections=sections
             )
             if progress_callback:
-                progress_callback("planning", 100, "Outline planning complete")
-            logger.info(f"Outline complete: {len(sections)} sections")
                 progress_callback("planning", 100, _rp('planning_complete', self.report_language))
-            
+
             logger.info(get_error_message('log_report_plan_done', self.report_language).format(count=len(sections)))
             return outline
         except Exception as e:
@@ -1605,8 +1558,8 @@ class ReportAgent:
     ) -> Report:
         """Generate full report with per-section streaming. Saves each section as it completes under reports/{report_id}/ (meta.json, outline.json, progress.json, section_*.md, full_report.md). Returns Report."""
         import uuid
-        
-                if not report_id:
+
+        if not report_id:
             report_id = f"report_{uuid.uuid4().hex[:12]}"
         start_time = datetime.now()
         
@@ -1742,12 +1695,8 @@ class ReportAgent:
                 )
             
             if progress_callback:
-                progress_callback("generating", 95, "Assembling full report...")
-            
-            ReportManager.update_progress(
-                report_id, "generating", 95, "Assembling full report...",
                 progress_callback("generating", 95, _rp('assembling_report', self.report_language))
-            
+
             ReportManager.update_progress(
                 report_id, "generating", 95, _rp('assembling_report', self.report_language),
                 completed_sections=completed_section_titles
@@ -1767,17 +1716,13 @@ class ReportAgent:
             
             ReportManager.save_report(report)
             ReportManager.update_progress(
-                report_id, "completed", 100, "Report generation complete",
                 report_id, "completed", 100, _rp('report_complete', self.report_language),
                 completed_sections=completed_section_titles
             )
-            
+
             if progress_callback:
-                progress_callback("completed", 100, "Report generation complete")
-            
-            logger.info(f"Report complete: {report_id}")
                 progress_callback("completed", 100, _rp('report_complete', self.report_language))
-            
+
             logger.info(get_error_message('log_report_gen_done', self.report_language).format(report_id=report_id))
             
             if self.console_logger:

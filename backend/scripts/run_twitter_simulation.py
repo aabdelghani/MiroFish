@@ -99,11 +99,8 @@ class UnicodeFormatter(logging.Formatter):
 
 
 class MaxTokensWarningFilter(logging.Filter):
-    """Filter out camel-ai max_tokens warning (we intentionally leave max_tokens unset)."""
+    """Filter camel-ai warnings about max_tokens (we intentionally leave it unset so the model can decide)."""
 
-    def filter(self, record):
-    """Filter camel-ai warnings about max_tokens (we intentionally leave it unset so the model can decide)"""
-    
     def filter(self, record):
         # Filter log messages containing max_tokens warnings
         if "max_tokens" in record.getMessage() and "Invalid or missing" in record.getMessage():
@@ -111,15 +108,12 @@ class MaxTokensWarningFilter(logging.Filter):
         return True
 
 
-# Add filter at import so it applies before camel runs
 # Add the filter as soon as the module loads so it applies before camel executes
 logging.getLogger().addFilter(MaxTokensWarningFilter())
 
 
 def setup_oasis_logging(log_dir: str):
     """Configure OASIS logging with fixed log file names."""
-    os.makedirs(log_dir, exist_ok=True)
-    """Configure OASIS logging with fixed log file names"""
     os.makedirs(log_dir, exist_ok=True)
     
     # Clean up old log files
@@ -267,29 +261,9 @@ class IPCHandler:
     async def handle_interview(self, command_id: str, agent_id: int, prompt: str) -> bool:
         """Handle single-agent interview. Returns True on success."""
         try:
-            # Get agent
-            agent = self.agent_graph.get_agent(agent_id)
-            
-        """
-        Handle a single-agent interview command
-        
-        Returns:
-            True indicates success, False indicates failure
-        """
-        try:
             # Get the agent
             agent = self.agent_graph.get_agent(agent_id)
-            
-        """
-        Handle a single-agent interview command
 
-        Returns:
-            True indicates success, False indicates failure
-        """
-        try:
-            # Get the agent
-            agent = self.agent_graph.get_agent(agent_id)
-            
             # Create the interview action
             interview_action = ManualAction(
                 action_type=ActionType.INTERVIEW,
@@ -298,14 +272,10 @@ class IPCHandler:
             
             actions = {agent: interview_action}
             await self.env.step(actions)
-            # Execute the interview
-            actions = {agent: interview_action}
-            await self.env.step(actions)
             
             # Get the result from the database
             result = self._get_interview_result(agent_id)
             self.send_response(command_id, "completed", result=result)
-            print(f"  Interview done: agent_id={agent_id}")
             print(f"  Interview completed: agent_id={agent_id}")
             return True
             
@@ -317,16 +287,6 @@ class IPCHandler:
     
     async def handle_batch_interview(self, command_id: str, interviews: List[Dict]) -> bool:
         """Handle batch interview. interviews: [{"agent_id": int, "prompt": str}, ...]"""
-        try:
-            actions = {}
-            agent_prompts = {}
-        """
-        Handle a batch interview command
-        
-
-        Args:
-            interviews: [{"agent_id": int, "prompt": str}, ...]
-        """
         try:
             # Build the action dictionary
             actions = {}
@@ -344,8 +304,6 @@ class IPCHandler:
                     )
                     agent_prompts[agent_id] = prompt
                 except Exception as e:
-                    print(f"  Warning: cannot get agent {agent_id}: {e}")
-
                     print(f"  Warning: failed to get agent {agent_id}: {e}")
             
             if not actions:
@@ -547,75 +505,37 @@ class TwitterSimulationRunner:
         
     def _load_config(self) -> Dict[str, Any]:
         """Load config file."""
-        """Load the configuration file"""
         with open(self.config_path, 'r', encoding='utf-8') as f:
             return json.load(f)
-    
+
     def _get_profile_path(self) -> str:
         """Get profile file path (OASIS Twitter uses CSV)."""
         return os.path.join(self.simulation_dir, "twitter_profiles.csv")
-    
+
     def _get_db_path(self) -> str:
         """Get database path."""
         return os.path.join(self.simulation_dir, "twitter_simulation.db")
-    
+
     def _create_model(self):
         """Create LLM model. Uses .env: LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME."""
-        """Get the profile file path (OASIS Twitter uses CSV)"""
-        return os.path.join(self.simulation_dir, "twitter_profiles.csv")
-    
-    def _get_db_path(self) -> str:
-        """Get the profile file path (OASIS Twitter uses CSV)"""
-        return os.path.join(self.simulation_dir, "twitter_profiles.csv")
-    
-    def _get_db_path(self) -> str:
-        """Get the database path"""
-        return os.path.join(self.simulation_dir, "twitter_simulation.db")
-    
-    def _create_model(self):
-        """
-        Create the LLM model
-        
-
-        Always prefer the project-root .env configuration (highest priority):
-        - LLM_API_KEY: API key
-        - LLM_BASE_URL: API base URL
-        - LLM_MODEL_NAME: Model name
-        """
-        # Read configuration from .env first
         llm_api_key = os.environ.get("LLM_API_KEY", "")
         llm_base_url = os.environ.get("LLM_BASE_URL", "")
         llm_model = os.environ.get("LLM_MODEL_NAME", "")
-        
-        # Fallback to config
+
         if not llm_model:
             llm_model = self.config.get("llm_model", "gpt-4o-mini")
-        
-        # Set env for camel-ai
-        # If .env does not provide a value, fall back to config
-        if not llm_model:
-            llm_model = self.config.get("llm_model", "gpt-4o-mini")
-        
-        # If .env does not provide a value, fall back to config
-        if not llm_model:
-            llm_model = self.config.get("llm_model", "gpt-4o-mini")
-        
-        # Set environment variables required by camel-ai
+
         if llm_api_key:
             os.environ["OPENAI_API_KEY"] = llm_api_key
-        
+
         if not os.environ.get("OPENAI_API_KEY"):
-            raise ValueError("Missing API key. Set LLM_API_KEY in project root .env")
-        if llm_base_url:
-            os.environ["OPENAI_API_BASE_URL"] = llm_base_url
-        print(f"LLM: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
             raise ValueError("Missing API key configuration. Set LLM_API_KEY in the project-root .env file")
-        
+
         if llm_base_url:
             os.environ["OPENAI_API_BASE_URL"] = llm_base_url
-        
+
         print(f"LLM configuration: model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
-        
+
         return ModelFactory.create(
             model_platform=ModelPlatformType.OPENAI,
             model_type=llm_model,
@@ -758,27 +678,6 @@ class TwitterSimulationRunner:
         total_hours = time_config.get("total_simulation_hours", 72)
         minutes_per_round = time_config.get("minutes_per_round", 30)
         total_rounds = (total_hours * 60) // minutes_per_round
-        """Run the Twitter simulation
-        
-        """Run the Twitter simulation
-
-        Args:
-            max_rounds: Maximum simulation rounds (optional, used to cap long simulations)
-        """
-        print("=" * 60)
-        print("OASIS Twitter simulation")
-        print(f"Configuration file: {self.config_path}")
-        print(f"Simulation ID: {self.config.get('simulation_id', 'unknown')}")
-        print(f"Command-wait mode: {'enabled' if self.wait_for_commands else 'disabled'}")
-        print("=" * 60)
-        
-        # Load time configuration
-        time_config = self.config.get("time_config", {})
-        total_hours = time_config.get("total_simulation_hours", 72)
-        minutes_per_round = time_config.get("minutes_per_round", 30)
-        
-        # Calculate total rounds
-        total_rounds = (total_hours * 60) // minutes_per_round
         
         # Cap the run if max_rounds is provided
         if max_rounds is not None and max_rounds > 0:
@@ -860,25 +759,17 @@ class TwitterSimulationRunner:
             platform=oasis.DefaultPlatformType.TWITTER,
             database_path=db_path,
             semaphore=30,
-            semaphore=30,  # Limit concurrent LLM requests to avoid overloading the API
         )
         await self.env.reset()
-        print("Environment ready\n")
-        self.ipc_handler = IPCHandler(self.simulation_dir, self.env, self.agent_graph)
-        self.ipc_handler.update_status("running")
         print("Environment initialized\n")
-        
-        # Initialize the IPC handler
         self.ipc_handler = IPCHandler(self.simulation_dir, self.env, self.agent_graph)
         self.ipc_handler.update_status("running")
-        
+
         # Run initial events
         event_config = self.config.get("event_config", {})
         initial_posts = event_config.get("initial_posts", [])
         if initial_posts:
             print(f"Running initial events ({len(initial_posts)} posts)...")
-            print(f"Run initial events ({len(initial_posts)}initial posts)...")
-            print(f"Run initial events ({len(initial_posts)} initial posts)...")
             initial_actions = {}
             for post in initial_posts:
                 agent_id = post.get("poster_agent_id", 0)
@@ -894,15 +785,7 @@ class TwitterSimulationRunner:
             if initial_actions:
                 await self.env.step(initial_actions)
                 print(f"  Published {len(initial_actions)} initial posts")
-        print("\nSimulation loop...")
-                    print(f"  警告: Failed to create an initial post for agent {agent_id}创建初始帖子: {e}")
-                    print(f"  Warning: failed to create an initial post for agent {agent_id}: {e}")
-            
-            if initial_actions:
-                await self.env.step(initial_actions)
-                print(f"  Published {len(initial_actions)} initial posts")
         
-        # 主模拟循环
         # Main simulation loop
         print("\nStart the simulation loop...")
         start_time = datetime.now()
@@ -910,47 +793,26 @@ class TwitterSimulationRunner:
             simulated_minutes = round_num * minutes_per_round
             simulated_hour = (simulated_minutes // 60) % 24
             simulated_day = simulated_minutes // (60 * 24) + 1
-            # Calculate the current simulated time
-            simulated_minutes = round_num * minutes_per_round
-            simulated_hour = (simulated_minutes // 60) % 24
-            simulated_day = simulated_minutes // (60 * 24) + 1
-            
-            # Get the agents active in this round
+
+            scheduled_agent_ids = await self._run_scheduled_events_for_round(round_num + 1)
+
             active_agents = self._get_active_agents_for_round(
                 self.env, simulated_hour, round_num
             )
-            if not active_agents:
-                continue
-            actions = {agent: LLMAction() for _, agent in active_agents}
-            await self.env.step(actions)
-            
-            # Build actions
-            actions = {
-                agent: LLMAction()
-                for _, agent in active_agents
-            }
-            
-            # Execute actions
-            await self.env.step(actions)
-
-            scheduled_agent_ids = await self._run_scheduled_events_for_round(round_num + 1)
             if scheduled_agent_ids:
                 active_agents = [(agent_id, agent) for agent_id, agent in active_agents if agent_id not in scheduled_agent_ids]
-            
+
             if not active_agents:
                 if not scheduled_agent_ids:
                     continue
-            
-            # 构建动作
+
             if active_agents:
                 actions = {
                     agent: LLMAction()
                     for _, agent in active_agents
                 }
-                
-                # 执行动作
                 await self.env.step(actions)
-            
+
             # Print progress
             if (round_num + 1) % 10 == 0 or round_num == 0:
                 elapsed = (datetime.now() - start_time).total_seconds()
@@ -961,21 +823,10 @@ class TwitterSimulationRunner:
                       f"- elapsed: {elapsed:.1f}s")
         
         total_elapsed = (datetime.now() - start_time).total_seconds()
-        print(f"\nSimulation loop done. Elapsed: {total_elapsed:.1f}s, DB: {db_path}")
-        if self.wait_for_commands:
-            print("\n" + "=" * 60)
-            print("Wait-for-commands mode. Commands: interview, batch_interview, close_env")
-        print(f"\nSimulation loop completed!")
-        print(f"  - Total elapsed time: {total_elapsed:.1f}秒")
-        print(f"  - Database: {db_path}")
-        
-        # 是否进入Command-wait mode
-        if self.wait_for_commands:
-            print("\n" + "=" * 60)
         print(f"\nSimulation loop completed!")
         print(f"  - Total elapsed time: {total_elapsed:.1f}s")
         print(f"  - Database: {db_path}")
-        
+
         # Optionally enter command-wait mode
         if self.wait_for_commands:
             print("\n" + "=" * 60)
@@ -983,8 +834,7 @@ class TwitterSimulationRunner:
             print("Supported commands: interview, batch_interview, close_env")
             print("=" * 60)
             self.ipc_handler.update_status("alive")
-            
-            # Command wait loop (using global _shutdown_event)
+
             try:
                 while not _shutdown_event.is_set():
                     should_continue = await self.ipc_handler.process_commands()
@@ -1002,32 +852,9 @@ class TwitterSimulationRunner:
             except Exception as e:
                 print(f"\nCommand handling error: {e}")
             print("\nShutting down environment...")
+
         self.ipc_handler.update_status("stopped")
         await self.env.close()
-                        break  # Received shutdown signal
-                    except asyncio.TimeoutError:
-                        pass
-            except KeyboardInterrupt:
-                print("\nReceived interrupt signal")
-            except asyncio.CancelledError:
-                print("\nTask cancelled")
-            except Exception as e:
-                        break  # Received shutdown signal
-                    except asyncio.TimeoutError:
-                        pass
-            except KeyboardInterrupt:
-                print("\nReceived interrupt signal")
-            except asyncio.CancelledError:
-                print("\nTask cancelled")
-            except Exception as e:
-                print(f"\nCommand processing failed: {e}")
-            
-            print("\nClose environment...")
-        
-        # Close environment
-        self.ipc_handler.update_status("stopped")
-        await self.env.close()
-        
         print("Environment closed")
         print("=" * 60)
 
@@ -1038,34 +865,11 @@ async def main():
     parser.add_argument('--max-rounds', type=int, default=None, help='Cap simulation rounds')
     parser.add_argument('--no-wait', action='store_true', default=False, help='Exit after run, do not wait for commands')
     args = parser.parse_args()
-    parser.add_argument(
-        '--config', 
-        type=str, 
-        required=True,
-        help='Configuration file path (simulation_config.json)'
-    )
-    parser.add_argument(
-        '--max-rounds',
-        type=int,
-        default=None,
-        help='Maximum simulation rounds (optional, used to cap long simulations)'
-    )
-    parser.add_argument(
-        '--no-wait',
-        action='store_true',
-        default=False,
-        help='Exit immediately after completion; do not enter command-wait mode'
-    )
-    
-    args = parser.parse_args()
-    
-    # Create the shutdown event at the start of main
+
     global _shutdown_event
     _shutdown_event = asyncio.Event()
     if not os.path.exists(args.config):
         print(f"Error: config file not found: {args.config}")
-        sys.exit(1)
-        print(f"Error: configuration file does not exist: {args.config}")
         sys.exit(1)
     
     # Initialize logging (fixed file names, old logs cleared)
@@ -1080,15 +884,7 @@ async def main():
 
 
 def setup_signal_handlers():
-    """Handle SIGTERM/SIGINT for clean shutdown (DB, env)."""
-    def signal_handler(signum, frame):
-        global _cleanup_done
-        sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
-        print(f"\n{sig_name} received, exiting...")
-    """
-    Set up signal handlers so SIGTERM/SIGINT exit cleanly.
-    This gives the program a chance to clean up resources (close DB, env, etc.).
-    """
+    """Set up SIGTERM/SIGINT handlers for graceful exit. First signal: set _shutdown_event. Second signal: force exit."""
     def signal_handler(signum, frame):
         global _cleanup_done
         sig_name = "SIGTERM" if signum == signal.SIGTERM else "SIGINT"
@@ -1098,8 +894,6 @@ def setup_signal_handlers():
             if _shutdown_event:
                 _shutdown_event.set()
         else:
-            print("Forcing exit...")
-            # Only force exit on repeated signals
             print("Force exit...")
             sys.exit(1)
     
@@ -1112,7 +906,6 @@ if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\nInterrupted")
         print("\nProgram interrupted")
     except SystemExit:
         pass
