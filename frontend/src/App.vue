@@ -71,6 +71,11 @@ const { locale } = useI18n()
 }
 
 /* Global resets */
+// Vue Router manages page navigation.
+</script>
+
+<style>
+/* Global reset */
 * {
   margin: 0;
   padding: 0;
@@ -86,6 +91,7 @@ const { locale } = useI18n()
 }
 
 /* Scrollbar styles */
+/* Scrollbar styling */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -104,6 +110,7 @@ const { locale } = useI18n()
 }
 
 /* Global button styles */
+/* Global button styling */
 button {
   font-family: inherit;
 }

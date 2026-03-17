@@ -8,6 +8,14 @@
       <div class="nav-center">
         <div class="step-badge">STEP 01</div>
         <div class="step-name">{{ $t('process.stepName') }}</div>
+    <!-- Top navigation bar -->
+    <nav class="navbar">
+      <div class="nav-brand" @click="goHome">MIROFISH</div>
+      
+      <!-- Center step indicator -->
+      <div class="nav-center">
+        <div class="step-badge">STEP 01</div>
+        <div class="step-name">GRAPH BUILD</div>
       </div>
 
       <div class="nav-status">
@@ -19,6 +27,7 @@
     <!-- Main content -->
     <div class="main-content">
       <!-- Left: live graph -->
+      <!-- Left: real-time graph view -->
       <div class="left-panel" :class="{ 'full-screen': isFullScreen }">
         <div class="panel-header">
           <div class="header-left">
@@ -37,6 +46,20 @@
                   <span class="icon-refresh" :class="{ 'spinning': graphLoading }">↻</span>
                 </button>
                 <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? $t('common.exitFullScreen') : $t('common.fullScreen')">
+            <span class="header-title">Real-time Knowledge Graph</span>
+          </div>
+          <div class="header-right">
+            <template v-if="graphData">
+              <span class="stat-item">{{ graphData.node_count || graphData.nodes?.length || 0 }} nodes</span>
+              <span class="stat-divider">|</span>
+              <span class="stat-item">{{ graphData.edge_count || graphData.edges?.length || 0 }} edges</span>
+              <span class="stat-divider">|</span>
+            </template>
+            <div class="action-buttons">
+                <button class="action-btn" @click="refreshGraph" :disabled="graphLoading" title="Refresh graph">
+                  <span class="icon-refresh" :class="{ 'spinning': graphLoading }">↻</span>
+                </button>
+                <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? 'Exit full screen' : 'Enter full screen'">
                   <span class="icon-fullscreen">{{ isFullScreen ? '↙' : '↗' }}</span>
                 </button>
             </div>
@@ -51,6 +74,13 @@
             <div v-if="currentPhase === 1" class="graph-building-hint">
               <span class="building-dot"></span>
               {{ $t('process.updating') }}
+          <!-- Graph visualization (shown whenever data is available) -->
+          <div v-if="graphData" class="graph-view">
+            <svg ref="graphSvg" class="graph-svg"></svg>
+            <!-- In-progress hint -->
+            <div v-if="currentPhase === 1" class="graph-building-hint">
+              <span class="building-dot"></span>
+              Updating in real time...
             </div>
             
             <!-- Node/edge detail panel -->
@@ -107,6 +137,7 @@
               <!-- Edge details -->
               <div v-else class="detail-content">
                 <!-- Relation display -->
+                <!-- Relationship visualization -->
                 <div class="edge-relation">
                   <span class="edge-source">{{ selectedItem.data.source_name || selectedItem.data.source_node_name }}</span>
                   <span class="edge-arrow">→</span>
@@ -174,6 +205,10 @@
             <p class="loading-text">{{ $t('process.loadingGraph') }}</p>
           </div>
           
+            <p class="loading-text">Loading graph data...</p>
+          </div>
+          
+          <!-- Waiting for build -->
           <div v-else-if="currentPhase < 1" class="graph-waiting">
             <div class="waiting-icon">
               <svg viewBox="0 0 100 100" class="network-icon">
@@ -192,6 +227,11 @@
             <p class="waiting-hint">{{ $t('process.waitingOntologyHint') }}</p>
           </div>
           
+            <p class="waiting-text">Waiting for ontology generation</p>
+            <p class="waiting-hint">Graph construction will start automatically once ontology generation finishes.</p>
+          </div>
+          
+          <!-- Building but no graph data yet -->
           <div v-else-if="currentPhase === 1 && !graphData" class="graph-waiting">
             <div class="loading-animation">
               <div class="loading-ring"></div>
@@ -200,6 +240,8 @@
             </div>
             <p class="waiting-text">{{ $t('process.buildingGraph') }}</p>
             <p class="waiting-hint">{{ $t('process.dataComing') }}</p>
+            <p class="waiting-text">Building graph...</p>
+            <p class="waiting-hint">Data will appear shortly.</p>
           </div>
           
           <!-- Error state -->
@@ -228,11 +270,21 @@
 
         <div class="process-content">
           <!-- Phase 1: Ontology -->
+      <!-- Right: build workflow details -->
+      <div class="right-panel" :class="{ 'hidden': isFullScreen }">
+        <div class="panel-header dark-header">
+          <span class="header-icon">▣</span>
+          <span class="header-title">Build Workflow</span>
+        </div>
+
+        <div class="process-content">
+          <!-- Phase 1: Ontology generation -->
           <div class="process-phase" :class="{ 'active': currentPhase === 0, 'completed': currentPhase > 0 }">
             <div class="phase-header">
               <span class="phase-num">01</span>
               <div class="phase-info">
                 <div class="phase-title">{{ $t('process.ontologyPhase') }}</div>
+                <div class="phase-title">Ontology Generation</div>
                 <div class="phase-api">/api/graph/ontology/generate</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(0)">
@@ -251,6 +303,15 @@
               <!-- Ontology progress -->
               <div class="detail-section" v-if="ontologyProgress && currentPhase === 0">
                 <div class="detail-label">{{ $t('process.progress') }}</div>
+                <div class="detail-label">Endpoint description</div>
+                <div class="detail-content">
+                  After the documents are uploaded, the LLM analyzes their content and automatically generates an ontology suitable for opinion simulations (entity types + relation types).
+                </div>
+              </div>
+              
+              <!-- Ontology generation progress -->
+              <div class="detail-section" v-if="ontologyProgress && currentPhase === 0">
+                <div class="detail-label">Generation progress</div>
                 <div class="ontology-progress">
                   <div class="progress-spinner"></div>
                   <span class="progress-text">{{ ontologyProgress.message }}</span>
@@ -260,6 +321,9 @@
               <!-- Generated ontology -->
               <div class="detail-section" v-if="projectData?.ontology">
                 <div class="detail-label">{{ $t('process.entityTypesGenerated') }} ({{ projectData.ontology.entity_types?.length || 0 }})</div>
+              <!-- Generated ontology information -->
+              <div class="detail-section" v-if="projectData?.ontology">
+                <div class="detail-label">Generated entity types ({{ projectData.ontology.entity_types?.length || 0 }})</div>
                 <div class="entity-tags">
                   <span 
                     v-for="entity in projectData.ontology.entity_types" 
@@ -273,6 +337,7 @@
               
               <div class="detail-section" v-if="projectData?.ontology">
                 <div class="detail-label">{{ $t('process.relationTypesGenerated') }} ({{ projectData.ontology.relation_types?.length || 0 }})</div>
+                <div class="detail-label">Generated relation types ({{ projectData.ontology.relation_types?.length || 0 }})</div>
                 <div class="relation-list">
                   <div 
                     v-for="(rel, idx) in projectData.ontology.relation_types?.slice(0, 5) || []" 
@@ -287,6 +352,7 @@
                   </div>
                   <div v-if="(projectData.ontology.relation_types?.length || 0) > 5" class="relation-more">
                     +{{ projectData.ontology.relation_types.length - 5 }} {{ $t('process.moreRelations') }}
+                    +{{ projectData.ontology.relation_types.length - 5 }} more relations...
                   </div>
                 </div>
               </div>
@@ -294,6 +360,7 @@
               <!-- Waiting state -->
               <div class="detail-section waiting-state" v-if="!projectData?.ontology && currentPhase === 0 && !ontologyProgress">
                 <div class="waiting-hint">{{ $t('process.waitingOntology') }}</div>
+                <div class="waiting-hint">Waiting for ontology generation...</div>
               </div>
             </div>
           </div>
@@ -304,6 +371,7 @@
               <span class="phase-num">02</span>
               <div class="phase-info">
                 <div class="phase-title">{{ $t('process.graphBuildPhase') }}</div>
+                <div class="phase-title">Graph Build</div>
                 <div class="phase-api">/api/graph/build</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(1)">
@@ -325,6 +393,20 @@
               
               <div class="detail-section" v-if="buildProgress && currentPhase >= 1">
                 <div class="detail-label">{{ $t('process.buildProgress') }}</div>
+                <div class="detail-label">Endpoint description</div>
+                <div class="detail-content">
+                  Based on the generated ontology, the documents are chunked and Zep APIs are called to build the knowledge graph and extract entities and relations.
+                </div>
+              </div>
+              
+              <!-- Waiting for ontology to complete -->
+              <div class="detail-section waiting-state" v-if="currentPhase < 1">
+                <div class="waiting-hint">Waiting for ontology generation to complete...</div>
+              </div>
+              
+              <!-- Build progress -->
+              <div class="detail-section" v-if="buildProgress && currentPhase >= 1">
+                <div class="detail-label">Build progress</div>
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: buildProgress.progress + '%' }"></div>
                 </div>
@@ -373,6 +455,19 @@
                         class="dedup-removed"
                       >{{ removed.name }}<span v-if="ri < action.removed_nodes.length - 1">、</span></span>
                     </div>
+                <div class="detail-label">Build result</div>
+                <div class="build-result">
+                  <div class="result-item">
+                    <span class="result-value">{{ graphData.node_count }}</span>
+                    <span class="result-label">nodes</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-value">{{ graphData.edge_count }}</span>
+                    <span class="result-label">edges</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-value">{{ entityTypes.length }}</span>
+                    <span class="result-label">entity types</span>
                   </div>
                 </div>
               </div>
@@ -380,12 +475,15 @@
           </div>
 
           <!-- Phase 3: Complete -->
+          <!-- Phase 3: Completed -->
           <div class="process-phase" :class="{ 'active': currentPhase === 2, 'completed': currentPhase > 2 }">
             <div class="phase-header">
               <span class="phase-num">03</span>
               <div class="phase-info">
                 <div class="phase-title">{{ $t('process.buildComplete') }}</div>
                 <div class="phase-api">{{ $t('process.nextStepHint') }}</div>
+                <div class="phase-title">Build completed</div>
+                <div class="phase-api">Ready to enter the next step</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(2)">
                 {{ getPhaseStatusText(2) }}
@@ -397,6 +495,10 @@
           <div class="next-step-section" v-if="currentPhase >= 2">
             <button class="next-step-btn" @click="goToNextStep" :disabled="currentPhase < 2">
               {{ $t('process.enterEnvSetup') }}
+          <!-- Next-step button -->
+          <div class="next-step-section" v-if="currentPhase >= 2">
+            <button class="next-step-btn" @click="goToNextStep" :disabled="currentPhase < 2">
+              Go to environment setup
               <span class="btn-arrow">→</span>
             </button>
           </div>
@@ -423,6 +525,23 @@
             </div>
             <div class="project-item">
               <span class="item-label">{{ $t('process.simulationRequirement') }}</span>
+            <span class="project-title">Project Information</span>
+          </div>
+          <div class="project-details" v-if="projectData">
+            <div class="project-item">
+              <span class="item-label">Project name</span>
+              <span class="item-value">{{ projectData.name }}</span>
+            </div>
+            <div class="project-item">
+              <span class="item-label">Project ID</span>
+              <span class="item-value code">{{ projectData.project_id }}</span>
+            </div>
+            <div class="project-item" v-if="projectData.graph_id">
+              <span class="item-label">Graph ID</span>
+              <span class="item-value code">{{ projectData.graph_id }}</span>
+            </div>
+            <div class="project-item">
+              <span class="item-label">Simulation requirement</span>
               <span class="item-value">{{ projectData.simulation_requirement || '-' }}</span>
             </div>
           </div>
@@ -445,6 +564,10 @@ const router = useRouter()
 const { t } = useI18n()
 
 const currentProjectId = ref(route.params.projectId)
+// Current project ID (may change from 'new' to a real ID)
+const currentProjectId = ref(route.params.projectId)
+
+// State
 const loading = ref(true)
 const graphLoading = ref(false)
 const error = ref('')
@@ -455,6 +578,9 @@ const buildProgress = ref(null)
 const ontologyProgress = ref(null)
 const currentPhase = ref(-1)
 const selectedItem = ref(null)
+const ontologyProgress = ref(null) // Ontology generation progress
+const currentPhase = ref(-1) // -1: Uploading, 0: Ontology generation, 1: Graph build, 2: Completed
+const selectedItem = ref(null) // Selected node or edge
 const isFullScreen = ref(false)
 
 // DOM refs
@@ -477,6 +603,11 @@ const statusText = computed(() => {
   if (currentPhase.value === 1) return t('process.building')
   if (currentPhase.value === 0) return t('process.ontologyGenerating')
   return t('process.initializingStatus')
+  if (error.value) return 'Build failed'
+  if (currentPhase.value >= 2) return 'Build completed'
+  if (currentPhase.value === 1) return 'Building graph'
+  if (currentPhase.value === 0) return 'Generating ontology'
+  return 'Initializing'
 })
 
 const entityTypes = computed(() => {
@@ -504,6 +635,8 @@ const goHome = () => {
 const goToNextStep = () => {
   // TODO: go to env setup step
   alert(t('process.envSetupDev'))
+  // TODO: navigate to environment setup step
+  alert('Environment setup step is under development...')
 }
 
 const toggleFullScreen = () => {
@@ -524,7 +657,7 @@ const formatDate = (dateStr) => {
   if (!dateStr) return '-'
   try {
     const date = new Date(dateStr)
-    return date.toLocaleString('zh-CN', {
+    return date.toLocaleString('en-US', {
       year: 'numeric',
       month: 'short',
       day: 'numeric',
@@ -562,6 +695,7 @@ const getPhaseStatusClass = (phase) => {
 
 const getPhaseStatusText = (phase) => {
   if (currentPhase.value > phase) return t('process.completed')
+  if (currentPhase.value > phase) return 'Completed'
   if (currentPhase.value === phase) {
     if (phase === 1 && buildProgress.value) {
       return `${buildProgress.value.progress}%`
@@ -572,11 +706,18 @@ const getPhaseStatusText = (phase) => {
 }
 
 // Init: new project or load existing
+    return 'In progress'
+  }
+  return 'Waiting'
+}
+
+// Initialization - handle new project or load existing project
 const initProject = async () => {
   const paramProjectId = route.params.projectId
   
   if (paramProjectId === 'new') {
     // New project: get pending upload from store
+    // New project: get pending upload data from store
     await handleNewProject()
   } else {
     // Load existing project
@@ -586,11 +727,13 @@ const initProject = async () => {
 }
 
 // Handle new project: call ontology/generate API
+// Handle new project - call ontology/generate API
 const handleNewProject = async () => {
   const pending = getPendingUpload()
   
   if (!pending.isPending || pending.files.length === 0) {
     error.value = t('process.noPendingFiles')
+    error.value = 'No pending files found. Please return to the home page and try again.'
     loading.value = false
     return
   }
@@ -599,6 +742,8 @@ const handleNewProject = async () => {
     loading.value = true
     currentPhase.value = 0 // Ontology phase
     ontologyProgress.value = { message: t('process.uploadingAnalyzing') }
+    currentPhase.value = 0 // Ontology generation phase
+    ontologyProgress.value = { message: 'Uploading files and analyzing documents...' }
     
     // Build FormData
     const formDataObj = new FormData()
@@ -616,6 +761,18 @@ const handleNewProject = async () => {
       projectData.value = response.data
       
       // Update URL without reload
+    // Call ontology generation API
+    const response = await generateOntology(formDataObj)
+    
+    if (response.success) {
+      // Clear pending upload state
+      clearPendingUpload()
+      
+      // Update project ID and data
+      currentProjectId.value = response.data.project_id
+      projectData.value = response.data
+      
+      // Update URL (without reload)
       router.replace({
         name: 'Process',
         params: { projectId: response.data.project_id }
@@ -630,6 +787,14 @@ const handleNewProject = async () => {
   } catch (err) {
     console.error('Handle new project error:', err)
     error.value = t('process.projectInitFailed') + (err.message || t('common.unknownError'))
+      // Automatically start graph build
+      await startBuildGraph()
+    } else {
+      error.value = response.error || 'Ontology generation failed'
+    }
+  } catch (err) {
+    console.error('Handle new project error:', err)
+    error.value = 'Project initialization failed: ' + (err.message || 'Unknown error')
   } finally {
     loading.value = false
   }
@@ -645,15 +810,18 @@ const loadProject = async () => {
       projectData.value = response.data
       updatePhaseByStatus(response.data.status)
       
+      // Automatically start graph build
       if (response.data.status === 'ontology_generated' && !response.data.graph_id) {
         await startBuildGraph()
       }
       
+      // Continue polling if a build task is in progress
       if (response.data.status === 'graph_building' && response.data.graph_build_task_id) {
         currentPhase.value = 1
         startPollingTask(response.data.graph_build_task_id)
       }
       
+      // Load completed graph
       if (response.data.status === 'graph_completed' && response.data.graph_id) {
         currentPhase.value = 2
         await loadGraph(response.data.graph_id)
@@ -664,6 +832,11 @@ const loadProject = async () => {
   } catch (err) {
     console.error('Load project error:', err)
     error.value = t('process.loadProjectFailed') + (err.message || t('common.unknownError'))
+      error.value = response.error || 'Failed to load project'
+    }
+  } catch (err) {
+    console.error('Load project error:', err)
+    error.value = 'Failed to load project: ' + (err.message || 'Unknown error')
   } finally {
     loading.value = false
   }
@@ -683,6 +856,7 @@ const updatePhaseByStatus = (status) => {
       break
     case 'failed':
       error.value = projectData.value?.error || t('process.processFailed')
+      error.value = projectData.value?.error || 'Processing failed'
       break
   }
 }
@@ -701,21 +875,25 @@ const startBuildGraph = async () => {
     
     if (response.success) {
       buildProgress.value.message = t('process.graphTaskStarted')
+      buildProgress.value.message = 'Graph build task started...'
       
       // Save task_id for polling
       const taskId = response.data.task_id
       
+      // Start graph polling (independent from task polling)
       startGraphPolling()
       
       // Start task status polling
       startPollingTask(taskId)
     } else {
       error.value = response.error || t('process.startBuildFailed')
+      error.value = response.error || 'Failed to start graph build'
       buildProgress.value = null
     }
   } catch (err) {
     console.error('Build graph error:', err)
     error.value = t('process.startBuildFailed') + (err.message || t('common.unknownError'))
+    error.value = 'Failed to start graph build: ' + (err.message || 'Unknown error')
     buildProgress.value = null
   }
 }
@@ -726,12 +904,22 @@ let graphPollTimer = null
 // Start graph data polling
 const startGraphPolling = () => {
   fetchGraphData()
+// Graph polling timer
+let graphPollTimer = null
+
+// Start graph polling
+const startGraphPolling = () => {
+  // Fetch once immediately
+  fetchGraphData()
+  
+  // Then fetch graph data every 10 seconds
   graphPollTimer = setInterval(async () => {
     await fetchGraphData()
   }, 10000)
 }
 
 // Manual refresh graph
+// Manual graph refresh
 const refreshGraph = async () => {
   graphLoading.value = true
   await fetchGraphData()
@@ -739,6 +927,7 @@ const refreshGraph = async () => {
 }
 
 // Stop graph data polling
+// Stop graph polling
 const stopGraphPolling = () => {
   if (graphPollTimer) {
     clearInterval(graphPollTimer)
@@ -750,6 +939,7 @@ const stopGraphPolling = () => {
 const fetchGraphData = async () => {
   try {
     // Get project first for graph_id
+    // First fetch project info to get graph_id
     const projectResponse = await getProject(currentProjectId.value)
     
     if (projectResponse.success && projectResponse.data.graph_id) {
@@ -785,6 +975,12 @@ const startPollingTask = (taskId) => {
   pollTaskStatus(taskId)
   
   // Then poll on interval
+// Task polling
+const startPollingTask = (taskId) => {
+  // Query once immediately
+  pollTaskStatus(taskId)
+  
+  // Then poll periodically
   pollTimer = setInterval(() => {
     pollTaskStatus(taskId)
   }, 2000)
@@ -812,6 +1008,7 @@ const pollTaskStatus = async (taskId) => {
         if (task.result?.dedup_report) {
           dedupReport.value = task.result.dedup_report
         }
+        console.log('✅ Graph build complete, loading full data...')
         
         stopPolling()
         stopGraphPolling()
@@ -821,6 +1018,10 @@ const pollTaskStatus = async (taskId) => {
         buildProgress.value = {
           progress: 100,
           message: t('process.buildDoneLoading')
+        // Show completed progress
+        buildProgress.value = {
+          progress: 100,
+          message: 'Build completed, loading graph...'
         }
         
         // Reload project to get graph_id
@@ -833,6 +1034,11 @@ const pollTaskStatus = async (taskId) => {
             console.log('Loading full graph:', projectResponse.data.graph_id)
             await loadGraph(projectResponse.data.graph_id)
             console.log('Graph load complete')
+          // Finally load full graph data
+          if (projectResponse.data.graph_id) {
+            console.log('📊 Loading full graph:', projectResponse.data.graph_id)
+            await loadGraph(projectResponse.data.graph_id)
+            console.log('✅ Graph loaded')
           }
         }
         
@@ -842,6 +1048,7 @@ const pollTaskStatus = async (taskId) => {
         stopPolling()
         stopGraphPolling()
         error.value = t('process.graphBuildFailed') + (task.error || t('common.unknownError'))
+        error.value = 'Graph build failed: ' + (task.error || 'Unknown error')
         buildProgress.value = null
       }
     }
@@ -908,12 +1115,14 @@ const renderGraph = () => {
   svg.selectAll('*').remove()
   
   // Process nodes
+  // Prepare node/edge data
   const nodesData = graphData.value.nodes || []
   const edgesData = graphData.value.edges || []
   
   if (nodesData.length === 0) {
     console.log('No nodes to render')
     // Empty state
+    // Show empty state
     svg.append('text')
       .attr('x', width / 2)
       .attr('y', height / 2)
@@ -924,6 +1133,11 @@ const renderGraph = () => {
   }
   
   // Node map for name lookup
+      .text('Waiting for graph data...')
+    return
+  }
+  
+  // Build node map for name lookup
   const nodeMap = {}
   nodesData.forEach(n => {
     nodeMap[n.uuid] = n
@@ -937,6 +1151,12 @@ const renderGraph = () => {
   }))
   
   // Node ID set for valid edges
+    name: n.name || 'Unnamed',
+    type: n.labels?.find(l => l !== 'Entity' && l !== 'Node') || 'Entity',
+    rawData: n // Keep raw data
+  }))
+  
+  // Build node ID set to filter edges
   const nodeIds = new Set(nodes.map(n => n.id))
   
   const edges = edgesData
@@ -955,12 +1175,14 @@ const renderGraph = () => {
   console.log('Nodes:', nodes.length, 'Edges:', edges.length)
   
   // Color map
+  // Color mapping
   const types = [...new Set(nodes.map(n => n.type))]
   const colorScale = d3.scaleOrdinal()
     .domain(types)
     .range(['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C', '#2D3436', '#6C5CE7'])
   
   // Force layout
+  // Force-directed layout
   const simulation = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(edges).id(d => d.id).distance(100).strength(0.5))
     .force('charge', d3.forceManyBody().strength(-300))
@@ -970,6 +1192,7 @@ const renderGraph = () => {
     .force('y', d3.forceY(height / 2).strength(0.05))
   
   // Zoom
+  // Add zoom
   const g = svg.append('g')
   
   svg.call(d3.zoom()
@@ -980,6 +1203,7 @@ const renderGraph = () => {
     }))
   
   // Draw edges (including transparent hit area)
+  // Draw edges (including wide transparent line for click target)
   const linkGroup = g.append('g')
     .attr('class', 'links')
     .selectAll('g')
@@ -999,6 +1223,7 @@ const renderGraph = () => {
     .attr('stroke-opacity', 0.6)
   
   // Transparent wide line for click
+  // Transparent wide line for clicking
   linkGroup.append('line')
     .attr('stroke', 'transparent')
     .attr('stroke-width', 10)
@@ -1048,12 +1273,14 @@ const renderGraph = () => {
     .attr('font-family', 'JetBrains Mono, monospace')
   
   // Click blank to close detail panel
+  // Click background to close detail panel
   svg.on('click', () => {
     closeDetailPanel()
   })
   
   simulation.on('tick', () => {
     // Update all edge positions
+    // Update edges (both visible and transparent lines)
     linkGroup.selectAll('line')
       .attr('x1', d => d.source.x)
       .attr('y1', d => d.source.y)

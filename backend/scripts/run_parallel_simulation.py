@@ -13,22 +13,67 @@ Log layout: sim_xxx/twitter/actions.jsonl, sim_xxx/reddit/actions.jsonl, simulat
 """
 
 # Windows UTF-8: set before any import so OASIS and other libs use UTF-8 when encoding is not specified
+OASIS dual-platform parallel simulation preset script
+Runs Twitter and Reddit simulations in parallel using the same configuration file
+
+Features:
+- Dual-platform (Twitter + Reddit) parallel simulation
+- Keep the environment alive after simulation completes and enter command-wait mode
+- Supports receiving interview commands over IPC
+- Supports single-agent and batch interviews
+- Supports remote environment shutdown commands
+
+Usage:
+    python run_parallel_simulation.py --config simulation_config.json
+    python run_parallel_simulation.py --config simulation_config.json --no-wait  # Exit immediately after completion
+    python run_parallel_simulation.py --config simulation_config.json --twitter-only
+    python run_parallel_simulation.py --config simulation_config.json --reddit-only
+
+Log layout:
+    sim_xxx/
+    ├── twitter/
+    │   └── actions.jsonl    # Twitter platform action log
+    ├── reddit/
+    │   └── actions.jsonl    # Reddit platform action log
+    ├── simulation.log       # Main simulation process log
+    └── run_state.json       # Run state (for API queries)
+"""
+
+# ============================================================
+# Fix Windows encoding issues by setting UTF-8 before all imports
+# This fixes third-party OASIS file reads that omit an explicit encoding
+# ============================================================
 import sys
 import os
 
 if sys.platform == 'win32':
     os.environ.setdefault('PYTHONUTF8', '1')
     os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+    # Set Python default I/O encoding to UTF-8
+    # This affects all open() calls that do not specify an encoding
+    os.environ.setdefault('PYTHONUTF8', '1')
+    os.environ.setdefault('PYTHONIOENCODING', 'utf-8')
+    
+    # Reconfigure stdout/stderr to UTF-8 to avoid garbled console output
     if hasattr(sys.stdout, 'reconfigure'):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace')
     if hasattr(sys.stderr, 'reconfigure'):
         sys.stderr.reconfigure(encoding='utf-8', errors='replace')
+    
+    # Force the default encoding used by open()
+    # Note: this ideally needs to be set at Python startup; runtime changes may not fully apply
+    # So we also monkey-patch the built-in open function
     import builtins
     _original_open = builtins.open
 
     def _utf8_open(file, mode='r', buffering=-1, encoding=None, errors=None,
                    newline=None, closefd=True, opener=None):
         """Default to UTF-8 for text mode when encoding not specified (fixes OASIS etc.)."""
+        """
+        Wrap open() so text mode defaults to UTF-8
+        This fixes third-party libraries such as OASIS reading files without specifying an encoding
+        """
+        # Only set a default encoding for text mode when none is supplied
         if encoding is None and 'b' not in mode:
             encoding = 'utf-8'
         return _original_open(file, mode, buffering, encoding, errors,
@@ -54,6 +99,12 @@ _shutdown_event = None
 _cleanup_done = False
 
 # Add backend to path (script lives in backend/scripts/)
+# Global state used by signal handlers
+_shutdown_event = None
+_cleanup_done = False
+
+# Add the backend directory to sys.path
+# The script is fixed under backend/scripts/
 _scripts_dir = os.path.dirname(os.path.abspath(__file__))
 _backend_dir = os.path.abspath(os.path.join(_scripts_dir, '..'))
 _project_root = os.path.abspath(os.path.join(_backend_dir, '..'))
@@ -61,6 +112,7 @@ sys.path.insert(0, _scripts_dir)
 sys.path.insert(0, _backend_dir)
 
 # Load .env (LLM_API_KEY etc.)
+# Load the project-root .env file (including LLM_API_KEY and related settings)
 from dotenv import load_dotenv
 _env_file = os.path.join(_project_root, '.env')
 if os.path.exists(_env_file):
@@ -77,17 +129,37 @@ class MaxTokensWarningFilter(logging.Filter):
     """Filter out camel-ai max_tokens warning (we leave max_tokens unset)."""
 
     def filter(self, record):
+    print(f"Loaded environment configuration: {_env_file}")
+else:
+    # Try loading backend/.env
+    _backend_env = os.path.join(_backend_dir, '.env')
+    if os.path.exists(_backend_env):
+        load_dotenv(_backend_env)
+        print(f"Loaded environment configuration: {_backend_env}")
+
+
+class MaxTokensWarningFilter(logging.Filter):
+    """Filter camel-ai warnings about max_tokens (we intentionally leave it unset so the model can decide)"""
+    
+    def filter(self, record):
+        # Filter log messages containing max_tokens warnings
         if "max_tokens" in record.getMessage() and "Invalid or missing" in record.getMessage():
             return False
         return True
 
 
+# Add the filter as soon as the module loads so it applies before camel executes
 logging.getLogger().addFilter(MaxTokensWarningFilter())
 
 
 def disable_oasis_logging():
     """Turn off OASIS verbose logging; we use our own action_logger."""
     # Set OASIS loggers to CRITICAL only
+    """
+    Disable verbose OASIS logging
+    OASIS logging is too noisy (it records every agent observation and action), so we use our own action logger
+    """
+    # Disable all OASIS loggers
     oasis_loggers = [
         "social.agent",
         "social.twitter", 
@@ -99,6 +171,7 @@ def disable_oasis_logging():
     for logger_name in oasis_loggers:
         logger = logging.getLogger(logger_name)
         logger.setLevel(logging.CRITICAL)
+        logger.setLevel(logging.CRITICAL)  # Only record critical errors
         logger.handlers.clear()
         logger.propagate = False
 
@@ -106,6 +179,16 @@ def disable_oasis_logging():
 def init_logging_for_simulation(simulation_dir: str):
     """Initialize simulation logging. Args: simulation_dir."""
     disable_oasis_logging()
+    """
+    Initialize simulation logging
+    
+    Args:
+        simulation_dir: Simulation directory path
+    """
+    # Disable verbose OASIS logging
+    disable_oasis_logging()
+    
+    # Clean up the old log directory if it exists
     old_log_dir = os.path.join(simulation_dir, "log")
     if os.path.exists(old_log_dir):
         import shutil
@@ -132,6 +215,11 @@ except ImportError as e:
 
 
 # Twitter allowed actions (INTERVIEW excluded; INTERVIEW is only via ManualAction)
+    print("Please install first: pip install oasis-ai camel-ai")
+    sys.exit(1)
+
+
+# Twitter actions available (excluding INTERVIEW, which can only be triggered manually through ManualAction)
 TWITTER_ACTIONS = [
     ActionType.CREATE_POST,
     ActionType.LIKE_POST,
@@ -142,6 +230,7 @@ TWITTER_ACTIONS = [
 ]
 
 # Reddit allowed actions (INTERVIEW excluded; INTERVIEW is only via ManualAction)
+# Reddit actions available (excluding INTERVIEW, which can only be triggered manually through ManualAction)
 REDDIT_ACTIONS = [
     ActionType.LIKE_POST,
     ActionType.DISLIKE_POST,
@@ -160,12 +249,14 @@ REDDIT_ACTIONS = [
 
 
 # IPC constants
+# IPC-related constants
 IPC_COMMANDS_DIR = "ipc_commands"
 IPC_RESPONSES_DIR = "ipc_responses"
 ENV_STATUS_FILE = "env_status.json"
 
 class CommandType:
     """Command type constants."""
+    """Command type constants"""
     INTERVIEW = "interview"
     BATCH_INTERVIEW = "batch_interview"
     CLOSE_ENV = "close_env"
@@ -176,6 +267,9 @@ class ParallelIPCHandler:
     Dual-platform IPC command handler.
 
     Manages both platforms' environments and handles Interview commands.
+    Dual-platform IPC command handler
+    
+    Manages both platform environments and handles interview commands
     """
 
     def __init__(
@@ -196,11 +290,14 @@ class ParallelIPCHandler:
         self.responses_dir = os.path.join(simulation_dir, IPC_RESPONSES_DIR)
         self.status_file = os.path.join(simulation_dir, ENV_STATUS_FILE)
 
+        
+        # Ensure the directory exists
         os.makedirs(self.commands_dir, exist_ok=True)
         os.makedirs(self.responses_dir, exist_ok=True)
     
     def update_status(self, status: str):
         """Update environment status."""
+        """Update environment status"""
         with open(self.status_file, 'w', encoding='utf-8') as f:
             json.dump({
                 "status": status,
@@ -214,6 +311,8 @@ class ParallelIPCHandler:
         if not os.path.exists(self.commands_dir):
             return None
 
+        
+        # Get command files (sorted by modification time)
         command_files = []
         for filename in os.listdir(self.commands_dir):
             if filename.endswith('.json'):
@@ -233,6 +332,7 @@ class ParallelIPCHandler:
     
     def send_response(self, command_id: str, status: str, result: Dict = None, error: str = None):
         """Send response for a command."""
+        """Send a response for a processed command."""
         response = {
             "command_id": command_id,
             "status": status,
@@ -245,6 +345,8 @@ class ParallelIPCHandler:
         with open(response_file, 'w', encoding='utf-8') as f:
             json.dump(response, f, ensure_ascii=False, indent=2)
 
+        
+        # Delete the command file
         command_file = os.path.join(self.commands_dir, f"{command_id}.json")
         try:
             os.remove(command_file)
@@ -257,6 +359,10 @@ class ParallelIPCHandler:
 
         Args:
             platform: "twitter" or "reddit".
+        Get the environment and agent_graph for a given platform.
+
+        Args:
+            platform: Platform name ("twitter" or "reddit").
 
         Returns:
             (env, agent_graph, platform_name) or (None, None, None).
@@ -274,11 +380,16 @@ class ParallelIPCHandler:
 
         Returns:
             Dict with result or with "error" key.
+        Execute an Interview on a single platform.
+
+        Returns:
+            A dict that either contains the result or an "error" field.
         """
         env, agent_graph, actual_platform = self._get_env_and_graph(platform)
         
         if not env or not agent_graph:
             return {"platform": platform, "error": f"{platform} platform unavailable"}
+            return {"platform": platform, "error": f"{platform} platform is not available"}
         
         try:
             agent = agent_graph.get_agent(agent_id)
@@ -299,16 +410,22 @@ class ParallelIPCHandler:
     async def handle_interview(self, command_id: str, agent_id: int, prompt: str, platform: str = None) -> bool:
         """
         Handle a single-agent Interview command.
+        Handle a single‑agent interview command across one or both platforms.
 
         Args:
             command_id: Command ID.
             agent_id: Agent ID.
             prompt: Interview question.
             platform: Optional. "twitter" | "reddit" | None (both platforms, combined result).
+            platform: Optional platform selector:
+                - "twitter": Interview only on Twitter.
+                - "reddit": Interview only on Reddit.
+                - None / omitted: Interview on both platforms and merge results.
 
         Returns:
             True on success, False on failure.
         """
+        # If a specific platform is requested, only interview that one
         if platform in ("twitter", "reddit"):
             result = await self._interview_single_platform(agent_id, prompt, platform)
             if "error" in result:
@@ -321,6 +438,14 @@ class ParallelIPCHandler:
 
         if not self.twitter_env and not self.reddit_env:
             self.send_response(command_id, "failed", error="No simulation environment available")
+            else:
+                self.send_response(command_id, "completed", result=result)
+                print(f"  Interview completed: agent_id={agent_id}, platform={platform}")
+                return True
+        
+        # No platform specified: interview on both platforms
+        if not self.twitter_env and not self.reddit_env:
+            self.send_response(command_id, "failed", error="No simulation environment is available")
             return False
         
         results = {
@@ -329,6 +454,8 @@ class ParallelIPCHandler:
             "platforms": {}
         }
         success_count = 0
+        
+        # Interview both platforms in parallel
         tasks = []
         platforms_to_interview = []
 
@@ -339,6 +466,8 @@ class ParallelIPCHandler:
             tasks.append(self._interview_single_platform(agent_id, prompt, "reddit"))
             platforms_to_interview.append("reddit")
 
+        
+        # Execute interviews concurrently
         platform_results = await asyncio.gather(*tasks)
         for platform_name, platform_result in zip(platforms_to_interview, platform_results):
             results["platforms"][platform_name] = platform_result
@@ -367,6 +496,31 @@ class ParallelIPCHandler:
         reddit_interviews = []
         both_platforms_interviews = []
 
+            print(f"  Interview completed: agent_id={agent_id}, success_count={success_count}/{len(platforms_to_interview)}")
+            return True
+        else:
+            errors = [f"{p}: {r.get('error', 'Unknown error')}" for p, r in results["platforms"].items()]
+            self.send_response(command_id, "failed", error="; ".join(errors))
+            print(f"  Interview failed: agent_id={agent_id}, all platforms failed")
+            return False
+    
+    async def handle_batch_interview(self, command_id: str, interviews: List[Dict], platform: str = None) -> bool:
+        """
+        Handle a batch interview command.
+
+        Args:
+            command_id: Command ID.
+            interviews: [{"agent_id": int, "prompt": str, "platform": str(optional)}, ...]
+            platform: Default platform (can be overridden per interview item):
+                - "twitter": Only interview on Twitter.
+                - "reddit": Only interview on Reddit.
+                - None / omitted: Interview each agent on both platforms.
+        """
+        # Group by platform
+        twitter_interviews = []
+        reddit_interviews = []
+        both_platforms_interviews = []  # Need to interview on both platforms
+        
         for interview in interviews:
             item_platform = interview.get("platform", platform)
             if item_platform == "twitter":
@@ -376,6 +530,10 @@ class ParallelIPCHandler:
             else:
                 both_platforms_interviews.append(interview)
 
+                # No explicit platform: add to both
+                both_platforms_interviews.append(interview)
+        
+        # Split both_platforms_interviews into the two platform lists
         if both_platforms_interviews:
             if self.twitter_env:
                 twitter_interviews.extend(both_platforms_interviews)
@@ -384,6 +542,8 @@ class ParallelIPCHandler:
 
         results = {}
 
+        
+        # Handle Twitter interviews
         if twitter_interviews and self.twitter_env:
             try:
                 twitter_actions = {}
@@ -399,6 +559,9 @@ class ParallelIPCHandler:
                     except Exception as e:
                         print(f"  Warning: could not get Twitter agent {agent_id}: {e}")
 
+                        except Exception as e:
+                            print(f"  Warning: failed to get Twitter agent {agent_id}: {e}")
+                
                 if twitter_actions:
                     await self.twitter_env.step(twitter_actions)
                     
@@ -410,6 +573,8 @@ class ParallelIPCHandler:
             except Exception as e:
                 print(f"  Twitter batch Interview failed: {e}")
 
+        
+        # Handle Reddit interviews
         if reddit_interviews and self.reddit_env:
             try:
                 reddit_actions = {}
@@ -425,6 +590,9 @@ class ParallelIPCHandler:
                     except Exception as e:
                         print(f"  Warning: could not get Reddit agent {agent_id}: {e}")
 
+                        except Exception as e:
+                            print(f"  Warning: failed to get Reddit agent {agent_id}: {e}")
+                
                 if reddit_actions:
                     await self.reddit_env.step(reddit_actions)
                     
@@ -436,6 +604,7 @@ class ParallelIPCHandler:
             except Exception as e:
                 print(f"  Reddit batch Interview failed: {e}")
 
+        
         if results:
             self.send_response(command_id, "completed", result={
                 "interviews_count": len(results),
@@ -445,6 +614,11 @@ class ParallelIPCHandler:
             return True
         self.send_response(command_id, "failed", error="No successful interviews")
         return False
+            print(f"  Batch Interview completed: {len(results)} agents")
+            return True
+        else:
+            self.send_response(command_id, "failed", error="No successful interviews")
+            return False
     
     def _ensure_interview_index(self, db_path: str):
         """确保trace表有Interview查询所需的索引"""
@@ -463,6 +637,7 @@ class ParallelIPCHandler:
 
     def _get_interview_result(self, agent_id: int, platform: str) -> Dict[str, Any]:
         """Load latest Interview result from DB."""
+        """Get the latest interview result from the database for a platform."""
         db_path = os.path.join(self.simulation_dir, f"{platform}_simulation.db")
 
         result = {
@@ -506,6 +681,8 @@ class ParallelIPCHandler:
             print(f"  读取Interview结果失败: {e}")
             print(f"  Failed to read Interview result: {e}")
 
+            print(f"  Failed to read interview result: {e}")
+        
         return result
 
     async def process_commands(self) -> bool:
@@ -514,6 +691,7 @@ class ParallelIPCHandler:
 
         Returns:
             True to keep running, False to exit.
+            True to keep running, False to request shutdown.
         """
         command = self.poll_command()
         if not command:
@@ -524,6 +702,8 @@ class ParallelIPCHandler:
         args = command.get("args", {})
 
         print(f"\nIPC command received: {command_type}, id={command_id}")
+        
+        print(f"\nReceived IPC command: {command_type}, id={command_id}")
         
         if command_type == CommandType.INTERVIEW:
             await self.handle_interview(
@@ -553,6 +733,17 @@ class ParallelIPCHandler:
 
 def load_config(config_path: str) -> Dict[str, Any]:
     """Load config from JSON file."""
+            print("Received environment close command")
+            self.send_response(command_id, "completed", result={"message": "Environment will close shortly"})
+            return False
+        
+        else:
+            self.send_response(command_id, "failed", error=f"Unknown command type: {command_type}")
+            return True
+
+
+def load_config(config_path: str) -> Dict[str, Any]:
+    """Load the simulation configuration file."""
     with open(config_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -561,6 +752,10 @@ def load_config(config_path: str) -> Dict[str, Any]:
 FILTERED_ACTIONS = {'refresh', 'sign_up'}
 
 # DB action name -> canonical name
+# Non‑core actions to filter out (low analytical value)
+FILTERED_ACTIONS = {'refresh', 'sign_up'}
+
+# Action type mapping (DB name -> canonical name)
 ACTION_TYPE_MAP = {
     'create_post': 'CREATE_POST',
     'like_post': 'LIKE_POST',
@@ -589,6 +784,15 @@ def get_agent_names_from_config(config: Dict[str, Any]) -> Dict[int, str]:
 
     Returns:
         agent_id -> entity_name mapping.
+    Build an agent_id -> entity_name mapping from simulation_config.
+
+    This lets actions.jsonl show real entity names instead of "Agent_0" aliases.
+
+    Args:
+        config: Parsed simulation_config.json.
+
+    Returns:
+        Mapping from agent_id to entity_name.
     """
     agent_names = {}
     agent_configs = config.get("agent_configs", [])
@@ -617,6 +821,19 @@ def fetch_new_actions_from_db(
 
     Returns:
         (actions_list, new_last_rowid). actions_list items have agent_id, agent_name, action_type, action_args.
+    Fetch new action records from the database and enrich them with context.
+
+    Args:
+        db_path: Path to the SQLite database file.
+        last_rowid: Last processed rowid value (uses rowid instead of
+            created_at, since platforms format that differently).
+        agent_names: Mapping from agent_id to human‑readable agent name.
+
+    Returns:
+        (actions_list, new_last_rowid)
+        - actions_list: List of actions, each containing agent_id, agent_name,
+          action_type, and enriched action_args.
+        - new_last_rowid: Updated maximum rowid.
     """
     actions = []
     new_last_rowid = last_rowid
@@ -627,6 +844,9 @@ def fetch_new_actions_from_db(
     try:
         conn = sqlite3.connect(db_path)
         cursor = conn.cursor()
+        
+        # Use rowid to track processed records (rowid is SQLite's internal autoincrement ID)
+        # This avoids cross‑platform created_at format differences (Twitter uses ints, Reddit timestamps).
         cursor.execute("""
             SELECT rowid, user_id, action, info
             FROM trace
@@ -638,11 +858,21 @@ def fetch_new_actions_from_db(
             new_last_rowid = rowid
             if action in FILTERED_ACTIONS:
                 continue
+            # Update the maximum rowid
+            new_last_rowid = rowid
+            
+            # Filter out non‑core actions
+            if action in FILTERED_ACTIONS:
+                continue
+            
+            # Parse action arguments
             try:
                 action_args = json.loads(info_json) if info_json else {}
             except json.JSONDecodeError:
                 action_args = {}
 
+            
+            # Simplify action_args: keep only the key fields (keep content intact, no truncation)
             simplified_args = {}
             if 'content' in action_args:
                 simplified_args['content'] = action_args['content']
@@ -664,6 +894,11 @@ def fetch_new_actions_from_db(
                 simplified_args['dislike_id'] = action_args['dislike_id']
 
             action_type = ACTION_TYPE_MAP.get(action, action.upper())
+            
+            # Normalize action type name
+            action_type = ACTION_TYPE_MAP.get(action, action.upper())
+            
+            # Enrich context (post content, usernames, etc.)
             _enrich_action_context(cursor, action_type, simplified_args, agent_names)
             
             actions.append({
@@ -677,6 +912,8 @@ def fetch_new_actions_from_db(
     except Exception as e:
         print(f"Failed to read actions from DB: {e}")
 
+        print(f"Failed to read actions from database: {e}")
+    
     return actions, new_last_rowid
 
 
@@ -696,6 +933,16 @@ def _enrich_action_context(
         agent_names: agent_id -> agent_name map.
     """
     try:
+    Enrich an action with contextual information (post content, usernames, etc.).
+
+    Args:
+        cursor: Database cursor.
+        action_type: Canonical action type.
+        action_args: Action arguments (mutated in place).
+        agent_names: Mapping from agent_id to agent_name.
+    """
+    try:
+        # LIKE/DISLIKE_POST: add post content and author
         if action_type in ('LIKE_POST', 'DISLIKE_POST'):
             post_id = action_args.get('post_id')
             if post_id:
@@ -707,6 +954,12 @@ def _enrich_action_context(
         elif action_type == 'REPOST':
             new_post_id = action_args.get('new_post_id')
             if new_post_id:
+        
+        # REPOST: add original post content and author
+        elif action_type == 'REPOST':
+            new_post_id = action_args.get('new_post_id')
+            if new_post_id:
+                # The repost's original_post_id points to the source post
                 cursor.execute("""
                     SELECT original_post_id FROM post WHERE post_id = ?
                 """, (new_post_id,))
@@ -718,6 +971,8 @@ def _enrich_action_context(
                         action_args['original_content'] = original_info.get('content', '')
                         action_args['original_author_name'] = original_info.get('author_name', '')
 
+        
+        # QUOTE_POST: add original post content, author, and quote content
         elif action_type == 'QUOTE_POST':
             quoted_id = action_args.get('quoted_id')
             new_post_id = action_args.get('new_post_id')
@@ -728,6 +983,8 @@ def _enrich_action_context(
                     action_args['original_content'] = original_info.get('content', '')
                     action_args['original_author_name'] = original_info.get('author_name', '')
 
+            
+            # Get quote_content for the quoting post
             if new_post_id:
                 cursor.execute("""
                     SELECT quote_content FROM post WHERE post_id = ?
@@ -739,6 +996,12 @@ def _enrich_action_context(
         elif action_type == 'FOLLOW':
             follow_id = action_args.get('follow_id')
             if follow_id:
+        
+        # FOLLOW: add target user name
+        elif action_type == 'FOLLOW':
+            follow_id = action_args.get('follow_id')
+            if follow_id:
+                # Get followee_id from the follow table
                 cursor.execute("""
                     SELECT followee_id FROM follow WHERE follow_id = ?
                 """, (follow_id,))
@@ -750,12 +1013,18 @@ def _enrich_action_context(
                         action_args['target_user_name'] = target_name
 
         elif action_type == 'MUTE':
+        
+        # MUTE: add muted user name
+        elif action_type == 'MUTE':
+            # Read user_id or target_id from action_args
             target_id = action_args.get('user_id') or action_args.get('target_id')
             if target_id:
                 target_name = _get_user_name(cursor, target_id, agent_names)
                 if target_name:
                     action_args['target_user_name'] = target_name
 
+        
+        # LIKE/DISLIKE_COMMENT: add comment content and author
         elif action_type in ('LIKE_COMMENT', 'DISLIKE_COMMENT'):
             comment_id = action_args.get('comment_id')
             if comment_id:
@@ -764,6 +1033,8 @@ def _enrich_action_context(
                     action_args['comment_content'] = comment_info.get('content', '')
                     action_args['comment_author_name'] = comment_info.get('author_name', '')
 
+        
+        # CREATE_COMMENT: add info about the post being commented on
         elif action_type == 'CREATE_COMMENT':
             post_id = action_args.get('post_id')
             if post_id:
@@ -773,6 +1044,7 @@ def _enrich_action_context(
                     action_args['post_author_name'] = post_info.get('author_name', '')
     
     except Exception as e:
+        # Context enrichment failure should not break the main flow
         print(f"Failed to enrich action context: {e}")
 
 
@@ -782,6 +1054,17 @@ def _get_post_info(
     agent_names: Dict[int, str]
 ) -> Optional[Dict[str, str]]:
     """Get post content and author name from DB."""
+    """
+    Fetch post information.
+
+    Args:
+        cursor: Database cursor.
+        post_id: Post ID.
+        agent_names: Mapping from agent_id to agent_name.
+
+    Returns:
+        Dict with ``content`` and ``author_name`` or None.
+    """
     try:
         cursor.execute("""
             SELECT p.content, p.user_id, u.agent_id
@@ -794,10 +1077,13 @@ def _get_post_info(
             content = row[0] or ''
             user_id = row[1]
             agent_id = row[2]
+            
+            # Prefer the name from agent_names first
             author_name = ''
             if agent_id is not None and agent_id in agent_names:
                 author_name = agent_names[agent_id]
             elif user_id:
+                # Fall back to name from user table
                 cursor.execute("SELECT name, user_name FROM user WHERE user_id = ?", (user_id,))
                 user_row = cursor.fetchone()
                 if user_row:
@@ -815,6 +1101,17 @@ def _get_user_name(
     agent_names: Dict[int, str]
 ) -> Optional[str]:
     """Get user display name from DB."""
+    """
+    Fetch a user's display name.
+
+    Args:
+        cursor: Database cursor.
+        user_id: User ID.
+        agent_names: Mapping from agent_id to agent_name.
+
+    Returns:
+        User display name or None.
+    """
     try:
         cursor.execute("""
             SELECT agent_id, name, user_name FROM user WHERE user_id = ?
@@ -824,6 +1121,8 @@ def _get_user_name(
             agent_id = row[0]
             name = row[1]
             user_name = row[2]
+            
+            # Prefer the name from agent_names if available
             if agent_id is not None and agent_id in agent_names:
                 return agent_names[agent_id]
             return name or user_name or ''
@@ -838,6 +1137,17 @@ def _get_comment_info(
     agent_names: Dict[int, str]
 ) -> Optional[Dict[str, str]]:
     """Get comment content and author name from DB."""
+    """
+    Fetch comment information.
+
+    Args:
+        cursor: Database cursor.
+        comment_id: Comment ID.
+        agent_names: Mapping from agent_id to agent_name.
+
+    Returns:
+        Dict with ``content`` and ``author_name`` or None.
+    """
     try:
         cursor.execute("""
             SELECT c.content, c.user_id, u.agent_id
@@ -850,10 +1160,13 @@ def _get_comment_info(
             content = row[0] or ''
             user_id = row[1]
             agent_id = row[2]
+            
+            # Prefer the name from agent_names if available
             author_name = ''
             if agent_id is not None and agent_id in agent_names:
                 author_name = agent_names[agent_id]
             elif user_id:
+                # Fall back to name from user table
                 cursor.execute("SELECT name, user_name FROM user WHERE user_id = ?", (user_id,))
                 user_row = cursor.fetchone()
                 if user_row:
@@ -873,12 +1186,30 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
         config: Simulation config dict.
         use_boost: Use boost LLM config if available.
     """
+    Create the LLM model.
+
+    Supports a dual‑LLM configuration for faster parallel simulations:
+    - General config: LLM_API_KEY, LLM_BASE_URL, LLM_MODEL_NAME
+    - Boost config (optional): LLM_BOOST_API_KEY, LLM_BOOST_BASE_URL, LLM_BOOST_MODEL_NAME
+
+    When boost LLM is configured, different platforms can use different providers
+    to improve concurrency.
+
+    Args:
+        config: Simulation configuration dict.
+        use_boost: Whether to try using the boost LLM configuration (if available).
+    """
+    # Check whether boost configuration is available
     boost_api_key = os.environ.get("LLM_BOOST_API_KEY", "")
     boost_base_url = os.environ.get("LLM_BOOST_BASE_URL", "")
     boost_model = os.environ.get("LLM_BOOST_MODEL_NAME", "")
     has_boost_config = bool(boost_api_key)
 
     if use_boost and has_boost_config:
+    
+    # Choose which LLM to use according to parameters and environment
+    if use_boost and has_boost_config:
+        # Use boost configuration
         llm_api_key = boost_api_key
         llm_base_url = boost_base_url
         llm_model = boost_model or os.environ.get("LLM_MODEL_NAME", "")
@@ -892,6 +1223,17 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
     if not llm_model:
         llm_model = config.get("llm_model", "gpt-4o-mini")
 
+        # Use general configuration
+        llm_api_key = os.environ.get("LLM_API_KEY", "")
+        llm_base_url = os.environ.get("LLM_BASE_URL", "")
+        llm_model = os.environ.get("LLM_MODEL_NAME", "")
+        config_label = "[General LLM]"
+    
+    # If .env does not specify a model, fall back to config
+    if not llm_model:
+        llm_model = config.get("llm_model", "gpt-4o-mini")
+    
+    # Set environment variables required by camel‑ai
     if llm_api_key:
         os.environ["OPENAI_API_KEY"] = llm_api_key
 
@@ -901,6 +1243,11 @@ def create_model(config: Dict[str, Any], use_boost: bool = False):
     if llm_base_url:
         os.environ["OPENAI_API_BASE_URL"] = llm_base_url
 
+        raise ValueError("Missing API key configuration. Set LLM_API_KEY in the project-root .env file")
+    
+    if llm_base_url:
+        os.environ["OPENAI_API_BASE_URL"] = llm_base_url
+    
     print(f"{config_label} model={llm_model}, base_url={llm_base_url[:40] if llm_base_url else 'default'}...")
     
     return ModelFactory.create(
@@ -916,6 +1263,7 @@ def get_active_agents_for_round(
     round_num: int
 ) -> List:
     """Select which agents are active this round based on time and config."""
+    """Decide which agents should be active in a given round based on time and config."""
     time_config = config.get("time_config", {})
     agent_configs = config.get("agent_configs", [])
     
@@ -978,6 +1326,18 @@ async def run_twitter_simulation(
     max_rounds: Optional[int] = None
 ) -> PlatformSimulation:
     """Run Twitter simulation. Returns PlatformSimulation with env and agent_graph."""
+    """Run the Twitter simulation.
+
+    Args:
+        config: Simulation configuration.
+        simulation_dir: Simulation directory.
+        action_logger: Action logger.
+        main_logger: Main log manager.
+        max_rounds: Optional cap on the number of rounds.
+
+    Returns:
+        PlatformSimulation object containing env and agent_graph.
+    """
     result = PlatformSimulation()
 
     def log_info(msg):
@@ -990,6 +1350,16 @@ async def run_twitter_simulation(
     profile_path = os.path.join(simulation_dir, "twitter_profiles.csv")
     if not os.path.exists(profile_path):
         log_info(f"Error: profile file not found: {profile_path}")
+    
+    log_info("Initialize...")
+    
+    # Twitter uses the general LLM configuration
+    model = create_model(config, use_boost=False)
+    
+    # OASIS Twitter uses CSV format
+    profile_path = os.path.join(simulation_dir, "twitter_profiles.csv")
+    if not os.path.exists(profile_path):
+        log_info(f"Error: profile file does not exist: {profile_path}")
         return result
     
     result.agent_graph = await generate_twitter_agent_graph(
@@ -999,6 +1369,9 @@ async def run_twitter_simulation(
     )
     
     agent_names = get_agent_names_from_config(config)
+    # Build a mapping from config so we use entity_name instead of default Agent_X
+    agent_names = get_agent_names_from_config(config)
+    # If config is missing an agent, fall back to OASIS default name
     for agent_id, agent in result.agent_graph.get_agents():
         if agent_id not in agent_names:
             agent_names[agent_id] = getattr(agent, 'name', f'Agent_{agent_id}')
@@ -1012,11 +1385,13 @@ async def run_twitter_simulation(
         platform=oasis.DefaultPlatformType.TWITTER,
         database_path=db_path,
         semaphore=30,
+        semaphore=30,  # Limit concurrent LLM requests to avoid API overload
     )
 
     await result.env.reset()
     log_info("Environment started")
 
+    
     if action_logger:
         action_logger.log_simulation_start(config)
 
@@ -1026,6 +1401,13 @@ async def run_twitter_simulation(
     event_config = config.get("event_config", {})
     initial_posts = event_config.get("initial_posts", [])
 
+    last_rowid = 0  # Track last processed rowid (use rowid to avoid created_at differences)
+    
+    # Run initial events
+    event_config = config.get("event_config", {})
+    initial_posts = event_config.get("initial_posts", [])
+    
+    # Log round 0 start (initial events phase)
     if action_logger:
         action_logger.log_round_start(0, 0)
 
@@ -1062,20 +1444,31 @@ async def run_twitter_simulation(
     if action_logger:
         action_logger.log_round_end(0, initial_action_count)
 
+            log_info(f"已发布 {len(initial_actions)} 条初始帖子")
+    
+    # Log round 0 end
+    if action_logger:
+        action_logger.log_round_end(0, initial_action_count)
+    
+    # Main simulation loop
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
     minutes_per_round = time_config.get("minutes_per_round", 30)
     total_rounds = (total_hours * 60) // minutes_per_round
 
+    
+    # Cap total rounds if max_rounds is specified
     if max_rounds is not None and max_rounds > 0:
         original_rounds = total_rounds
         total_rounds = min(total_rounds, max_rounds)
         if total_rounds < original_rounds:
             log_info(f"Rounds capped: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
 
+    
     start_time = datetime.now()
 
     for round_num in range(total_rounds):
+        # Check for shutdown signal
         if _shutdown_event and _shutdown_event.is_set():
             if main_logger:
                 main_logger.info(f"Shutdown signal received, stopping at round {round_num + 1}")
@@ -1089,10 +1482,13 @@ async def run_twitter_simulation(
             result.env, config, simulated_hour, round_num
         )
 
+        
+        # Log round start regardless of whether any agents are active
         if action_logger:
             action_logger.log_round_start(round_num + 1, simulated_hour)
 
         if not active_agents:
+            # Log round end even when no agents were active (actions_count=0)
             if action_logger:
                 action_logger.log_round_end(round_num + 1, 0)
             continue
@@ -1100,6 +1496,8 @@ async def run_twitter_simulation(
         actions = {agent: LLMAction() for _, agent in active_agents}
         await result.env.step(actions)
 
+        
+        # Fetch actual actions from DB and record them
         actual_actions, last_rowid = fetch_new_actions_from_db(
             db_path, last_rowid, agent_names
         )
@@ -1124,6 +1522,9 @@ async def run_twitter_simulation(
             progress = (round_num + 1) / total_rounds * 100
             log_info(f"Day {simulated_day}, {simulated_hour:02d}:00 - Round {round_num + 1}/{total_rounds} ({progress:.1f}%)")
 
+    
+    # Note: do not close the environment; keep it alive for Interview
+    
     if action_logger:
         action_logger.log_simulation_end(total_rounds, total_actions)
 
@@ -1142,6 +1543,18 @@ async def run_reddit_simulation(
     max_rounds: Optional[int] = None
 ) -> PlatformSimulation:
     """Run Reddit simulation. Returns PlatformSimulation with env and agent_graph."""
+    """Run the Reddit simulation.
+
+    Args:
+        config: Simulation configuration.
+        simulation_dir: Simulation directory.
+        action_logger: Action logger.
+        main_logger: Main log manager.
+        max_rounds: Optional cap on the number of rounds.
+
+    Returns:
+        PlatformSimulation object containing env and agent_graph.
+    """
     result = PlatformSimulation()
 
     def log_info(msg):
@@ -1150,10 +1563,15 @@ async def run_reddit_simulation(
         print(f"[Reddit] {msg}")
 
     log_info("Initializing...")
+    
+    log_info("Initialize...")
+    
+    # Reddit uses the boost LLM configuration if available, else falls back to general config
     model = create_model(config, use_boost=True)
     profile_path = os.path.join(simulation_dir, "reddit_profiles.json")
     if not os.path.exists(profile_path):
         log_info(f"Error: profile file not found: {profile_path}")
+        log_info(f"Error: profile file does not exist: {profile_path}")
         return result
     
     result.agent_graph = await generate_reddit_agent_graph(
@@ -1163,6 +1581,10 @@ async def run_reddit_simulation(
     )
 
     agent_names = get_agent_names_from_config(config)
+    
+    # Build a mapping from config so we use entity_name instead of default Agent_X
+    agent_names = get_agent_names_from_config(config)
+    # If config is missing an agent, fall back to OASIS default name
     for agent_id, agent in result.agent_graph.get_agents():
         if agent_id not in agent_names:
             agent_names[agent_id] = getattr(agent, 'name', f'Agent_{agent_id}')
@@ -1176,11 +1598,13 @@ async def run_reddit_simulation(
         platform=oasis.DefaultPlatformType.REDDIT,
         database_path=db_path,
         semaphore=30,
+        semaphore=30,  # Limit concurrent LLM requests to avoid API overload
     )
 
     await result.env.reset()
     log_info("Environment started")
 
+    
     if action_logger:
         action_logger.log_simulation_start(config)
 
@@ -1190,6 +1614,13 @@ async def run_reddit_simulation(
     event_config = config.get("event_config", {})
     initial_posts = event_config.get("initial_posts", [])
 
+    last_rowid = 0  # Track last processed rowid (use rowid to avoid created_at differences)
+    
+    # Run initial events
+    event_config = config.get("event_config", {})
+    initial_posts = event_config.get("initial_posts", [])
+    
+    # Log round 0 start (initial events phase)
     if action_logger:
         action_logger.log_round_start(0, 0)
 
@@ -1234,20 +1665,31 @@ async def run_reddit_simulation(
     if action_logger:
         action_logger.log_round_end(0, initial_action_count)
 
+            log_info(f"已发布 {len(initial_actions)} 条初始帖子")
+    
+    # Log round 0 end
+    if action_logger:
+        action_logger.log_round_end(0, initial_action_count)
+    
+    # Main simulation loop
     time_config = config.get("time_config", {})
     total_hours = time_config.get("total_simulation_hours", 72)
     minutes_per_round = time_config.get("minutes_per_round", 30)
     total_rounds = (total_hours * 60) // minutes_per_round
 
+    
+    # Cap total rounds if max_rounds is specified
     if max_rounds is not None and max_rounds > 0:
         original_rounds = total_rounds
         total_rounds = min(total_rounds, max_rounds)
         if total_rounds < original_rounds:
             log_info(f"Rounds capped: {original_rounds} -> {total_rounds} (max_rounds={max_rounds})")
 
+    
     start_time = datetime.now()
 
     for round_num in range(total_rounds):
+        # Check for shutdown signal
         if _shutdown_event and _shutdown_event.is_set():
             if main_logger:
                 main_logger.info(f"Shutdown signal received, stopping at round {round_num + 1}")
@@ -1261,10 +1703,13 @@ async def run_reddit_simulation(
             result.env, config, simulated_hour, round_num
         )
 
+        
+        # Log round start regardless of whether any agents are active
         if action_logger:
             action_logger.log_round_start(round_num + 1, simulated_hour)
 
         if not active_agents:
+            # Log round end even when no agents were active (actions_count=0)
             if action_logger:
                 action_logger.log_round_end(round_num + 1, 0)
             continue
@@ -1272,6 +1717,8 @@ async def run_reddit_simulation(
         actions = {agent: LLMAction() for _, agent in active_agents}
         await result.env.step(actions)
 
+        
+        # Fetch actual actions from DB and record them
         actual_actions, last_rowid = fetch_new_actions_from_db(
             db_path, last_rowid, agent_names
         )
@@ -1296,6 +1743,9 @@ async def run_reddit_simulation(
             progress = (round_num + 1) / total_rounds * 100
             log_info(f"Day {simulated_day}, {simulated_hour:02d}:00 - Round {round_num + 1}/{total_rounds} ({progress:.1f}%)")
 
+    
+    # Note: do not close the environment; keep it alive for Interview
+    
     if action_logger:
         action_logger.log_simulation_end(total_rounds, total_actions)
 
@@ -1308,42 +1758,51 @@ async def run_reddit_simulation(
 
 async def main():
     parser = argparse.ArgumentParser(description='OASIS dual-platform parallel simulation')
+    parser = argparse.ArgumentParser(description='OASIS dual‑platform (Twitter + Reddit) parallel simulation')
     parser.add_argument(
         '--config',
         type=str,
         required=True,
         help='Config file path (simulation_config.json)'
+        help='Configuration file path (simulation_config.json)'
     )
     parser.add_argument(
         '--twitter-only',
         action='store_true',
         help='Run Twitter simulation only'
+        help='Run only the Twitter simulation'
     )
     parser.add_argument(
         '--reddit-only',
         action='store_true',
         help='Run Reddit simulation only'
+        help='Run only the Reddit simulation'
     )
     parser.add_argument(
         '--max-rounds',
         type=int,
         default=None,
         help='Max simulation rounds (optional, to cap long runs)'
+        help='Maximum simulation rounds (optional, used to cap long simulations)'
     )
     parser.add_argument(
         '--no-wait',
         action='store_true',
         default=False,
         help='Exit after simulation; do not wait for commands'
+        help='Exit immediately after completion; do not enter command-wait mode'
     )
 
     args = parser.parse_args()
 
+    
+    # Create the shutdown event at the start of main so the whole program can react
     global _shutdown_event
     _shutdown_event = asyncio.Event()
 
     if not os.path.exists(args.config):
         print(f"Error: config file not found: {args.config}")
+        print(f"Error: configuration file does not exist: {args.config}")
         sys.exit(1)
 
     config = load_config(args.config)
@@ -1351,6 +1810,11 @@ async def main():
     wait_for_commands = not args.no_wait
 
     init_logging_for_simulation(simulation_dir)
+    
+    # Initialize logging (disable noisy OASIS loggers, clean old files)
+    init_logging_for_simulation(simulation_dir)
+    
+    # Create log managers
     log_manager = SimulationLogManager(simulation_dir)
     twitter_logger = log_manager.get_twitter_logger()
     reddit_logger = log_manager.get_reddit_logger()
@@ -1360,6 +1824,9 @@ async def main():
     log_manager.info(f"Config: {args.config}")
     log_manager.info(f"Simulation ID: {config.get('simulation_id', 'unknown')}")
     log_manager.info(f"Wait-for-commands mode: {'enabled' if wait_for_commands else 'disabled'}")
+    log_manager.info(f"Configuration file: {args.config}")
+    log_manager.info(f"Simulation ID: {config.get('simulation_id', 'unknown')}")
+    log_manager.info(f"Command-wait mode: {'enabled' if wait_for_commands else 'disabled'}")
     log_manager.info("=" * 60)
 
     time_config = config.get("time_config", {})
@@ -1385,6 +1852,26 @@ async def main():
     
     start_time = datetime.now()
 
+    
+    log_manager.info(f"Simulation parameters:")
+    log_manager.info(f"  - Total simulation time: {total_hours} hours")
+    log_manager.info(f"  - Time per round: {minutes_per_round} minutes")
+    log_manager.info(f"  - Configured total rounds: {config_total_rounds}")
+    if args.max_rounds:
+        log_manager.info(f"  - Max round limit: {args.max_rounds}")
+        if args.max_rounds < config_total_rounds:
+            log_manager.info(f"  - Actual executed rounds: {args.max_rounds} (capped)")
+    log_manager.info(f"  - Agent count: {len(config.get('agent_configs', []))}")
+    
+    log_manager.info("Log layout:")
+    log_manager.info(f"  - Main log: simulation.log")
+    log_manager.info(f"  - Twitter actions: twitter/actions.jsonl")
+    log_manager.info(f"  - Reddit actions: reddit/actions.jsonl")
+    log_manager.info("=" * 60)
+    
+    start_time = datetime.now()
+    
+    # Store results for both platforms
     twitter_result: Optional[PlatformSimulation] = None
     reddit_result: Optional[PlatformSimulation] = None
 
@@ -1393,6 +1880,7 @@ async def main():
     elif args.reddit_only:
         reddit_result = await run_reddit_simulation(config, simulation_dir, reddit_logger, log_manager, args.max_rounds)
     else:
+        # Run in parallel (each platform uses its own logger)
         results = await asyncio.gather(
             run_twitter_simulation(config, simulation_dir, twitter_logger, log_manager, args.max_rounds),
             run_reddit_simulation(config, simulation_dir, reddit_logger, log_manager, args.max_rounds),
@@ -1410,6 +1898,17 @@ async def main():
         log_manager.info("Supported commands: interview, batch_interview, close_env")
         log_manager.info("=" * 60)
 
+    log_manager.info(f"Simulation loop completed! Total time: {total_elapsed:.1f}s")
+    
+    # Optionally enter command‑wait mode
+    if wait_for_commands:
+        log_manager.info("")
+        log_manager.info("=" * 60)
+        log_manager.info("Enter command-wait mode - environment stays alive")
+        log_manager.info("Supported commands: interview, batch_interview, close_env")
+        log_manager.info("=" * 60)
+        
+        # Create IPC handler
         ipc_handler = ParallelIPCHandler(
             simulation_dir=simulation_dir,
             twitter_env=twitter_result.env if twitter_result else None,
@@ -1419,11 +1918,14 @@ async def main():
         )
         ipc_handler.update_status("alive")
 
+        
+        # Command wait loop (uses global _shutdown_event)
         try:
             while not _shutdown_event.is_set():
                 should_continue = await ipc_handler.process_commands()
                 if not should_continue:
                     break
+                # Use wait_for instead of sleep so we can react to shutdown_event
                 try:
                     await asyncio.wait_for(_shutdown_event.wait(), timeout=0.5)
                     break
@@ -1450,6 +1952,27 @@ async def main():
     log_manager.info("=" * 60)
     log_manager.info("All done.")
     log_manager.info("Log files:")
+            print("\nReceived interrupt signal")
+        except asyncio.CancelledError:
+            print("\nTask cancelled")
+        except Exception as e:
+            print(f"\nCommand processing error: {e}")
+        
+        log_manager.info("\nClose environment...")
+        ipc_handler.update_status("stopped")
+    
+    # Close environments
+    if twitter_result and twitter_result.env:
+        await twitter_result.env.close()
+        log_manager.info("[Twitter] Environment closed")
+    
+    if reddit_result and reddit_result.env:
+        await reddit_result.env.close()
+        log_manager.info("[Reddit] Environment closed")
+    
+    log_manager.info("=" * 60)
+    log_manager.info(f"All done!")
+    log_manager.info(f"Logs:")
     log_manager.info(f"  - {os.path.join(simulation_dir, 'simulation.log')}")
     log_manager.info(f"  - {os.path.join(simulation_dir, 'twitter', 'actions.jsonl')}")
     log_manager.info(f"  - {os.path.join(simulation_dir, 'reddit', 'actions.jsonl')}")
@@ -1462,6 +1985,13 @@ def setup_signal_handlers(loop=None):
 
     On first signal: set _shutdown_event so asyncio loop can exit and clean up.
     On second signal: force exit.
+    Set up signal handlers so SIGTERM/SIGINT exit cleanly.
+
+    For long‑lived simulation environments (kept alive for interview commands),
+    shutdown should:
+    1. Notify the asyncio loop to exit its wait.
+    2. Give the program a chance to clean up resources (close DB, env, etc.).
+    3. Then exit.
     """
     def signal_handler(signum, frame):
         global _cleanup_done
@@ -1474,6 +2004,18 @@ def setup_signal_handlers(loop=None):
                 _shutdown_event.set()
         else:
             print("Forcing exit...")
+        print(f"\nReceived {sig_name}, exiting...")
+        
+        if not _cleanup_done:
+            _cleanup_done = True
+            # Set the event to notify asyncio loop to exit (so it can clean up)
+            if _shutdown_event:
+                _shutdown_event.set()
+        
+        # Do not call sys.exit() directly; let asyncio exit and clean up first.
+        # Only force exit on repeated signals.
+        else:
+            print("Force exit...")
             sys.exit(1)
 
     signal.signal(signal.SIGTERM, signal_handler)
@@ -1486,6 +2028,7 @@ if __name__ == "__main__":
         asyncio.run(main())
     except KeyboardInterrupt:
         print("\nInterrupted")
+        print("\nProgram interrupted")
     except SystemExit:
         pass
     finally:

@@ -9,6 +9,13 @@
           <span class="btn-text">Refresh</span>
         </button>
         <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('common.maximizeRestore')">
+      <!-- Top-right toolbar -->
+      <div class="header-tools">
+        <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" title="Refresh graph">
+          <span class="icon-refresh" :class="{ 'spinning': loading }">↻</span>
+          <span class="btn-text">Refresh</span>
+        </button>
+        <button class="tool-btn" @click="$emit('toggle-maximize')" title="Maximize or restore">
           <span class="icon-maximize">⛶</span>
         </button>
       </div>
@@ -20,6 +27,7 @@
         <svg ref="graphSvg" class="graph-svg"></svg>
         
         <!-- Building / simulating hint -->
+        <!-- Build and simulation hint -->
         <div v-if="currentPhase === 1 || isSimulating" class="graph-building-hint">
           <div class="memory-icon-wrapper">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="memory-icon">
@@ -28,6 +36,7 @@
             </svg>
           </div>
           {{ isSimulating ? $t('graph.graphRagUpdating') : $t('graph.updatingShort') }}
+          {{ isSimulating ? 'GraphRAG long- and short-term memory is updating in real time' : 'Updating in real time...' }}
         </div>
         
         <!-- Post-simulation hint -->
@@ -41,6 +50,8 @@
           </div>
           <span class="hint-text">{{ $t('graph.finishedHintText') }}</span>
           <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('common.closeHint')">
+          <span class="hint-text">A small amount of processing is still finishing. Refresh the graph manually in a moment.</span>
+          <button class="hint-close-btn" @click="dismissFinishedHint" title="Dismiss hint">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -155,6 +166,7 @@
             </template>
             
             <!-- Regular edge details -->
+            <!-- Standard edge details -->
             <template v-else>
               <div class="edge-relation-header">
                 {{ selectedItem.data.source_name }} → {{ selectedItem.data.name || 'RELATED_TO' }} → {{ selectedItem.data.target_name }}
@@ -214,6 +226,17 @@
     </div>
 
     <!-- Bottom legend -->
+        <p>Loading graph data...</p>
+      </div>
+      
+      <!-- Waiting / empty state -->
+      <div v-else class="graph-state">
+        <div class="empty-icon">❖</div>
+        <p class="empty-text">Waiting for ontology generation...</p>
+      </div>
+    </div>
+
+    <!-- Bottom-left legend -->
     <div v-if="graphData && entityTypes.length" class="graph-legend">
       <span class="legend-title">Entity Types</span>
       <div class="legend-items">
@@ -225,6 +248,7 @@
     </div>
     
     <!-- Edge labels toggle -->
+    <!-- Edge label toggle -->
     <div v-if="graphData" class="edge-labels-toggle">
       <label class="toggle-switch">
         <input type="checkbox" v-model="showEdgeLabels" />
@@ -256,18 +280,29 @@ const expandedSelfLoops = ref(new Set())
 const showSimulationFinishedHint = ref(false)
 const wasSimulating = ref(false)
 
+const showEdgeLabels = ref(true) // Show edge labels by default.
+const expandedSelfLoops = ref(new Set()) // Expanded self-loop entries.
+const showSimulationFinishedHint = ref(false) // Post-simulation hint visibility.
+const wasSimulating = ref(false) // Track whether the panel was previously simulating.
+
+// Dismiss the post-simulation hint.
 const dismissFinishedHint = () => {
   showSimulationFinishedHint.value = false
 }
 
 watch(() => props.isSimulating, (newValue, oldValue) => {
   if (wasSimulating.value && !newValue) {
+// Watch isSimulating to detect when the run ends.
+watch(() => props.isSimulating, (newValue, oldValue) => {
+  if (wasSimulating.value && !newValue) {
+    // Show the completion hint when the graph switches out of simulation mode.
     showSimulationFinishedHint.value = true
   }
   wasSimulating.value = newValue
 }, { immediate: true })
 
 /** Toggle self-loop item expand/collapse */
+// Toggle expanded state for self-loop groups.
 const toggleSelfLoop = (id) => {
   const newSet = new Set(expandedSelfLoops.value)
   if (newSet.has(id)) {
@@ -279,6 +314,7 @@ const toggleSelfLoop = (id) => {
 }
 
 /** Entity types for legend */
+// Compute entity types for the legend
 const entityTypes = computed(() => {
   if (!props.graphData?.nodes) return []
   const typeMap = {}
@@ -294,6 +330,7 @@ const entityTypes = computed(() => {
   return Object.values(typeMap)
 })
 
+// Format timestamps for display
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   try {
@@ -323,6 +360,7 @@ let linkLabelBgRef = null
 const renderGraph = () => {
   if (!graphSvg.value || !props.graphData) return
   
+  // Stop any previous force simulation
   if (currentSimulation) {
     currentSimulation.stop()
   }
@@ -356,6 +394,7 @@ const renderGraph = () => {
   
   const nodeIds = new Set(nodes.map(n => n.id))
   
+  // Process edge data and count multi-edges between node pairs
   const edgePairCount = {}
   const selfLoopEdges = {}
   const tempEdges = edgesData

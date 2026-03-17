@@ -12,6 +12,12 @@
             <span v-if="currentPhase > 0" class="badge success">{{ $t('process.completed') }}</span>
             <span v-else-if="currentPhase === 0" class="badge processing">{{ $t('process.inProgress') }}</span>
             <span v-else class="badge pending">{{ $t('process.waiting') }}</span>
+            <span class="step-title">Ontology Generation</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase > 0" class="badge success">Completed</span>
+            <span v-else-if="currentPhase === 0" class="badge processing">Generating</span>
+            <span v-else class="badge pending">Waiting</span>
           </div>
         </div>
         
@@ -19,12 +25,14 @@
           <p class="api-note">POST /api/graph/ontology/generate</p>
           <p class="description">
             {{ $t('process.ontologyApiDesc') }}
+            The LLM analyzes the source documents and simulation prompt, extracts real-world seeds, and generates a fitting ontology automatically.
           </p>
 
           <!-- Loading / Progress -->
           <div v-if="currentPhase === 0 && ontologyProgress" class="progress-section">
             <div class="spinner-sm"></div>
             <span>{{ ontologyProgress.message || $t('process.uploadingAnalyzing') }}</span>
+            <span>{{ ontologyProgress.message || 'Analyzing documents...' }}</span>
           </div>
 
           <!-- Detail Overlay -->
@@ -116,6 +124,12 @@
             <span v-if="currentPhase > 1" class="badge success">{{ $t('process.completed') }}</span>
             <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
             <span v-else class="badge pending">{{ $t('process.waiting') }}</span>
+            <span class="step-title">GraphRAG Build</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase > 1" class="badge success">Completed</span>
+            <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
+            <span v-else class="badge pending">Waiting</span>
           </div>
         </div>
 
@@ -123,6 +137,7 @@
           <p class="api-note">POST /api/graph/build</p>
           <p class="description">
             {{ $t('process.graphApiDesc') }}
+            Using the generated ontology, the documents are chunked and sent to Zep to build a knowledge graph with entities, relationships, temporal memory, and community summaries.
           </p>
           
           <!-- Stats Cards -->
@@ -160,6 +175,15 @@
                   class="dedup-removed"
                 >{{ removed.name }}<span v-if="ri < action.removed_nodes.length - 1">、</span></span>
               </div>
+              <span class="stat-label">Entity Nodes</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ graphStats.edges }}</span>
+              <span class="stat-label">Relations</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ graphStats.types }}</span>
+              <span class="stat-label">Schema Types</span>
             </div>
           </div>
         </div>
@@ -174,12 +198,17 @@
           </div>
           <div class="step-status">
             <span v-if="currentPhase >= 2" class="badge accent">{{ $t('process.inProgress') }}</span>
+            <span class="step-title">Build Complete</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase >= 2" class="badge accent">Ready</span>
           </div>
         </div>
         
         <div class="card-content">
           <p class="api-note">POST /api/simulation/create</p>
           <p class="description">{{ $t('process.nextStepHint') }}</p>
+          <p class="description">Graph construction is complete. Move on to environment setup.</p>
           <button 
             class="action-btn" 
             :disabled="currentPhase < 2 || creatingSimulation"
@@ -187,6 +216,7 @@
           >
             <span v-if="creatingSimulation" class="spinner-sm"></span>
             {{ creatingSimulation ? $t('process.processing') : $t('process.enterEnvSetup') + ' ➝' }}
+            {{ creatingSimulation ? 'Creating...' : 'Enter Environment Setup ➝' }}
           </button>
         </div>
       </div>
@@ -237,6 +267,10 @@ const creatingSimulation = ref(false)
 const handleEnterEnvSetup = async () => {
   if (!props.projectData?.project_id || !props.projectData?.graph_id) {
     console.error('Missing project or graph info')
+// Enter environment setup by creating a simulation and redirecting.
+const handleEnterEnvSetup = async () => {
+  if (!props.projectData?.project_id || !props.projectData?.graph_id) {
+    console.error('Missing project or graph data')
     return
   }
   
@@ -251,6 +285,7 @@ const handleEnterEnvSetup = async () => {
     })
     
     if (res.success && res.data?.simulation_id) {
+      // Redirect to the simulation page.
       router.push({
         name: 'Simulation',
         params: { simulationId: res.data.simulation_id }
@@ -262,6 +297,12 @@ const handleEnterEnvSetup = async () => {
   } catch (err) {
     console.error('Create simulation error:', err)
     alert(t('step1.createSimError') + err.message)
+      console.error('Failed to create simulation:', res.error)
+      alert('Failed to create simulation: ' + (res.error || 'Unknown error'))
+    }
+  } catch (err) {
+    console.error('Simulation creation error:', err)
+    alert('Simulation creation error: ' + err.message)
   } finally {
     creatingSimulation.value = false
   }

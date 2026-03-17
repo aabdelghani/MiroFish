@@ -16,6 +16,7 @@
             @click="viewMode = mode"
           >
             {{ $t('common.modes.' + mode) }}
+            {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
           </button>
         </div>
       </div>
@@ -49,6 +50,7 @@
       <!-- Right Panel: Step Components -->
       <div class="panel-wrapper right" :style="rightPanelStyle">
         <!-- Step 1: Graph Build -->
+        <!-- Step 1: Graph build -->
         <Step1GraphBuild 
           v-if="currentStep === 1"
           :currentPhase="currentPhase"
@@ -61,6 +63,7 @@
           @next-step="handleNextStep"
         />
         <!-- Step 2: Environment Setup -->
+        <!-- Step 2: Environment setup -->
         <Step2EnvSetup
           v-else-if="currentStep === 2"
           :projectData="projectData"
@@ -98,6 +101,12 @@ const stepNames = computed(() => [
   t('steps.reportGenerate'),
   t('steps.deepInteraction'),
 ])
+// Layout State
+const viewMode = ref('split') // graph | split | workbench
+
+// Step State
+const currentStep = ref(1) // 1: Graph build, 2: Environment setup, 3: Run simulation, 4: Generate report, 5: Deep interaction
+const stepNames = ['Graph Build', 'Environment Setup', 'Run Simulation', 'Generate Report', 'Deep Interaction']
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -168,6 +177,9 @@ const handleNextStep = (params = {}) => {
     currentStep.value++
     addLog(`Entering Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
     
+    addLog(`Entered Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    
+    // Record the custom round setting when moving from Step 2 to Step 3.
     if (currentStep.value === 3 && params.maxRounds) {
       addLog(`Custom simulation rounds: ${params.maxRounds}`)
     }
@@ -178,6 +190,7 @@ const handleGoBack = () => {
   if (currentStep.value > 1) {
     currentStep.value--
     addLog(`Back to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(`Returned to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
   }
 }
 

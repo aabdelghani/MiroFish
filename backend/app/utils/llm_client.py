@@ -3,6 +3,8 @@ LLM client wrapper.
 Uses OpenAI-compatible API format.
 LLM客户端封装
 统一使用OpenAI格式调用，兼容 MiniMax 等 OpenAI 兼容 API
+
+Provides a thin wrapper around the OpenAI-compatible chat API.
 """
 
 import json
@@ -58,6 +60,7 @@ def parse_json_from_response(content: str) -> Any:
 
 class LLMClient:
     """LLM client."""
+    """Lightweight LLM client."""
     
     """LLM客户端"""
 
@@ -101,9 +104,16 @@ class LLMClient:
             temperature: 温度参数
             max_tokens: 最大token数（默认使用配置中的 LLM_MAX_TOKENS）
             response_format: 响应格式（如JSON模式）
+        Send a chat completion request.
+
+        Args:
+            messages: List of chat messages.
+            temperature: Sampling temperature.
+            max_tokens: Maximum number of tokens to generate.
+            response_format: Optional OpenAI response_format (e.g. JSON mode).
 
         Returns:
-            模型响应文本
+            The model response text.
         """
         # 如果未指定 max_tokens，使用配置中的默认值
         effective_max_tokens = max_tokens if max_tokens is not None else Config.LLM_MAX_TOKENS
@@ -144,6 +154,7 @@ class LLMClient:
         response = self.client.chat.completions.create(**kwargs)
         content = response.choices[0].message.content
         # Some models (e.g. MiniMax M2.5) include <think>...</think> in content; strip it
+        # Some models (e.g. MiniMax M2.5) include <think>...</think> content that should be stripped
         content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
         return content
 
@@ -161,9 +172,15 @@ class LLMClient:
             temperature: 温度参数
             max_tokens: 最大token数（默认使用配置中的 LLM_MAX_TOKENS）
             max_tokens: 最大token数
+        Send a chat completion request and parse the response as JSON.
+
+        Args:
+            messages: List of chat messages.
+            temperature: Sampling temperature.
+            max_tokens: Maximum number of tokens to generate.
 
         Returns:
-            解析后的JSON对象
+            Parsed JSON object.
         """
         try:
             # 首先尝试使用 response_format 参数（OpenAI 原生支持）
@@ -199,6 +216,7 @@ class LLMClient:
             response_format={"type": "json_object"}
         )
         # Strip markdown code block markers
+        # Strip optional surrounding Markdown code fences
         cleaned_response = response.strip()
         cleaned_response = re.sub(r'^```(?:json)?\s*\n?', '', cleaned_response, flags=re.IGNORECASE)
         cleaned_response = re.sub(r'\n?```\s*$', '', cleaned_response)
@@ -224,4 +242,5 @@ def _inject_json_instruction(messages: List[Dict[str, str]]) -> List[Dict[str, s
     # 如果没有 system 消息，在开头插入一条
     messages.insert(0, {"role": "system", "content": json_hint.strip()})
     return messages
+            raise ValueError(f"Invalid JSON returned by LLM: {cleaned_response}")
 

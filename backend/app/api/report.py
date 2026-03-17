@@ -1,6 +1,8 @@
 """
 Report API routes.
 Provides simulation report generation, retrieval, and chat endpoints.
+
+Provides endpoints for report generation, retrieval, and chat.
 """
 
 import os
@@ -19,6 +21,7 @@ logger = get_logger('mirofish.api.report')
 
 
 # ============== Report generation ==============
+# ============== Report generation endpoints ==============
 
 @report_bp.route('/generate', methods=['POST'])
 def generate_report():
@@ -30,6 +33,18 @@ def generate_report():
     Request (JSON):
         simulation_id (required), force_regenerate (optional).
 
+    Generate a simulation analysis report asynchronously.
+    
+    This is a long-running operation. The endpoint returns a task_id
+    immediately, and progress can be checked via
+    GET /api/report/generate/status.
+    
+    Request (JSON):
+        {
+            "simulation_id": "sim_xxxx",    // required
+            "force_regenerate": false        // optional, force regeneration
+        }
+    
     Returns:
         {
             "success": true,
@@ -49,10 +64,12 @@ def generate_report():
             return jsonify({
                 "success": False,
                 "error": "simulation_id is required"
+                "error": "Please provide simulation_id"
             }), 400
         
         force_regenerate = data.get('force_regenerate', False)
         
+        # Load the simulation.
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
         
@@ -62,6 +79,7 @@ def generate_report():
                 "error": f"Simulation not found: {simulation_id}"
             }), 404
         
+        # Reuse an existing completed report unless forced to regenerate.
         if not force_regenerate:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
@@ -76,6 +94,7 @@ def generate_report():
                     }
                 })
         
+        # Load the project.
         project = ProjectManager.get_project(state.project_id)
         if not project:
             return jsonify({
@@ -88,6 +107,7 @@ def generate_report():
             return jsonify({
                 "success": False,
                 "error": "Graph ID is missing; ensure the graph has been built"
+                "error": "Missing graph_id. Make sure the graph has been built."
             }), 400
         
         simulation_requirement = project.simulation_requirement
@@ -100,6 +120,14 @@ def generate_report():
         import uuid
         report_id = f"report_{uuid.uuid4().hex[:12]}"
         
+                "error": "Missing simulation requirement"
+            }), 400
+        
+        # Generate report_id up front so the frontend gets it immediately.
+        import uuid
+        report_id = f"report_{uuid.uuid4().hex[:12]}"
+        
+        # Create the async task.
         task_manager = TaskManager()
         task_id = task_manager.create_task(
             task_type="report_generate",
@@ -110,6 +138,7 @@ def generate_report():
             }
         )
         
+        # Background task definition.
         def run_generate():
             try:
                 task_manager.update_task(
@@ -119,12 +148,17 @@ def generate_report():
                     message="Initializing Report Agent..."
                 )
                 
+                    message="Initializing report agent..."
+                )
+                
+                # Create the report agent.
                 agent = ReportAgent(
                     graph_id=graph_id,
                     simulation_id=simulation_id,
                     simulation_requirement=simulation_requirement
                 )
                 
+                # Progress callback.
                 def progress_callback(stage, progress, message):
                     task_manager.update_task(
                         task_id,
@@ -132,11 +166,13 @@ def generate_report():
                         message=f"[{stage}] {message}"
                     )
                 
+                # Generate the report using the pre-generated report_id.
                 report = agent.generate_report(
                     progress_callback=progress_callback,
                     report_id=report_id
                 )
                 
+                # Save the report.
                 ReportManager.save_report(report)
                 
                 if report.status == ReportStatus.COMPLETED:
@@ -155,6 +191,7 @@ def generate_report():
                 logger.error(f"Report generation failed: {str(e)}")
                 task_manager.fail_task(task_id, str(e))
         
+        # Start the background thread.
         thread = threading.Thread(target=run_generate, daemon=True)
         thread.start()
         
@@ -166,6 +203,7 @@ def generate_report():
                 "task_id": task_id,
                 "status": "generating",
                 "message": "Report generation task started; query progress via /api/report/generate/status",
+                "message": "Report generation started. Query progress via /api/report/generate/status.",
                 "already_generated": False
             }
         })
@@ -185,6 +223,14 @@ def get_generate_status():
 
     Request (JSON): task_id (optional), simulation_id (optional).
 
+    Query report generation progress.
+    
+    Request (JSON):
+        {
+            "task_id": "task_xxxx",         // optional, task_id returned by generate
+            "simulation_id": "sim_xxxx"     // optional
+        }
+    
     Returns:
         {
             "success": true,
@@ -202,6 +248,7 @@ def get_generate_status():
         task_id = data.get('task_id')
         simulation_id = data.get('simulation_id')
         
+        # If simulation_id is provided, first check whether the report is already done.
         if simulation_id:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
@@ -213,6 +260,7 @@ def get_generate_status():
                         "status": "completed",
                         "progress": 100,
                         "message": "Report generated",
+                        "message": "Report already generated",
                         "already_completed": True
                     }
                 })
@@ -221,6 +269,7 @@ def get_generate_status():
             return jsonify({
                 "success": False,
                 "error": "task_id or simulation_id is required"
+                "error": "Please provide task_id or simulation_id"
             }), 400
         
         task_manager = TaskManager()
@@ -239,6 +288,7 @@ def get_generate_status():
         
     except Exception as e:
         logger.error(f"Failed to get task status: {str(e)}")
+        logger.error(f"Failed to query task status: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
@@ -246,12 +296,14 @@ def get_generate_status():
 
 
 # ============== Report retrieval ==============
+# ============== Report retrieval endpoints ==============
 
 @report_bp.route('/<report_id>', methods=['GET'])
 def get_report(report_id: str):
     """
     Get report details.
 
+    
     Returns:
         {
             "success": true,
@@ -293,6 +345,8 @@ def get_report_by_simulation(simulation_id: str):
     """
     Get report by simulation ID.
 
+    Get a report by simulation ID.
+    
     Returns:
         {
             "success": true,
@@ -309,6 +363,7 @@ def get_report_by_simulation(simulation_id: str):
             return jsonify({
                 "success": False,
                 "error": f"No report for this simulation: {simulation_id}",
+                "error": f"No report exists for simulation: {simulation_id}",
                 "has_report": False
             }), 404
         
@@ -333,6 +388,12 @@ def list_reports():
 
     Query: simulation_id (optional), limit (default 50).
 
+    List reports.
+    
+    Query parameters:
+        simulation_id: filter by simulation ID (optional)
+        limit: max number of results (default 50)
+    
     Returns:
         {
             "success": true,
@@ -367,6 +428,9 @@ def list_reports():
 def download_report(report_id: str):
     """
     Download report as Markdown file.
+    Download a report in Markdown format.
+    
+    Returns the Markdown file.
     """
     try:
         report = ReportManager.get_report(report_id)
@@ -380,6 +444,7 @@ def download_report(report_id: str):
         md_path = ReportManager._get_report_markdown_path(report_id)
         
         if not os.path.exists(md_path):
+            # If the Markdown file is missing, generate a temporary one.
             import tempfile
             with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
                 f.write(report.markdown_content)
@@ -408,6 +473,7 @@ def download_report(report_id: str):
 @report_bp.route('/<report_id>', methods=['DELETE'])
 def delete_report(report_id: str):
     """Delete report."""
+    """Delete a report."""
     try:
         success = ReportManager.delete_report(report_id)
         
@@ -431,6 +497,7 @@ def delete_report(report_id: str):
 
 
 # ============== Report Agent chat ==============
+# ============== Report agent chat endpoint ==============
 
 @report_bp.route('/chat', methods=['POST'])
 def chat_with_report_agent():
@@ -440,6 +507,29 @@ def chat_with_report_agent():
     Request (JSON): simulation_id (required), message (required), chat_history (optional).
 
     Returns: response, tool_calls, sources.
+    Chat with the report agent.
+    
+    The report agent can call retrieval tools during the conversation.
+    
+    Request (JSON):
+        {
+            "simulation_id": "sim_xxxx",        // required
+            "message": "Explain the trend",     // required
+            "chat_history": [                   // optional
+                {"role": "user", "content": "..."},
+                {"role": "assistant", "content": "..."}
+            ]
+        }
+    
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "response": "Agent reply...",
+                "tool_calls": [list of called tools],
+                "sources": [information sources]
+            }
+        }
     """
     try:
         data = request.get_json() or {}
@@ -452,6 +542,7 @@ def chat_with_report_agent():
             return jsonify({
                 "success": False,
                 "error": "simulation_id is required"
+                "error": "Please provide simulation_id"
             }), 400
         
         if not message:
@@ -460,6 +551,10 @@ def chat_with_report_agent():
                 "error": "message is required"
             }), 400
         
+                "error": "Please provide message"
+            }), 400
+        
+        # Load simulation and project state.
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
         
@@ -481,10 +576,12 @@ def chat_with_report_agent():
             return jsonify({
                 "success": False,
                 "error": "Graph ID is missing"
+                "error": "Missing graph_id"
             }), 400
         
         simulation_requirement = project.simulation_requirement or ""
         
+        # Create the agent and run the conversation.
         agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
@@ -507,6 +604,7 @@ def chat_with_report_agent():
 
 
 # ============== Report progress and sections ==============
+# ============== Report progress and sectioned content APIs ==============
 
 @report_bp.route('/<report_id>/progress', methods=['GET'])
 def get_report_progress(report_id: str):
@@ -514,6 +612,20 @@ def get_report_progress(report_id: str):
     Get report generation progress (live).
 
     Returns: status, progress, message, current_section, completed_sections, updated_at.
+    Get the real‑time generation progress of a report.
+
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "status": "generating",
+                "progress": 45,
+                "message": "Generating section: Key Findings",
+                "current_section": "Key Findings",
+                "completed_sections": ["Executive Summary", "Simulation Background"],
+                "updated_at": "2025-12-09T..."
+            }
+        }
     """
     try:
         progress = ReportManager.get_progress(report_id)
@@ -543,10 +655,33 @@ def get_report_sections(report_id: str):
     Get list of generated sections (for streaming).
 
     Returns: report_id, sections, total_sections, is_complete.
+    Get the list of generated sections (sectioned output).
+
+    The frontend can poll this endpoint to incrementally load section
+    content without waiting for the entire report to finish.
+
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "report_id": "report_xxxx",
+                "sections": [
+                    {
+                        "filename": "section_01.md",
+                        "section_index": 1,
+                        "content": "## Executive Summary\\n\\n..."
+                    },
+                    ...
+                ],
+                "total_sections": 3,
+                "is_complete": false
+            }
+        }
     """
     try:
         sections = ReportManager.get_generated_sections(report_id)
         
+        # Fetch report status to determine completion
         report = ReportManager.get_report(report_id)
         is_complete = report is not None and report.status == ReportStatus.COMPLETED
         
@@ -574,6 +709,16 @@ def get_single_section(report_id: str, section_index: int):
     Get single section content.
 
     Returns: filename, content.
+    Get the content of a single section.
+
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "filename": "section_01.md",
+                "content": "## Executive Summary\\n\\n..."
+            }
+        }
     """
     try:
         section_path = ReportManager._get_section_path(report_id, section_index)
@@ -582,6 +727,7 @@ def get_single_section(report_id: str, section_index: int):
             return jsonify({
                 "success": False,
                 "error": f"Section not found: section_{section_index:02d}.md"
+                "error": f"Section does not exist: section_{section_index:02d}.md"
             }), 404
         
         with open(section_path, 'r', encoding='utf-8') as f:
@@ -605,11 +751,15 @@ def get_single_section(report_id: str, section_index: int):
 
 
 # ============== Report status check ==============
+# ============== Report status check APIs ==============
 
 @report_bp.route('/check/<simulation_id>', methods=['GET'])
 def check_report_status(simulation_id: str):
     """
     Check if simulation has a report and its status (e.g. for unlocking Interview).
+    Check whether a simulation has an associated report and its status.
+
+    Used by the frontend to decide whether to unlock the Interview feature.
 
     Returns:
         {
@@ -630,6 +780,7 @@ def check_report_status(simulation_id: str):
         report_status = report.status.value if report else None
         report_id = report.report_id if report else None
         
+        # Only unlock interview when the report has completed
         interview_unlocked = has_report and report.status == ReportStatus.COMPLETED
         
         return jsonify({
@@ -652,6 +803,7 @@ def check_report_status(simulation_id: str):
 
 
 # ============== Agent log ==============
+# ============== Agent log APIs ==============
 
 @report_bp.route('/<report_id>/agent-log', methods=['GET'])
 def get_agent_log(report_id: str):
@@ -661,6 +813,43 @@ def get_agent_log(report_id: str):
     Query: from_line (optional, for incremental fetch).
 
     Returns: logs, total_lines, from_line, has_more.
+    Get the detailed execution log for the Report Agent.
+
+    Provides a real‑time, structured view of every step in the report
+    generation process, including:
+    - Report start, planning start/completion
+    - Each section's start, tool calls, LLM responses, completion
+    - Report completion or failure
+
+    Query params:
+        from_line: Optional starting line (default 0) for incremental fetching.
+
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "logs": [
+                    {
+                        "timestamp": "2025-12-13T...",
+                        "elapsed_seconds": 12.5,
+                        "report_id": "report_xxxx",
+                        "action": "tool_call",
+                        "stage": "generating",
+                        "section_title": "Executive Summary",
+                        "section_index": 1,
+                        "details": {
+                            "tool_name": "insight_forge",
+                            "parameters": {...},
+                            ...
+                        }
+                    },
+                    ...
+                ],
+                "total_lines": 25,
+                "from_line": 0,
+                "has_more": false
+            }
+        }
     """
     try:
         from_line = request.args.get('from_line', 0, type=int)
@@ -684,6 +873,7 @@ def get_agent_log(report_id: str):
 def stream_agent_log(report_id: str):
     """
     Get full agent log (all at once).
+    Get the full Agent log (all lines at once).
 
     Returns:
         {
@@ -714,6 +904,7 @@ def stream_agent_log(report_id: str):
 
 
 # ============== Console log ==============
+# ============== Console log APIs ==============
 
 @report_bp.route('/<report_id>/console-log', methods=['GET'])
 def get_console_log(report_id: str):
@@ -723,6 +914,28 @@ def get_console_log(report_id: str):
     Query: from_line (optional).
 
     Returns: logs, total_lines, from_line, has_more.
+    Get the Report Agent console output log.
+
+    Streams console‑style text logs (INFO, WARNING, etc.) produced during
+    report generation. Unlike the structured JSON agent log, this is raw text.
+
+    Query params:
+        from_line: Optional starting line (default 0) for incremental fetching.
+
+    Returns:
+        {
+            "success": true,
+            "data": {
+                "logs": [
+                    "[19:46:14] INFO: Search completed: 15 relevant facts found",
+                    "[19:46:14] INFO: Graph search: graph_id=xxx, query=...",
+                    ...
+                ],
+                "total_lines": 100,
+                "from_line": 0,
+                "has_more": false
+            }
+        }
     """
     try:
         from_line = request.args.get('from_line', 0, type=int)
@@ -746,6 +959,7 @@ def get_console_log(report_id: str):
 def stream_console_log(report_id: str):
     """
     Get full console log (all at once).
+    Get the full console log (all lines at once).
 
     Returns:
         {
@@ -776,11 +990,20 @@ def stream_console_log(report_id: str):
 
 
 # ============== Tool endpoints (debug) ==============
+# ============== Tool invocation APIs (for debugging) ==============
 
 @report_bp.route('/tools/search', methods=['POST'])
 def search_graph_tool():
     """
     Graph search tool (debug). Request: graph_id, query, limit (optional).
+    Graph search tool endpoint (for debugging).
+
+    Request body (JSON):
+        {
+            "graph_id": "mirofish_xxxx",
+            "query": "search query string",
+            "limit": 10
+        }
     """
     try:
         data = request.get_json() or {}
@@ -793,6 +1016,7 @@ def search_graph_tool():
             return jsonify({
                 "success": False,
                 "error": "graph_id and query are required"
+                "error": "Please provide both graph_id and query"
             }), 400
         
         from ..services.zep_tools import ZepToolsService

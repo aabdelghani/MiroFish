@@ -1,6 +1,8 @@
 """
 API call retry utilities.
 Handles retry logic for external APIs (e.g. LLM).
+
+Provides reusable retry helpers for LLM and other external API calls.
 """
 
 import time
@@ -24,6 +26,20 @@ def retry_with_backoff(
     """
     Retry decorator with exponential backoff.
     Args: max_retries, initial_delay, max_delay, backoff_factor, jitter, exceptions, on_retry(exception, retry_count).
+
+    Args:
+        max_retries: Maximum number of retries.
+        initial_delay: Initial delay in seconds.
+        max_delay: Maximum delay between retries in seconds.
+        backoff_factor: Exponential backoff factor.
+        jitter: Whether to add random jitter to the delay.
+        exceptions: Exception types that should trigger a retry.
+        on_retry: Optional callback invoked on each retry (exception, retry_count).
+
+    Usage:
+        @retry_with_backoff(max_retries=3)
+        def call_llm_api():
+            ...
     """
     def decorator(func: Callable) -> Callable:
         @functools.wraps(func)
@@ -40,6 +56,7 @@ def retry_with_backoff(
                     
                     if attempt == max_retries:
                         logger.error(f"{func.__name__} failed after {max_retries} retries: {str(e)}")
+                        logger.error(f"Function {func.__name__} still failed after {max_retries} retries: {str(e)}")
                         raise
                     
                     # Compute delay
@@ -49,6 +66,7 @@ def retry_with_backoff(
                     
                     logger.warning(
                         f"{func.__name__} attempt {attempt + 1} failed: {str(e)}, "
+                        f"Function {func.__name__} attempt {attempt + 1} failed: {str(e)}, "
                         f"retrying in {current_delay:.1f}s..."
                     )
                     
@@ -74,6 +92,7 @@ def retry_with_backoff_async(
     on_retry: Optional[Callable[[Exception, int], None]] = None
 ):
     """Async retry decorator with exponential backoff."""
+    """Async variant of the retry decorator with exponential backoff."""
     import asyncio
     
     def decorator(func: Callable) -> Callable:
@@ -91,6 +110,7 @@ def retry_with_backoff_async(
                     
                     if attempt == max_retries:
                         logger.error(f"Async {func.__name__} failed after {max_retries} retries: {str(e)}")
+                        logger.error(f"Async function {func.__name__} still failed after {max_retries} retries: {str(e)}")
                         raise
                     
                     current_delay = min(delay, max_delay)
@@ -99,6 +119,7 @@ def retry_with_backoff_async(
                     
                     logger.warning(
                         f"Async {func.__name__} attempt {attempt + 1} failed: {str(e)}, "
+                        f"Async function {func.__name__} attempt {attempt + 1} failed: {str(e)}, "
                         f"retrying in {current_delay:.1f}s..."
                     )
                     
@@ -116,6 +137,7 @@ def retry_with_backoff_async(
 
 class RetryableAPIClient:
     """API client wrapper with retry support."""
+    """Wrapper for API clients with built‑in retry logic."""
     
     def __init__(
         self,
@@ -137,6 +159,18 @@ class RetryableAPIClient:
         **kwargs
     ) -> Any:
         """Execute func with retry on failure. Args: func, *args, exceptions, **kwargs. Returns func result."""
+        """
+        Execute a function call and retry on failure.
+
+        Args:
+            func: Callable to invoke.
+            *args: Positional arguments for the function.
+            exceptions: Exception types that should trigger a retry.
+            **kwargs: Keyword arguments for the function.
+
+        Returns:
+            The function's return value.
+        """
         last_exception = None
         delay = self.initial_delay
         
@@ -149,6 +183,7 @@ class RetryableAPIClient:
                 
                 if attempt == self.max_retries:
                     logger.error(f"API call failed after {self.max_retries} retries: {str(e)}")
+                    logger.error(f"API call still failed after {self.max_retries} retries: {str(e)}")
                     raise
                 
                 current_delay = min(delay, self.max_delay)
@@ -172,6 +207,18 @@ class RetryableAPIClient:
         continue_on_failure: bool = True
     ) -> Tuple[list, list]:
         """Batch call with per-item retry. Args: items, process_func, exceptions, continue_on_failure. Returns (results, failures)."""
+        """
+        Call a function for each item in a list, retrying failures individually.
+
+        Args:
+            items: List of items to process.
+            process_func: Function that processes a single item.
+            exceptions: Exception types that should trigger a retry.
+            continue_on_failure: If False, abort on first failure; otherwise continue.
+
+        Returns:
+            (list_of_success_results, list_of_failures)
+        """
         results = []
         failures = []
         
@@ -186,6 +233,7 @@ class RetryableAPIClient:
                 
             except Exception as e:
                 logger.error(f"Processing item {idx + 1} failed: {str(e)}")
+                logger.error(f"Failed to process item {idx + 1}: {str(e)}")
                 failures.append({
                     "index": idx,
                     "item": item,

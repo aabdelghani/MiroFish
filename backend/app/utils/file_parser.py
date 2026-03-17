@@ -3,6 +3,9 @@
 支持PDF、Markdown、TXT、XML文件的文本提取
 File parsing utilities.
 Extract text from PDF, Markdown, and TXT files.
+File parsing utilities.
+
+Supports text extraction from PDF, Markdown, and TXT files.
 """
 
 import os
@@ -18,11 +21,30 @@ def _read_text_with_fallback(file_path: str) -> str:
     """
     data = Path(file_path).read_bytes()
 
+    Read a text file, automatically detecting encoding if UTF‑8 fails.
+
+    Strategy:
+    1. Try UTF‑8 decode first.
+    2. Use charset_normalizer to detect encoding.
+    3. Fall back to chardet.
+    4. Finally default to UTF‑8 with errors='replace'.
+
+    Args:
+        file_path: File path.
+
+    Returns:
+        Decoded text content.
+    """
+    data = Path(file_path).read_bytes()
+    
+    # First, try UTF‑8
     try:
         return data.decode('utf-8')
     except UnicodeDecodeError:
         pass
 
+    
+    # Try charset_normalizer to detect encoding
     encoding = None
     try:
         from charset_normalizer import from_bytes
@@ -32,6 +54,8 @@ def _read_text_with_fallback(file_path: str) -> str:
     except Exception:
         pass
 
+    
+    # Fall back to chardet
     if not encoding:
         try:
             import chardet
@@ -40,6 +64,8 @@ def _read_text_with_fallback(file_path: str) -> str:
         except Exception:
             pass
 
+    
+    # Final fallback: UTF‑8 + replace
     if not encoding:
         encoding = 'utf-8'
     
@@ -48,12 +74,22 @@ def _read_text_with_fallback(file_path: str) -> str:
 
 class FileParser:
     """File parser."""
+    """High‑level file parser."""
     
     SUPPORTED_EXTENSIONS = {'.pdf', '.md', '.markdown', '.txt', '.xml'}
     
     @classmethod
     def extract_text(cls, file_path: str) -> str:
         """Extract text from file. Args: file_path. Returns extracted text."""
+        """
+        Extract plain text from a file.
+
+        Args:
+            file_path: Path to the file.
+
+        Returns:
+            Extracted text content.
+        """
         path = Path(file_path)
         
         if not path.exists():
@@ -63,6 +99,7 @@ class FileParser:
         
         if suffix not in cls.SUPPORTED_EXTENSIONS:
             raise ValueError(f"Unsupported file format: {suffix}")
+            raise ValueError(f"Unsupported file extension: {suffix}")
         
         if suffix == '.pdf':
             return cls._extract_from_pdf(file_path)
@@ -74,6 +111,8 @@ class FileParser:
             return cls._extract_from_xml(file_path)
 
         raise ValueError(f"无法处理的文件格式: {suffix}")
+        
+        raise ValueError(f"Unhandled file extension: {suffix}")
     
         
         raise ValueError(f"Unhandled file format: {suffix}")
@@ -85,6 +124,11 @@ class FileParser:
             import fitz  # PyMuPDF
         except ImportError:
             raise ImportError("PyMuPDF required: pip install PyMuPDF")
+        """Extract text from a PDF file."""
+        try:
+            import fitz  # PyMuPDF
+        except ImportError:
+            raise ImportError("PyMuPDF is required: pip install PyMuPDF")
         
         text_parts = []
         with fitz.open(file_path) as doc:
@@ -98,11 +142,13 @@ class FileParser:
     @staticmethod
     def _extract_from_md(file_path: str) -> str:
         """Extract text from Markdown with encoding detection."""
+        """Extract text from a Markdown file (with automatic encoding detection)."""
         return _read_text_with_fallback(file_path)
 
     @staticmethod
     def _extract_from_txt(file_path: str) -> str:
         """Extract text from TXT with encoding detection."""
+        """Extract text from a TXT file (with automatic encoding detection)."""
         return _read_text_with_fallback(file_path)
 
     @staticmethod
@@ -180,6 +226,15 @@ class FileParser:
     @classmethod
     def extract_from_multiple(cls, file_paths: List[str]) -> str:
         """Extract and concatenate text from multiple files. Args: file_paths. Returns concatenated text."""
+        """
+        Extract and concatenate text from multiple files.
+
+        Args:
+            file_paths: List of file paths.
+
+        Returns:
+            Combined text from all files.
+        """
         all_texts = []
 
         for i, file_path in enumerate(file_paths, 1):
@@ -199,6 +254,17 @@ def split_text_into_chunks(
     overlap: int = 50
 ) -> List[str]:
     """Split text into chunks. Args: text, chunk_size, overlap. Returns list of chunks."""
+    """
+    Split a long text into overlapping chunks.
+
+    Args:
+        text: Original text.
+        chunk_size: Target number of characters per chunk.
+        overlap: Number of overlapping characters between chunks.
+
+    Returns:
+        List of text chunks.
+    """
     if len(text) <= chunk_size:
         return [text] if text.strip() else []
     
@@ -210,6 +276,9 @@ def split_text_into_chunks(
         
         # Prefer splitting at sentence boundaries
         if end < len(text):
+        # Try to split at sentence boundaries
+        if end < len(text):
+            # Look for the nearest sentence terminator
             for sep in ['。', '！', '？', '.\n', '!\n', '?\n', '\n\n', '. ', '! ', '? ']:
                 last_sep = text[start:end].rfind(sep)
                 if last_sep != -1 and last_sep > chunk_size * 0.3:

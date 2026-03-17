@@ -16,6 +16,7 @@
             @click="viewMode = mode"
           >
             {{ $t('common.modes.' + mode) }}
+            {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
           </button>
         </div>
       </div>
@@ -24,6 +25,7 @@
         <div class="workflow-step">
           <span class="step-num">Step 5/5</span>
           <span class="step-name">{{ $t('steps.deepInteraction') }}</span>
+          <span class="step-name">Deep Interaction</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -79,6 +81,7 @@ const props = defineProps({
   reportId: String
 })
 
+// Layout state - default to workbench view.
 const viewMode = ref('workbench')
 
 // Data State
@@ -141,6 +144,9 @@ const toggleMaximize = (target) => {
 const loadReportData = async () => {
   try {
     addLog(t('interaction.loadingReportData', { id: currentReportId.value }))
+    addLog(`Loading report data: ${currentReportId.value}`)
+    
+    // Fetch report data to get the simulation_id.
     const reportRes = await getReport(currentReportId.value)
     if (reportRes.success && reportRes.data) {
       const reportData = reportRes.data
@@ -149,12 +155,24 @@ const loadReportData = async () => {
         const simRes = await getSimulation(simulationId.value)
         if (simRes.success && simRes.data) {
           const simData = simRes.data
+        // Fetch simulation data.
+        const simRes = await getSimulation(simulationId.value)
+        if (simRes.success && simRes.data) {
+          const simData = simRes.data
+          
+          // Fetch project data.
           if (simData.project_id) {
             const projRes = await getProject(simData.project_id)
             if (projRes.success && projRes.data) {
               projectData.value = projRes.data
               addLog(t('simulation.projectLoaded', { id: projRes.data.project_id }))
               if (projRes.data.graph_id) await loadGraph(projRes.data.graph_id)
+              addLog(`Project loaded: ${projRes.data.project_id}`)
+              
+              // Fetch graph data.
+              if (projRes.data.graph_id) {
+                await loadGraph(projRes.data.graph_id)
+              }
             }
           }
         }
@@ -164,6 +182,10 @@ const loadReportData = async () => {
     }
   } catch (err) {
     addLog(t('simulation.loadError', { msg: err.message }))
+      addLog(`Failed to load report data: ${reportRes.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    addLog(`Load error: ${err.message}`)
   }
 }
 
@@ -178,6 +200,10 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(t('simulation.graphLoadFailed', { msg: err.message }))
+      addLog('Graph data loaded')
+    }
+  } catch (err) {
+    addLog(`Failed to load graph data: ${err.message}`)
   } finally {
     graphLoading.value = false
   }
@@ -199,6 +225,7 @@ watch(() => route.params.reportId, (newId) => {
 
 onMounted(() => {
   addLog(t('interaction.interactionViewInit'))
+  addLog('InteractionView initialized')
   loadReportData()
 })
 </script>
