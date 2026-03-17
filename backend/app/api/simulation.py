@@ -19,6 +19,7 @@ from ..services.simulation_runner import SimulationRunner
 from ..utils.logger import get_logger
 from ..utils.request_locale import get_request_locale
 from ..utils.error_messages import get_error_message
+from ..utils.validators import validate_safe_id
 from ..models.project import ProjectManager
 
 logger = get_logger('mirofish.api.simulation')
@@ -173,6 +174,21 @@ def get_graph_entities(graph_id: str):
     """
     try:
         if Config.KNOWLEDGE_GRAPH_MODE == 'cloud' and not Config.ZEP_API_KEY:
+    获取图谱中的所有实体（已过滤）
+
+    只返回符合预定义实体类型的节点（Labels不只是Entity的节点）
+
+    Query参数：
+        entity_types: 逗号分隔的实体类型列表（可选，用于进一步过滤）
+        enrich: 是否获取相关边信息（默认true）
+    """
+    try:
+        validate_safe_id(graph_id, "graph_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
+        if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY is not configured"
@@ -223,6 +239,12 @@ def get_entity_detail(graph_id: str, entity_uuid: str):
     """Get details for a single entity."""
     try:
         if Config.KNOWLEDGE_GRAPH_MODE == 'cloud' and not Config.ZEP_API_KEY:
+        validate_safe_id(graph_id, "graph_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
+        if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY is not configured"
@@ -1187,6 +1209,11 @@ def get_simulation(simulation_id: str):
     """Get simulation status."""
     """Get simulation state."""
     try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
 
@@ -1529,6 +1556,8 @@ def get_simulation_profiles(simulation_id: str):
     """
     Get simulation agent profiles.
     
+    获取模拟的Agent Profile
+
     Query参数：
         platform: 平台类型（reddit/twitter，默认自动检测）
 
@@ -1541,6 +1570,12 @@ def get_simulation_profiles(simulation_id: str):
             simulation_id, 
             request.args.get('platform')
         )
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
+        platform = request.args.get('platform', 'reddit')
         
         platform = request.args.get('platform', 'reddit')
 
@@ -1608,6 +1643,11 @@ def get_simulation_profiles_realtime(simulation_id: str):
             }
         }
     """
+    try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     import json
     import csv
     from datetime import datetime
@@ -1621,6 +1661,8 @@ def get_simulation_profiles_realtime(simulation_id: str):
             request.args.get('platform')
         )
         
+        platform = request.args.get('platform', 'reddit')
+
         # 获取模拟目录
         platform = request.args.get('platform', 'reddit')
 
@@ -1737,6 +1779,11 @@ def get_simulation_config_realtime(simulation_id: str):
             }
         }
     """
+    try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     import json
     from datetime import datetime
 
@@ -1864,6 +1911,11 @@ def get_simulation_config(simulation_id: str):
         - generation_reasoning: LLM reasoning behind the generated config
     """
     try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         manager = SimulationManager()
         config = manager.get_simulation_config(simulation_id)
 
@@ -1893,6 +1945,11 @@ def get_simulation_config(simulation_id: str):
 def download_simulation_config(simulation_id: str):
     """Download simulation config file."""
     """Download the simulation config file."""
+    try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     try:
         manager = SimulationManager()
         sim_dir = manager._get_simulation_dir(simulation_id)
@@ -2515,6 +2572,11 @@ def get_run_status(simulation_id: str):
         }
     """
     try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         run_state = SimulationRunner.get_run_state(simulation_id)
 
         if not run_state:
@@ -2592,6 +2654,11 @@ def get_run_status_detail(simulation_id: str):
             }
         }
     """
+    try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     try:
         run_state = SimulationRunner.get_run_state(simulation_id)
         platform_filter = request.args.get('platform')
@@ -2685,6 +2752,11 @@ def get_simulation_actions(simulation_id: str):
         }
     """
     try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         limit = request.args.get('limit', 100, type=int)
         offset = request.args.get('offset', 0, type=int)
         platform = request.args.get('platform')
@@ -2740,6 +2812,11 @@ def get_simulation_timeline(simulation_id: str):
     Returns per-round summary information.
     """
     try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         start_round = request.args.get('start_round', 0, type=int)
         end_round = request.args.get('end_round', type=int)
 
@@ -2775,7 +2852,15 @@ def get_agent_stats(simulation_id: str):
     Get per-agent statistics.
 
     Used by the frontend for activity rankings and action distributions.
+    获取每个Agent的统计信息
+
+    用于前端展示Agent活跃度排行、动作分布等
     """
+    try:
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     try:
         stats = SimulationRunner.get_agent_stats(simulation_id)
 
@@ -2822,6 +2907,12 @@ def get_simulation_posts(simulation_id: str):
             simulation_id,
             request.args.get('platform')
         )
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
+        platform = request.args.get('platform', 'reddit')
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)
 
@@ -2910,6 +3001,11 @@ def get_simulation_comments(simulation_id: str):
     """
     try:
         platform = request.args.get('platform') or _get_default_platform(simulation_id)
+        validate_safe_id(simulation_id, "simulation_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         post_id = request.args.get('post_id')
         limit = request.args.get('limit', 50, type=int)
         offset = request.args.get('offset', 0, type=int)

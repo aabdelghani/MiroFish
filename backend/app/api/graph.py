@@ -20,6 +20,7 @@ from ..services.memory_factory import get_memory_provider
 from ..services.text_processor import TextProcessor
 from ..utils.file_parser import FileParser
 from ..utils.logger import get_logger
+from ..utils.validators import validate_safe_id
 from ..models.task import TaskManager, TaskStatus
 from ..models.project import ProjectManager, ProjectStatus
 
@@ -49,6 +50,11 @@ def get_project(project_id: str):
     Get project details.
     """
     locale = get_request_locale()
+    try:
+        validate_safe_id(project_id, "project_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     project = ProjectManager.get_project(project_id)
 
     if not project:
@@ -87,6 +93,11 @@ def delete_project(project_id: str):
     Delete a project.
     """
     locale = get_request_locale()
+    try:
+        validate_safe_id(project_id, "project_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     success = ProjectManager.delete_project(project_id)
 
     if not success:
@@ -111,6 +122,11 @@ def reset_project(project_id: str):
     Reset project state so the graph can be rebuilt.
     """
     locale = get_request_locale()
+    try:
+        validate_safe_id(project_id, "project_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     project = ProjectManager.get_project(project_id)
 
     if not project:
@@ -513,6 +529,11 @@ def build_graph():
                 "success": False,
                 "error": get_error_message('graph_missing_project_id', locale)
             }), 400
+
+        try:
+            validate_safe_id(project_id, "project_id")
+        except ValueError as e:
+            return jsonify({"success": False, "error": str(e)}), 400
 
         # 获取项目
         project = ProjectManager.get_project(project_id)
@@ -1014,6 +1035,11 @@ def get_task(task_id: str):
     Query task status.
     """
     locale = get_request_locale()
+    try:
+        validate_safe_id(task_id, "task_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
     task = TaskManager().get_task(task_id)
 
     if not task:
@@ -1064,6 +1090,11 @@ def get_graph_data(graph_id: str):
 
         builder = GraphBuilderService()
         locale = get_request_locale()
+        validate_safe_id(graph_id, "graph_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
         if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
@@ -1096,6 +1127,12 @@ def delete_graph(graph_id: str):
     """
     try:
         if Config.KNOWLEDGE_GRAPH_MODE == 'cloud' and not Config.ZEP_API_KEY:
+        validate_safe_id(graph_id, "graph_id")
+    except ValueError as e:
+        return jsonify({"success": False, "error": str(e)}), 400
+
+    try:
+        if not Config.ZEP_API_KEY:
             return jsonify({
                 "success": False,
                 "error": "ZEP_API_KEY is not configured"
