@@ -1,6 +1,6 @@
 """
-LLM客户端封装
-统一使用OpenAI格式调用
+LLM client wrapper.
+Uses OpenAI-compatible API format.
 """
 
 import json
@@ -12,7 +12,7 @@ from ..config import Config
 
 
 class LLMClient:
-    """LLM客户端"""
+    """LLM client."""
     
     def __init__(
         self,
@@ -25,7 +25,7 @@ class LLMClient:
         self.model = model or Config.LLM_MODEL_NAME
         
         if not self.api_key:
-            raise ValueError("LLM_API_KEY 未配置")
+            raise ValueError("LLM_API_KEY is not configured")
         
         self.client = OpenAI(
             api_key=self.api_key,
@@ -54,6 +54,7 @@ class LLMClient:
         # 如果未指定 max_tokens，使用配置中的默认值
         effective_max_tokens = max_tokens if max_tokens is not None else Config.LLM_MAX_TOKENS
 
+        """Send chat request. Args: messages, temperature, max_tokens, response_format. Returns response text."""
         kwargs = {
             "model": self.model,
             "messages": messages,
@@ -81,7 +82,7 @@ class LLMClient:
                 raise
         
         content = response.choices[0].message.content
-        # 部分模型（如MiniMax M2.5）会在content中包含<think>思考内容，需要移除
+        # Some models (e.g. MiniMax M2.5) include <think>...</think> in content; strip it
         content = re.sub(r'<think>[\s\S]*?</think>', '', content).strip()
         return content
     
@@ -128,6 +129,14 @@ class LLMClient:
                 raise
         
         # 清理markdown代码块标记
+        """Send chat request and return parsed JSON. Args: messages, temperature, max_tokens."""
+        response = self.chat(
+            messages=messages,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            response_format={"type": "json_object"}
+        )
+        # Strip markdown code block markers
         cleaned_response = response.strip()
         cleaned_response = re.sub(r'^```(?:json)?\s*\n?', '', cleaned_response, flags=re.IGNORECASE)
         cleaned_response = re.sub(r'\n?```\s*$', '', cleaned_response)
@@ -137,3 +146,5 @@ class LLMClient:
             return json.loads(cleaned_response)
         except json.JSONDecodeError:
             raise ValueError(f"LLM返回的JSON格式无效: {cleaned_response}")
+            raise ValueError(f"LLM returned invalid JSON: {cleaned_response}")
+
