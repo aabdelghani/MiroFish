@@ -2959,6 +2959,25 @@ def get_simulation_posts(simulation_id: str):
             total = 0
 
         conn.close()
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            try:
+                cursor.execute("""
+                    SELECT * FROM post
+                    ORDER BY created_at DESC
+                    LIMIT ? OFFSET ?
+                """, (limit, offset))
+
+                posts = [dict(row) for row in cursor.fetchall()]
+
+                cursor.execute("SELECT COUNT(*) FROM post")
+                total = cursor.fetchone()[0]
+
+            except sqlite3.OperationalError:
+                posts = []
+                total = 0
 
         return jsonify({
             "success": True,
@@ -3055,6 +3074,29 @@ def get_simulation_comments(simulation_id: str):
             comments = []
 
         conn.close()
+        with sqlite3.connect(db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            cursor = conn.cursor()
+
+            try:
+                if post_id:
+                    cursor.execute("""
+                        SELECT * FROM comment
+                        WHERE post_id = ?
+                        ORDER BY created_at DESC
+                        LIMIT ? OFFSET ?
+                    """, (post_id, limit, offset))
+                else:
+                    cursor.execute("""
+                        SELECT * FROM comment
+                        ORDER BY created_at DESC
+                        LIMIT ? OFFSET ?
+                    """, (limit, offset))
+
+                comments = [dict(row) for row in cursor.fetchall()]
+
+            except sqlite3.OperationalError:
+                comments = []
 
         return jsonify({
             "success": True,

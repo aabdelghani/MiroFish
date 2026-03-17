@@ -7,7 +7,7 @@ Provides endpoints for report generation, retrieval, and chat.
 
 import os
 import threading
-from flask import request, jsonify, send_file
+from flask import request, jsonify, send_file, after_this_request
 
 from . import report_bp
 from ..utils.request_locale import get_request_locale
@@ -558,6 +558,15 @@ def download_report(report_id: str):
             with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
                 f.write(report.markdown_content)
                 temp_path = f.name
+
+            @after_this_request
+            def cleanup(response):
+                try:
+                    if temp_path and os.path.exists(temp_path):
+                        os.unlink(temp_path)
+                except OSError:
+                    pass
+                return response
 
             return send_file(
                 temp_path,
