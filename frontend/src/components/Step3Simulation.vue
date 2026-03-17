@@ -638,6 +638,12 @@ function startStatusPolling() {
 }
 
 function startDetailPolling() {
+  if (statusTimer) clearInterval(statusTimer)
+  statusTimer = setInterval(fetchRunStatus, 2000)
+}
+
+const startDetailPolling = () => {
+  if (detailTimer) clearInterval(detailTimer)
   detailTimer = setInterval(fetchRunStatusDetail, 3000)
 }
 

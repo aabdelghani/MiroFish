@@ -430,6 +430,7 @@ import { useRouter } from 'vue-router'
 import { getAgentLog, getConsoleLog, generateReport, getReport, downloadReport } from '../api/report'
 import { useI18n } from 'vue-i18n'
 import { getAgentLog, getConsoleLog } from '../api/report'
+import { sanitizeHtml } from '../utils/sanitize.js'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -2147,7 +2148,7 @@ const renderMarkdown = (content) => {
   }
   html = tokens.join('')
 
-  return html
+  return sanitizeHtml(html)
 }
 
 const getTimelineItemClass = (log, idx, total) => {
