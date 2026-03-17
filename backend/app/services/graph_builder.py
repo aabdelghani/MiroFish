@@ -6,6 +6,7 @@
 """Graph build service: use Zep API to build Standalone Graph (interface 2)."""
 
 import os
+import re
 import uuid
 import time
 import threading
@@ -196,6 +197,19 @@ class GraphBuilderService:
             if attr_name.lower() in RESERVED_NAMES:
                 return f"entity_{attr_name}"
             return attr_name
+
+        def safe_edge_name(raw_name: str, used_names: set[str]) -> str:
+            """Normalize edge names to the format Zep requires."""
+            normalized = re.sub(r"[^A-Za-z0-9]+", "_", str(raw_name or "").strip())
+            normalized = re.sub(r"(?<!^)(?=[A-Z])", "_", normalized)
+            normalized = re.sub(r"_+", "_", normalized).strip("_").upper() or "RELATES_TO"
+            candidate = normalized
+            suffix = 2
+            while candidate in used_names:
+                candidate = f"{normalized}_{suffix}"
+                suffix += 1
+            used_names.add(candidate)
+            return candidate
         
         entity_types = {}
         for entity_def in ontology.get("entity_types", []):
@@ -214,8 +228,9 @@ class GraphBuilderService:
             entity_types[name] = entity_class
         
         edge_definitions = {}
+        used_edge_names = set()
         for edge_def in ontology.get("edge_types", []):
-            name = edge_def["name"]
+            name = safe_edge_name(edge_def["name"], used_edge_names)
             description = edge_def.get("description", f"A {name} relationship.")
             attrs = {"__doc__": description}
             annotations = {}
@@ -579,4 +594,3 @@ class GraphBuilderService:
         self.kg.delete(graph_id=graph_id)
         """Delete graph."""
         self.client.graph.delete(graph_id=graph_id)
-

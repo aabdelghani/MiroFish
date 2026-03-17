@@ -202,3 +202,10 @@ export const deleteSimulation = (simulationId) => {
   return service.delete(`/api/simulation/${simulationId}`)
 }
 
+ * 基于历史模拟创建反事实分支
+ * @param {string} simulationId
+ * @param {Object} data - { actor, injection_round, opening_statement? }
+ */
+export const createCounterfactualSimulation = (simulationId, data) => {
+  return requestWithRetry(() => service.post(`/api/simulation/${simulationId}/counterfactual`, data), 2, 500)
+}

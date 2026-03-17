@@ -254,12 +254,27 @@ Design entity types and relationship types suitable for social opinion simulatio
             if original_name:
                 normalized_entity_names[original_name] = normalized_name
             
+        cleaned_entities = []
+        for entity in result["entity_types"]:
+            if not isinstance(entity, dict):
+                continue
+            name = str(entity.get("name", "")).strip()
+            if not name:
+                continue
+            entity["name"] = name
             if "attributes" not in entity:
                 entity["attributes"] = []
             if "examples" not in entity:
                 entity["examples"] = []
+            entity["attributes"] = [
+                attr for attr in entity.get("attributes", [])
+                if isinstance(attr, dict) and str(attr.get("name", "")).strip()
+            ]
+            # 确保description不超过100字符
             if len(entity.get("description", "")) > 100:
                 entity["description"] = entity["description"][:97] + "..."
+            cleaned_entities.append(entity)
+        result["entity_types"] = cleaned_entities
         
         # 验证并规范化关系类型
         for edge in result["edge_types"]:
@@ -267,10 +282,28 @@ Design entity types and relationship types suitable for social opinion simulatio
             edge_name = edge.get("name", "")
             edge["name"] = self._to_pascal_case(edge_name or "Edge", default="Edge")
             
+        cleaned_edges = []
+        for edge in result["edge_types"]:
+            if not isinstance(edge, dict):
+                continue
+            name = str(edge.get("name", "")).strip()
+            if not name:
+                continue
+            edge["name"] = name
             if "source_targets" not in edge:
                 edge["source_targets"] = []
             if "attributes" not in edge:
                 edge["attributes"] = []
+            edge["attributes"] = [
+                attr for attr in edge.get("attributes", [])
+                if isinstance(attr, dict) and str(attr.get("name", "")).strip()
+            ]
+            edge["source_targets"] = [
+                pair for pair in edge.get("source_targets", [])
+                if isinstance(pair, dict)
+                and str(pair.get("source", "")).strip()
+                and str(pair.get("target", "")).strip()
+            ]
             if len(edge.get("description", "")) > 100:
                 edge["description"] = edge["description"][:97] + "..."
             
@@ -286,6 +319,8 @@ Design entity types and relationship types suitable for social opinion simulatio
                     st["target"] = normalized_entity_names[tgt]
                 else:
                     st["target"] = self._to_pascal_case(tgt or "Entity")
+            cleaned_edges.append(edge)
+        result["edge_types"] = cleaned_edges
         
         # Zep API 限制：最多 10 个自定义实体类型，最多 10 个自定义边类型
         MAX_ENTITY_TYPES = 10
@@ -420,4 +455,3 @@ Design entity types and relationship types suitable for social opinion simulatio
         code_lines.append('}')
         
         return '\n'.join(code_lines)
-
