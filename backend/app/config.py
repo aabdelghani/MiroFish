@@ -83,6 +83,18 @@ class Config:
     # OASIS platform actions
     """Flask configuration."""
     
+    # OpenRouter配置（作为LLM的后备方案）
+    OPENROUTER_API_KEY = os.environ.get('OPENROUTER_API_KEY')
+    OPENROUTER_BASE_URL = os.environ.get('OPENROUTER_BASE_URL', 'https://openrouter.ai/api/v1')
+    OPENROUTER_MODEL_NAME = os.environ.get('OPENROUTER_MODEL_NAME', 'anthropic/claude-sonnet-4')
+    OPENROUTER_REFERER = os.environ.get('OPENROUTER_REFERER', 'https://github.com/MiroFish')
+    OPENROUTER_TITLE = os.environ.get('OPENROUTER_TITLE', 'MiroFish')
+
+    # LLM配置（优先使用LLM_*，未设置则回退到OpenRouter）
+    LLM_API_KEY = os.environ.get('LLM_API_KEY') or OPENROUTER_API_KEY
+    LLM_BASE_URL = os.environ.get('LLM_BASE_URL') or OPENROUTER_BASE_URL
+    LLM_MODEL_NAME = os.environ.get('LLM_MODEL_NAME') or OPENROUTER_MODEL_NAME
+    
     # Flask settings.
     SECRET_KEY = os.environ.get('SECRET_KEY', 'mirofish-secret-key')
     DEBUG = os.environ.get('FLASK_DEBUG', 'True').lower() == 'true'
@@ -156,6 +168,7 @@ class Config:
                 errors.append("AZURE_OPENAI_API_KEY 未配置 (Azure OpenAI)")
             if not cls.AZURE_OPENAI_BASE_URL and not cls.AZURE_OPENAI_ENDPOINT:
                 errors.append("AZURE_OPENAI_BASE_URL 或 AZURE_OPENAI_ENDPOINT 未配置 (Azure OpenAI)")
+            errors.append("LLM_API_KEY 或 OPENROUTER_API_KEY 未配置")
         if not cls.ZEP_API_KEY:
             errors.append("ZEP_API_KEY is not configured")
         return errors
