@@ -3,7 +3,7 @@
     <!-- Top navigation -->
     <!-- Top navigation bar -->
     <nav class="navbar">
-      <div class="nav-brand">MIROFISH</div>
+      <div class="nav-brand">{{ $t('home.navBrand') }}</div>
       <div class="nav-links">
         <button class="lang-toggle" @click="toggleLang">
           {{ locale === 'en' ? '中文' : 'EN' }}
@@ -20,6 +20,23 @@
         <LanguageSelector />
         <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
           {{ $t('nav.visitGithub') }} <span class="arrow">↗</span>
+        <span class="lang-switcher">
+          <button
+            type="button"
+            class="lang-btn"
+            :class="{ active: locale === 'zh-CN' }"
+            @click="setLocale('zh-CN')"
+          >{{ $t('common.langZh') }}</button>
+          <span class="lang-sep">/</span>
+          <button
+            type="button"
+            class="lang-btn"
+            :class="{ active: locale === 'en' }"
+            @click="setLocale('en')"
+          >{{ $t('common.langEn') }}</button>
+        </span>
+        <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
+          {{ $t('home.navGithub') }} <span class="arrow">↗</span>
         </a>
       </div>
     </nav>
@@ -63,6 +80,13 @@
           <h1 class="main-title">
             {{ $t('home.title1') }}<br>
             <span class="gradient-text">{{ $t('home.title2') }}</span>
+            <span class="orange-tag">{{ $t('home.tagLine') }}</span>
+            <span class="version-text">{{ $t('home.version') }}</span>
+          </div>
+          
+          <h1 class="main-title">
+            {{ $t('home.titleLine1') }}<br>
+            <span class="gradient-text">{{ $t('home.titleLine2') }}</span>
           </h1>
           
           <div class="hero-desc">
@@ -93,6 +117,9 @@
             <p class="slogan-text">
               {{ t.slogan }}<span class="blinking-cursor">_</span>
               {{ $t('home.desc1') }}<span class="highlight-bold">{{ $t('home.desc2') }}</span> {{ $t('home.desc3') }}<span class="highlight-orange">{{ $t('home.desc4') }}</span> {{ $t('home.desc5') }}<span class="highlight-code">{{ $t('home.desc6') }}</span>
+            </p>
+            <p class="slogan-text">
+              {{ $t('home.desc1Before') }}<span class="highlight-bold">{{ $t('home.brand') }}</span>{{ $t('home.desc1Mid1') }}<span class="highlight-orange">{{ $t('home.scale') }}</span>{{ $t('home.desc1Mid2') }}<span class="highlight-code">{{ $t('home.optimal') }}</span>
             </p>
             <p class="slogan-text">
               {{ $t('home.slogan') }}<span class="blinking-cursor">_</span>
@@ -131,6 +158,9 @@
           <p class="section-desc">
             {{ t.readyDesc }}
             {{ $t('home.readyDesc') }}
+          <h2 class="section-title">{{ $t('home.sectionReady') }}</h2>
+          <p class="section-desc">
+            {{ $t('home.sectionDesc') }}
           </p>
           
           <div class="metrics-row">
@@ -147,6 +177,12 @@
             <div class="metric-card">
               <div class="metric-value">{{ t.highAvail }}</div>
               <div class="metric-label">{{ t.highAvailDesc }}</div>
+              <div class="metric-value">{{ $t('home.metricLowCost') }}</div>
+              <div class="metric-label">{{ $t('home.metricLowCostLabel') }}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value">{{ $t('home.metricHighAvail') }}</div>
+              <div class="metric-label">{{ $t('home.metricHighAvailLabel') }}</div>
             </div>
           </div>
 
@@ -224,6 +260,7 @@
           <div class="steps-container">
             <div class="steps-header">
                <span class="diamond-icon">◇</span> {{ $t('home.workflow') }}
+               <span class="diamond-icon">◇</span> {{ $t('home.workflowTitle') }}
             </div>
             <div class="workflow-list">
               <div class="workflow-item">
@@ -237,6 +274,8 @@
                   <div class="step-desc">{{ t('home.step1Desc') }}</div>
                   <div class="step-title">{{ t.step1Title }}</div>
                   <div class="step-desc">{{ t.step1Desc }}</div>
+                  <div class="step-title">{{ $t('home.step01Title') }}</div>
+                  <div class="step-desc">{{ $t('home.step01Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -250,6 +289,8 @@
                   <div class="step-desc">{{ t('home.step2Desc') }}</div>
                   <div class="step-title">{{ t.step2Title }}</div>
                   <div class="step-desc">{{ t.step2Desc }}</div>
+                  <div class="step-title">{{ $t('home.step02Title') }}</div>
+                  <div class="step-desc">{{ $t('home.step02Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -263,6 +304,8 @@
                   <div class="step-desc">{{ t('home.step3Desc') }}</div>
                   <div class="step-title">{{ t.step3Title }}</div>
                   <div class="step-desc">{{ t.step3Desc }}</div>
+                  <div class="step-title">{{ $t('home.step03Title') }}</div>
+                  <div class="step-desc">{{ $t('home.step03Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -276,6 +319,8 @@
                   <div class="step-desc">{{ t('home.step4Desc') }}</div>
                   <div class="step-title">{{ t.step4Title }}</div>
                   <div class="step-desc">{{ t.step4Desc }}</div>
+                  <div class="step-title">{{ $t('home.step04Title') }}</div>
+                  <div class="step-desc">{{ $t('home.step04Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -289,6 +334,8 @@
                   <div class="step-desc">{{ t('home.step5Desc') }}</div>
                   <div class="step-title">{{ t.step5Title }}</div>
                   <div class="step-desc">{{ t.step5Desc }}</div>
+                  <div class="step-title">{{ $t('home.step05Title') }}</div>
+                  <div class="step-desc">{{ $t('home.step05Desc') }}</div>
                 </div>
               </div>
             </div>
@@ -323,6 +370,8 @@
                 <span class="console-meta">{{ t.supportFormats }}</span>
                 <span class="console-label">{{ $t('home.seedLabel') }}</span>
                 <span class="console-meta">{{ $t('home.formatHint') }}</span>
+                <span class="console-label">{{ $t('home.seedLabel') }}</span>
+                <span class="console-meta">{{ $t('home.seedFormats') }}</span>
               </div>
               
               <div 
@@ -354,6 +403,8 @@
                   <div class="upload-title">{{ t.dragUpload }}</div>
                   <div class="upload-hint">{{ t.clickBrowse }}</div>
                   <div class="upload-hint">{{ $t('home.clickBrowse') }}</div>
+                  <div class="upload-title">{{ $t('home.uploadTitle') }}</div>
+                  <div class="upload-hint">{{ $t('home.uploadHint') }}</div>
                 </div>
                 
                 <div v-else class="file-list">
@@ -469,6 +520,16 @@ import LanguageSelector from '../components/LanguageSelector.vue'
 
 const router = useRouter()
 const { t } = useI18n()
+import { LOCALE_STORAGE_KEY, applyLocaleToDocument } from '../i18n'
+
+const router = useRouter()
+const { locale } = useI18n()
+
+function setLocale (newLocale) {
+  locale.value = newLocale
+  localStorage.setItem(LOCALE_STORAGE_KEY, newLocale)
+  applyLocaleToDocument()
+}
 
 const heroDescHtml = computed(() => {
   const name = 'MiroFish'
@@ -691,6 +752,38 @@ const startSimulation = () => {
   align-items: center;
   gap: 8px;
   transition: opacity 0.2s;
+}
+
+.lang-switcher {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-right: 24px;
+}
+
+.lang-btn {
+  background: none;
+  border: none;
+  color: var(--white);
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  cursor: pointer;
+  padding: 4px 8px;
+  opacity: 0.7;
+}
+
+.lang-btn:hover,
+.lang-btn.active {
+  opacity: 1;
+}
+
+.lang-btn.active {
+  font-weight: 700;
+}
+
+.lang-sep {
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.75rem;
 }
 
 .github-link:hover {
