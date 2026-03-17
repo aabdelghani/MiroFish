@@ -20,8 +20,7 @@ A Simple and Universal Swarm Intelligence Engine, Predicting Anything
 [![X](https://img.shields.io/badge/X-Follow-000000?style=flat-square&logo=x&logoColor=white)](https://x.com/mirofish_ai)
 [![Instagram](https://img.shields.io/badge/Instagram-Follow-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://www.instagram.com/mirofish_ai/)
 
-[README](./README.md) | [Alternate Copy](./README-EN.md)
-[English](./README-EN.md) | [中文文档](./README.md) | [한국어](./README-KO.md)
+[English](./README.md) | [中文文档](./README-CN.md) | [한국어](./README-KO.md)
 
 </div>
 
@@ -92,114 +91,113 @@ Click the image to watch MiroFish infer a lost ending based on the first 80 chap
 4. **Report Generation**: use ReportAgent and its tools to analyze the post-simulation environment.
 5. **Deep Interaction**: talk to agents inside the simulated world or continue through ReportAgent.
 
-## 🏗️ 系统架构
+## 🏗️ System Architecture
 
-### 分层说明
+### Layer Breakdown
 
-| 层级 | 核心模块 | 职责 |
-|------|----------|------|
-| 表现层 | `frontend/src/views/*`、`frontend/src/components/*` | 五步流程 UI、实时模拟状态展示、报告与深度交互页面 |
-| API 层 | `backend/app/api/graph.py`、`simulation.py`、`report.py` | 对外提供图谱构建、模拟控制、报告生成与下载接口 |
-| 编排层 | `simulation_manager.py`、`simulation_runner.py` | 模拟状态机、进程管理、暂停/恢复/停止与实时状态汇总 |
-| 记忆与图谱层 | `graph_builder.py`、`zep_entity_reader.py`、`zep_graph_memory_updater.py` | 种子数据结构化、图谱写入、实体过滤与模拟后记忆回灌 |
-| 推理与报告层 | `report_agent.py`、`zep_tools.py`、`utils/llm_client.py` | ReACT 多轮推理、工具调用、自动生成可交互预测报告 |
+| Layer | Core Modules | Responsibilities |
+|------|--------------|------------------|
+| Presentation | `frontend/src/views/*`, `frontend/src/components/*` | 5-step workflow UI, live simulation status, report and interaction pages |
+| API | `backend/app/api/graph.py`, `simulation.py`, `report.py` | Public APIs for graph build, simulation control, report generation and download |
+| Orchestration | `simulation_manager.py`, `simulation_runner.py` | Simulation state machine, process lifecycle, pause/resume/stop, live status aggregation |
+| Memory & Graph | `graph_builder.py`, `zep_entity_reader.py`, `zep_graph_memory_updater.py` | Seed structuring, graph writing, entity filtering, and post-simulation memory writeback |
+| Reasoning & Report | `report_agent.py`, `zep_tools.py`, `utils/llm_client.py` | ReACT multi-step reasoning, tool calls, and interactive prediction report generation |
 
-### 项目代码结构树
+### Project Code Structure Tree
 
 ```text
 MiroFish/
-├── frontend/                                  # Vue3 前端工程
-│   ├── package.json                           # 前端依赖与脚本定义
-│   ├── vite.config.js                         # Vite 构建与开发服务配置
-│   ├── index.html                             # 前端入口 HTML 模板
+├── frontend/                                  # Vue3 frontend project
+│   ├── package.json                           # frontend dependencies and scripts
+│   ├── vite.config.js                         # Vite build/dev server config
+│   ├── index.html                             # frontend HTML entry
 │   └── src/
-│       ├── main.js                            # Vue 应用启动入口
-│       ├── App.vue                            # 根组件
-│       ├── api/                               # 后端接口封装层
-│       │   ├── index.js                       # Axios 实例与统一请求配置
-│       │   ├── graph.js                       # 图谱构建相关 API
-│       │   ├── simulation.js                  # 模拟流程控制 API
-│       │   └── report.js                      # 报告生成/下载/对话 API
+│       ├── main.js                            # Vue app bootstrap
+│       ├── App.vue                            # root component
+│       ├── api/                               # backend API wrappers
+│       │   ├── index.js                       # Axios instance and shared request config
+│       │   ├── graph.js                       # graph build related APIs
+│       │   ├── simulation.js                  # simulation control APIs
+│       │   └── report.js                      # report generation/download/chat APIs
 │       ├── router/
-│       │   └── index.js                       # 前端路由配置
+│       │   └── index.js                       # frontend routes
 │       ├── store/
-│       │   └── pendingUpload.js               # 待上传文件状态管理
-│       ├── views/                             # 页面级视图
-│       │   ├── Home.vue                       # 首页（项目介绍与入口）
-│       │   ├── MainView.vue                   # 主流程容器页
-│       │   ├── Process.vue                    # 五步流程总览页
-│       │   ├── SimulationView.vue             # 模拟准备页
-│       │   ├── SimulationRunView.vue          # 模拟运行监控页
-│       │   ├── ReportView.vue                 # 报告查看页
-│       │   └── InteractionView.vue            # 深度交互页
-│       ├── components/                        # 业务组件
-│       │   ├── Step1GraphBuild.vue            # Step1 图谱构建组件
-│       │   ├── Step2EnvSetup.vue              # Step2 环境搭建组件
-│       │   ├── Step3Simulation.vue            # Step3 模拟控制组件
-│       │   ├── Step4Report.vue                # Step4 报告生成组件
-│       │   ├── Step5Interaction.vue           # Step5 深度交互组件
-│       │   ├── GraphPanel.vue                 # 图谱数据展示面板
-│       │   └── HistoryDatabase.vue            # 历史数据/记忆展示组件
-│       └── assets/logo/                       # 前端 Logo 资源
+│       │   └── pendingUpload.js               # pending upload state store
+│       ├── views/                             # page-level views
+│       │   ├── Home.vue                       # home page
+│       │   ├── MainView.vue                   # main workflow container
+│       │   ├── Process.vue                    # 5-step process page
+│       │   ├── SimulationView.vue             # simulation preparation page
+│       │   ├── SimulationRunView.vue          # live simulation monitor page
+│       │   ├── ReportView.vue                 # report viewer page
+│       │   └── InteractionView.vue            # deep interaction page
+│       ├── components/                        # business components
+│       │   ├── Step1GraphBuild.vue            # Step1 graph build component
+│       │   ├── Step2EnvSetup.vue              # Step2 environment setup component
+│       │   ├── Step3Simulation.vue            # Step3 simulation component
+│       │   ├── Step4Report.vue                # Step4 report component
+│       │   ├── Step5Interaction.vue           # Step5 interaction component
+│       │   ├── GraphPanel.vue                 # graph data panel
+│       │   └── HistoryDatabase.vue            # historical memory/data panel
+│       └── assets/logo/                       # frontend logo assets
 │           ├── MiroFish_logo_left.jpeg
 │           └── MiroFish_logo_compressed.jpeg
-├── backend/                                   # Flask 后端工程
-│   ├── run.py                                 # 后端服务启动入口
-│   ├── requirements.txt                       # Python 依赖清单
-│   ├── pyproject.toml                         # Python 项目元数据与工具配置
-│   ├── uv.lock                                # uv 锁定依赖版本
+├── backend/                                   # Flask backend project
+│   ├── run.py                                 # backend service entrypoint
+│   ├── requirements.txt                       # Python dependency list
+│   ├── pyproject.toml                         # Python project metadata/tooling
+│   ├── uv.lock                                # uv-locked dependency versions
 │   ├── app/
-│   │   ├── __init__.py                        # Flask 应用工厂与蓝图注册
-│   │   ├── config.py                          # 后端配置与环境变量读取
-│   │   ├── api/                               # API 路由层
-│   │   │   ├── __init__.py                    # Blueprint 初始化
-│   │   │   ├── graph.py                       # 图谱构建与图谱管理接口
-│   │   │   ├── simulation.py                  # 实体读取、模拟创建/运行/控制接口
-│   │   │   └── report.py                      # 报告生成、查询、下载与问答接口
-│   │   ├── services/                          # 核心业务服务层
-│   │   │   ├── graph_builder.py               # GraphRAG 图谱构建服务
-│   │   │   ├── ontology_generator.py          # 本体/实体类型生成服务
-│   │   │   ├── text_processor.py              # 种子文本清洗与预处理
-│   │   │   ├── zep_entity_reader.py           # Zep 图谱实体读取与过滤
-│   │   │   ├── oasis_profile_generator.py     # OASIS 角色画像生成
-│   │   │   ├── simulation_config_generator.py # 模拟配置自动生成
-│   │   │   ├── simulation_manager.py          # 模拟状态机与生命周期管理
-│   │   │   ├── simulation_runner.py           # 后台模拟进程执行与监控
-│   │   │   ├── simulation_ipc.py              # 模拟进程 IPC 通信协议
-│   │   │   ├── zep_graph_memory_updater.py    # 模拟动作回写图谱记忆
-│   │   │   ├── zep_tools.py                   # ReportAgent 可调用的检索工具集
-│   │   │   └── report_agent.py                # ReACT 报告生成与交互问答
-│   │   ├── models/                            # 状态模型层
+│   │   ├── __init__.py                        # Flask app factory and blueprint wiring
+│   │   ├── config.py                          # backend config and env loading
+│   │   ├── api/                               # API route layer
+│   │   │   ├── __init__.py                    # Blueprint initialization
+│   │   │   ├── graph.py                       # graph build and graph management endpoints
+│   │   │   ├── simulation.py                  # entity read, simulation create/run/control endpoints
+│   │   │   └── report.py                      # report generate/query/download/chat endpoints
+│   │   ├── services/                          # core business services
+│   │   │   ├── graph_builder.py               # GraphRAG graph build service
+│   │   │   ├── ontology_generator.py          # ontology/entity type generation
+│   │   │   ├── text_processor.py              # seed text cleaning/preprocessing
+│   │   │   ├── zep_entity_reader.py           # Zep graph entity read/filter service
+│   │   │   ├── oasis_profile_generator.py     # OASIS persona/profile generation
+│   │   │   ├── simulation_config_generator.py # simulation config auto-generation
+│   │   │   ├── simulation_manager.py          # simulation lifecycle state manager
+│   │   │   ├── simulation_runner.py           # background simulation execution/monitoring
+│   │   │   ├── simulation_ipc.py              # simulation process IPC protocol
+│   │   │   ├── zep_graph_memory_updater.py    # write simulation actions back to graph memory
+│   │   │   ├── zep_tools.py                   # ReportAgent tool integrations
+│   │   │   └── report_agent.py                # ReACT report generation and Q&A service
+│   │   ├── models/                            # state model layer
 │   │   │   ├── __init__.py
-│   │   │   ├── project.py                     # 项目状态与元数据管理
-│   │   │   └── task.py                        # 异步任务状态模型
-│   │   └── utils/                             # 通用基础设施
+│   │   │   ├── project.py                     # project state and metadata manager
+│   │   │   └── task.py                        # async task state model
+│   │   └── utils/                             # shared infrastructure utilities
 │   │       ├── __init__.py
-│   │       ├── llm_client.py                  # OpenAI SDK 兼容 LLM 客户端
-│   │       ├── file_parser.py                 # 上传文件解析与抽取工具
-│   │       ├── logger.py                      # 分层日志系统
-│   │       ├── retry.py                       # 通用重试装饰器/逻辑
-│   │       └── zep_paging.py                  # Zep 分页读取工具
-│   ├── scripts/                               # OASIS 执行脚本
-│   │   ├── run_parallel_simulation.py         # Twitter + Reddit 并行模拟入口
-│   │   ├── run_twitter_simulation.py          # Twitter 模拟执行脚本
-│   │   ├── run_reddit_simulation.py           # Reddit 模拟执行脚本
-│   │   ├── action_logger.py                   # Agent 行为日志采集脚本
-│   │   └── test_profile_format.py             # 画像格式校验脚本
-│   ├── uploads/                               # 运行时数据目录（项目/模拟/报告产物）
-│   └── logs/                                  # 后端日志输出目录
+│   │       ├── llm_client.py                  # OpenAI-SDK-compatible LLM client
+│   │       ├── file_parser.py                 # uploaded file parsing utilities
+│   │       ├── logger.py                      # layered logging system
+│   │       ├── retry.py                       # retry helpers/decorators
+│   │       └── zep_paging.py                  # Zep paging helper
+│   ├── scripts/                               # OASIS runtime scripts
+│   │   ├── run_parallel_simulation.py         # Twitter + Reddit parallel simulation entry
+│   │   ├── run_twitter_simulation.py          # Twitter simulation runner
+│   │   ├── run_reddit_simulation.py           # Reddit simulation runner
+│   │   ├── action_logger.py                   # agent action logging utility
+│   │   └── test_profile_format.py             # profile format validation script
+│   ├── uploads/                               # runtime data (projects/simulations/reports)
+│   └── logs/                                  # backend runtime logs
 ├── static/
-│   └── image/                                 # README 图片与演示资源
-├── package.json                               # 根目录脚本（联动前后端）
-├── docker-compose.yml                         # Docker 编排（前端+后端）
-├── Dockerfile                                 # Docker 镜像构建定义
-├── .env.example                               # 环境变量示例
-├── README.md                                  # 中文文档
-├── README-EN.md                               # 英文文档
-└── LICENSE                                    # 开源许可证
+│   └── image/                                 # README images and demo assets
+├── package.json                               # root-level scripts for frontend/backend
+├── docker-compose.yml                         # Docker orchestration (frontend + backend)
+├── Dockerfile                                 # Docker image build definition
+├── .env.example                               # environment variable template
+├── README.md                                  # English documentation (main)
+├── README-CN.md                               # Chinese documentation
+└── LICENSE                                    # open-source license
 ```
 
-## 🚀 快速开始
 ## 🚀 Quick Start
 
 ### Option 1: Run From Source
@@ -220,40 +218,40 @@ cp .env.example .env
 
 Fill in the required API keys in `.env`.
 
-后端支持两种 LLM 提供商，通过 `LLM_PROVIDER` 切换（`openai` 或 `azure_openai`）。本功能仅使用现有依赖，**无需修改 `pyproject.toml` 或 `uv.lock`**。
+The backend supports two LLM providers, switched via `LLM_PROVIDER` (`openai` or `azure_openai`). This feature uses existing dependencies only—**no changes to `pyproject.toml` or `uv.lock` are required**.
 
 ```env
 # LLM API configuration (any OpenAI-compatible API)
-# LLM 提供商：openai（默认）或 azure_openai
+# LLM provider: openai (default) or azure_openai
 LLM_PROVIDER=openai
 
-# OpenAI 兼容 API（Provider=openai 时使用）
-# 推荐使用阿里百炼平台 qwen-plus：https://bailian.console.aliyun.com/
-# 注意消耗较大，可先进行小于40轮的模拟尝试
+# OpenAI-compatible API (when Provider=openai)
+# Recommended: Alibaba Qwen-plus via Bailian: https://bailian.console.aliyun.com/
+# High consumption, try simulations with fewer than 40 rounds first
 LLM_API_KEY=your_api_key
 LLM_BASE_URL=https://dashscope.aliyuncs.com/compatible-mode/v1
 LLM_MODEL_NAME=qwen-plus
 
 # Zep Cloud configuration
-# Azure OpenAI（Provider=azure_openai 时使用）
-# 二选一：AZURE_OPENAI_BASE_URL 或 AZURE_OPENAI_ENDPOINT
+# Azure OpenAI (when Provider=azure_openai)
+# Use either AZURE_OPENAI_BASE_URL or AZURE_OPENAI_ENDPOINT
 # AZURE_OPENAI_API_KEY=your_azure_key
 # AZURE_OPENAI_DEPLOYMENT=your-deployment-name
 
-# Zep Cloud 配置
-# Zep Cloud 配置（默认记忆提供者）
-# 每月免费额度即可支撑简单使用：https://app.getzep.com/
+# Zep Cloud Configuration
+# Zep Cloud Configuration (default memory provider)
+# Free monthly quota is sufficient for simple usage: https://app.getzep.com/
 ZEP_API_KEY=your_zep_api_key
 
-# 或使用 Mem0 作为记忆提供者（可选）
+# Or use Mem0 as memory provider (optional)
 # MEMORY_PROVIDER=mem0
 # MEM0_API_KEY=your_mem0_api_key
 ```
 
 <details>
-<summary><b>使用 MiniMax 模型</b></summary>
+<summary><b>Using MiniMax Models</b></summary>
 
-[MiniMax](https://platform.minimax.io/) 提供高性能、高性价比的 LLM 模型，支持 OpenAI 兼容 API：
+[MiniMax](https://platform.minimax.io/) provides high-performance, cost-effective LLM models with OpenAI-compatible API:
 
 ```env
 LLM_API_KEY=your_minimax_api_key
@@ -261,30 +259,30 @@ LLM_BASE_URL=https://api.minimax.io/v1
 LLM_MODEL_NAME=MiniMax-M2.5
 ```
 
-| 模型 | 说明 |
-|------|------|
-| `MiniMax-M2.5` | 旗舰模型，204K 上下文窗口 |
-| `MiniMax-M2.5-highspeed` | 同等性能，更快更敏捷 |
+| Model | Description |
+|-------|-------------|
+| `MiniMax-M2.5` | Flagship model, 204K context window |
+| `MiniMax-M2.5-highspeed` | Same performance, faster and more agile |
 
-国内用户可使用：`LLM_BASE_URL=https://api.minimaxi.com/v1`
+For users in China: `LLM_BASE_URL=https://api.minimaxi.com/v1`
 
-API 文档：[OpenAI 兼容接口](https://platform.minimax.io/docs/api-reference/text-openai-api)
+API Documentation: [OpenAI Compatible API](https://platform.minimax.io/docs/api-reference/text-openai-api)
 
 </details>
-#### 记忆提供者配置
+#### Memory Provider Configuration
 
-MiroFish 支持两种记忆后端：
+MiroFish supports two memory backends:
 
-| 提供者 | 配置 | 优势 |
-|--------|------|------|
-| **Zep Cloud**（默认） | `.env` 中设置 `ZEP_API_KEY` | 内置本体定义、时序事实 |
-| **Mem0** | `.env` 中设置 `MEMORY_PROVIDER=mem0` + `MEM0_API_KEY` | 可自托管、按Agent隔离、无节点上限 |
+| Provider | Config | Pros |
+|----------|--------|------|
+| **Zep Cloud** (default) | `ZEP_API_KEY` in `.env` | Built-in ontology, temporal facts |
+| **Mem0** | `MEMORY_PROVIDER=mem0` + `MEM0_API_KEY` in `.env` | Self-hosted option, per-agent isolation, no node caps |
 
-使用 Mem0 替代 Zep：
-1. 在 `.env` 中设置 `MEMORY_PROVIDER=mem0`
-2. 设置 `MEM0_API_KEY`（Platform模式）或 `OPENAI_API_KEY`（OSS模式）
+To use Mem0 instead of Zep:
+1. Set `MEMORY_PROVIDER=mem0` in your `.env`
+2. Set `MEM0_API_KEY` for Platform mode, or `OPENAI_API_KEY` for OSS mode
 
-#### 2. 安装依赖
+#### 2. Install Dependencies
 #### 2. Install dependencies
 
 ```bash
