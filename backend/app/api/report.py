@@ -39,12 +39,19 @@ def generate_report():
     immediately, and progress can be checked via
     GET /api/report/generate/status.
     
+    Generate a simulation analysis report asynchronously.
+
+    This is a long-running operation. The endpoint returns a task_id
+    immediately, and progress can be checked via
+    GET /api/report/generate/status.
+
     Request (JSON):
         {
             "simulation_id": "sim_xxxx",    // required
             "force_regenerate": false        // optional, force regeneration
         }
     
+
     Returns:
         {
             "success": true,
@@ -58,7 +65,7 @@ def generate_report():
     """
     try:
         data = request.get_json() or {}
-        
+
         simulation_id = data.get('simulation_id')
         if not simulation_id:
             return jsonify({
@@ -66,19 +73,21 @@ def generate_report():
                 "error": "simulation_id is required"
                 "error": "Please provide simulation_id"
             }), 400
-        
+
         force_regenerate = data.get('force_regenerate', False)
         
+
         # Load the simulation.
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
-        
+
         if not state:
             return jsonify({
                 "success": False,
                 "error": f"Simulation not found: {simulation_id}"
             }), 404
         
+
         # Reuse an existing completed report unless forced to regenerate.
         if not force_regenerate:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
@@ -94,6 +103,7 @@ def generate_report():
                     }
                 })
         
+
         # Load the project.
         project = ProjectManager.get_project(state.project_id)
         if not project:
@@ -101,7 +111,7 @@ def generate_report():
                 "success": False,
                 "error": f"Project not found: {state.project_id}"
             }), 404
-        
+
         graph_id = state.graph_id or project.graph_id
         if not graph_id:
             return jsonify({
@@ -109,7 +119,7 @@ def generate_report():
                 "error": "Graph ID is missing; ensure the graph has been built"
                 "error": "Missing graph_id. Make sure the graph has been built."
             }), 400
-        
+
         simulation_requirement = project.simulation_requirement
         if not simulation_requirement:
             return jsonify({
@@ -127,6 +137,13 @@ def generate_report():
         import uuid
         report_id = f"report_{uuid.uuid4().hex[:12]}"
         
+                "error": "Missing simulation requirement"
+            }), 400
+
+        # Generate report_id up front so the frontend gets it immediately.
+        import uuid
+        report_id = f"report_{uuid.uuid4().hex[:12]}"
+
         # Create the async task.
         task_manager = TaskManager()
         task_id = task_manager.create_task(
@@ -138,6 +155,7 @@ def generate_report():
             }
         )
         
+
         # Background task definition.
         def run_generate():
             try:
@@ -151,6 +169,9 @@ def generate_report():
                     message="Initializing report agent..."
                 )
                 
+                    message="Initializing report agent..."
+                )
+
                 # Create the report agent.
                 agent = ReportAgent(
                     graph_id=graph_id,
@@ -158,6 +179,7 @@ def generate_report():
                     simulation_requirement=simulation_requirement
                 )
                 
+
                 # Progress callback.
                 def progress_callback(stage, progress, message):
                     task_manager.update_task(
@@ -166,15 +188,17 @@ def generate_report():
                         message=f"[{stage}] {message}"
                     )
                 
+
                 # Generate the report using the pre-generated report_id.
                 report = agent.generate_report(
                     progress_callback=progress_callback,
                     report_id=report_id
                 )
                 
+
                 # Save the report.
                 ReportManager.save_report(report)
-                
+
                 if report.status == ReportStatus.COMPLETED:
                     task_manager.complete_task(
                         task_id,
@@ -191,10 +215,15 @@ def generate_report():
                 logger.error(f"Report generation failed: {str(e)}")
                 task_manager.fail_task(task_id, str(e))
         
+
+            except Exception as e:
+                logger.error(f"Report generation failed: {str(e)}")
+                task_manager.fail_task(task_id, str(e))
+
         # Start the background thread.
         thread = threading.Thread(target=run_generate, daemon=True)
         thread.start()
-        
+
         return jsonify({
             "success": True,
             "data": {
@@ -207,7 +236,7 @@ def generate_report():
                 "already_generated": False
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to start report generation task: {str(e)}")
         return jsonify({
@@ -225,12 +254,15 @@ def get_generate_status():
 
     Query report generation progress.
     
+    Query report generation progress.
+
     Request (JSON):
         {
             "task_id": "task_xxxx",         // optional, task_id returned by generate
             "simulation_id": "sim_xxxx"     // optional
         }
     
+
     Returns:
         {
             "success": true,
@@ -244,10 +276,11 @@ def get_generate_status():
     """
     try:
         data = request.get_json() or {}
-        
+
         task_id = data.get('task_id')
         simulation_id = data.get('simulation_id')
         
+
         # If simulation_id is provided, first check whether the report is already done.
         if simulation_id:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
@@ -264,28 +297,28 @@ def get_generate_status():
                         "already_completed": True
                     }
                 })
-        
+
         if not task_id:
             return jsonify({
                 "success": False,
                 "error": "task_id or simulation_id is required"
                 "error": "Please provide task_id or simulation_id"
             }), 400
-        
+
         task_manager = TaskManager()
         task = task_manager.get_task(task_id)
-        
+
         if not task:
             return jsonify({
                 "success": False,
                 "error": f"Task not found: {task_id}"
             }), 404
-        
+
         return jsonify({
             "success": True,
             "data": task.to_dict()
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get task status: {str(e)}")
         logger.error(f"Failed to query task status: {str(e)}")
@@ -320,18 +353,18 @@ def get_report(report_id: str):
     """
     try:
         report = ReportManager.get_report(report_id)
-        
+
         if not report:
             return jsonify({
                 "success": False,
                 "error": f"Report not found: {report_id}"
             }), 404
-        
+
         return jsonify({
             "success": True,
             "data": report.to_dict()
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get report: {str(e)}")
         return jsonify({
@@ -347,6 +380,8 @@ def get_report_by_simulation(simulation_id: str):
 
     Get a report by simulation ID.
     
+    Get a report by simulation ID.
+
     Returns:
         {
             "success": true,
@@ -358,7 +393,7 @@ def get_report_by_simulation(simulation_id: str):
     """
     try:
         report = ReportManager.get_report_by_simulation(simulation_id)
-        
+
         if not report:
             return jsonify({
                 "success": False,
@@ -366,13 +401,13 @@ def get_report_by_simulation(simulation_id: str):
                 "error": f"No report exists for simulation: {simulation_id}",
                 "has_report": False
             }), 404
-        
+
         return jsonify({
             "success": True,
             "data": report.to_dict(),
             "has_report": True
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get report: {str(e)}")
         return jsonify({
@@ -394,6 +429,12 @@ def list_reports():
         simulation_id: filter by simulation ID (optional)
         limit: max number of results (default 50)
     
+    List reports.
+
+    Query parameters:
+        simulation_id: filter by simulation ID (optional)
+        limit: max number of results (default 50)
+
     Returns:
         {
             "success": true,
@@ -404,18 +445,18 @@ def list_reports():
     try:
         simulation_id = request.args.get('simulation_id')
         limit = request.args.get('limit', 50, type=int)
-        
+
         reports = ReportManager.list_reports(
             simulation_id=simulation_id,
             limit=limit
         )
-        
+
         return jsonify({
             "success": True,
             "data": [r.to_dict() for r in reports],
             "count": len(reports)
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to list reports: {str(e)}")
         return jsonify({
@@ -430,38 +471,40 @@ def download_report(report_id: str):
     Download report as Markdown file.
     Download a report in Markdown format.
     
+    Download a report in Markdown format.
+
     Returns the Markdown file.
     """
     try:
         report = ReportManager.get_report(report_id)
-        
+
         if not report:
             return jsonify({
                 "success": False,
                 "error": f"Report not found: {report_id}"
             }), 404
-        
+
         md_path = ReportManager._get_report_markdown_path(report_id)
-        
+
         if not os.path.exists(md_path):
             # If the Markdown file is missing, generate a temporary one.
             import tempfile
             with tempfile.NamedTemporaryFile(mode='w', suffix='.md', delete=False) as f:
                 f.write(report.markdown_content)
                 temp_path = f.name
-            
+
             return send_file(
                 temp_path,
                 as_attachment=True,
                 download_name=f"{report_id}.md"
             )
-        
+
         return send_file(
             md_path,
             as_attachment=True,
             download_name=f"{report_id}.md"
         )
-        
+
     except Exception as e:
         logger.error(f"Failed to download report: {str(e)}")
         return jsonify({
@@ -476,18 +519,18 @@ def delete_report(report_id: str):
     """Delete a report."""
     try:
         success = ReportManager.delete_report(report_id)
-        
+
         if not success:
             return jsonify({
                 "success": False,
                 "error": f"Report not found: {report_id}"
             }), 404
-        
+
         return jsonify({
             "success": True,
             "message": f"Report deleted: {report_id}"
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to delete report: {str(e)}")
         return jsonify({
@@ -511,6 +554,10 @@ def chat_with_report_agent():
     
     The report agent can call retrieval tools during the conversation.
     
+    Chat with the report agent.
+
+    The report agent can call retrieval tools during the conversation.
+
     Request (JSON):
         {
             "simulation_id": "sim_xxxx",        // required
@@ -521,6 +568,7 @@ def chat_with_report_agent():
             ]
         }
     
+
     Returns:
         {
             "success": true,
@@ -533,18 +581,18 @@ def chat_with_report_agent():
     """
     try:
         data = request.get_json() or {}
-        
+
         simulation_id = data.get('simulation_id')
         message = data.get('message')
         chat_history = data.get('chat_history', [])
-        
+
         if not simulation_id:
             return jsonify({
                 "success": False,
                 "error": "simulation_id is required"
                 "error": "Please provide simulation_id"
             }), 400
-        
+
         if not message:
             return jsonify({
                 "success": False,
@@ -554,23 +602,26 @@ def chat_with_report_agent():
                 "error": "Please provide message"
             }), 400
         
+                "error": "Please provide message"
+            }), 400
+
         # Load simulation and project state.
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
-        
+
         if not state:
             return jsonify({
                 "success": False,
                 "error": f"Simulation not found: {simulation_id}"
             }), 404
-        
+
         project = ProjectManager.get_project(state.project_id)
         if not project:
             return jsonify({
                 "success": False,
                 "error": f"Project not found: {state.project_id}"
             }), 404
-        
+
         graph_id = state.graph_id or project.graph_id
         if not graph_id:
             return jsonify({
@@ -578,23 +629,24 @@ def chat_with_report_agent():
                 "error": "Graph ID is missing"
                 "error": "Missing graph_id"
             }), 400
-        
+
         simulation_requirement = project.simulation_requirement or ""
         
+
         # Create the agent and run the conversation.
         agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
             simulation_requirement=simulation_requirement
         )
-        
+
         result = agent.chat(message=message, chat_history=chat_history)
-        
+
         return jsonify({
             "success": True,
             "data": result
         })
-        
+
     except Exception as e:
         logger.error(f"Chat failed: {str(e)}")
         return jsonify({
@@ -613,6 +665,7 @@ def get_report_progress(report_id: str):
 
     Returns: status, progress, message, current_section, completed_sections, updated_at.
     Get the real‑time generation progress of a report.
+    Get the real-time generation progress of a report.
 
     Returns:
         {
@@ -629,18 +682,18 @@ def get_report_progress(report_id: str):
     """
     try:
         progress = ReportManager.get_progress(report_id)
-        
+
         if not progress:
             return jsonify({
                 "success": False,
                 "error": f"Report not found or progress unavailable: {report_id}"
             }), 404
-        
+
         return jsonify({
             "success": True,
             "data": progress
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get report progress: {str(e)}")
         return jsonify({
@@ -681,10 +734,11 @@ def get_report_sections(report_id: str):
     try:
         sections = ReportManager.get_generated_sections(report_id)
         
+
         # Fetch report status to determine completion
         report = ReportManager.get_report(report_id)
         is_complete = report is not None and report.status == ReportStatus.COMPLETED
-        
+
         return jsonify({
             "success": True,
             "data": {
@@ -694,7 +748,7 @@ def get_report_sections(report_id: str):
                 "is_complete": is_complete
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get section list: {str(e)}")
         return jsonify({
@@ -722,17 +776,17 @@ def get_single_section(report_id: str, section_index: int):
     """
     try:
         section_path = ReportManager._get_section_path(report_id, section_index)
-        
+
         if not os.path.exists(section_path):
             return jsonify({
                 "success": False,
                 "error": f"Section not found: section_{section_index:02d}.md"
                 "error": f"Section does not exist: section_{section_index:02d}.md"
             }), 404
-        
+
         with open(section_path, 'r', encoding='utf-8') as f:
             content = f.read()
-        
+
         return jsonify({
             "success": True,
             "data": {
@@ -741,7 +795,7 @@ def get_single_section(report_id: str, section_index: int):
                 "content": content
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get section content: {str(e)}")
         return jsonify({
@@ -775,14 +829,15 @@ def check_report_status(simulation_id: str):
     """
     try:
         report = ReportManager.get_report_by_simulation(simulation_id)
-        
+
         has_report = report is not None
         report_status = report.status.value if report else None
         report_id = report.report_id if report else None
         
+
         # Only unlock interview when the report has completed
         interview_unlocked = has_report and report.status == ReportStatus.COMPLETED
-        
+
         return jsonify({
             "success": True,
             "data": {
@@ -793,7 +848,7 @@ def check_report_status(simulation_id: str):
                 "interview_unlocked": interview_unlocked
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to check report status: {str(e)}")
         return jsonify({
@@ -816,6 +871,9 @@ def get_agent_log(report_id: str):
     Get the detailed execution log for the Report Agent.
 
     Provides a real‑time, structured view of every step in the report
+    Get the detailed execution log for the Report Agent.
+
+    Provides a real-time, structured view of every step in the report
     generation process, including:
     - Report start, planning start/completion
     - Each section's start, tool calls, LLM responses, completion
@@ -853,14 +911,14 @@ def get_agent_log(report_id: str):
     """
     try:
         from_line = request.args.get('from_line', 0, type=int)
-        
+
         log_data = ReportManager.get_agent_log(report_id, from_line=from_line)
-        
+
         return jsonify({
             "success": True,
             "data": log_data
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get agent log: {str(e)}")
         return jsonify({
@@ -886,7 +944,7 @@ def stream_agent_log(report_id: str):
     """
     try:
         logs = ReportManager.get_agent_log_stream(report_id)
-        
+
         return jsonify({
             "success": True,
             "data": {
@@ -894,7 +952,7 @@ def stream_agent_log(report_id: str):
                 "count": len(logs)
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get agent log: {str(e)}")
         return jsonify({
@@ -917,6 +975,9 @@ def get_console_log(report_id: str):
     Get the Report Agent console output log.
 
     Streams console‑style text logs (INFO, WARNING, etc.) produced during
+    Get the Report Agent console output log.
+
+    Streams console-style text logs (INFO, WARNING, etc.) produced during
     report generation. Unlike the structured JSON agent log, this is raw text.
 
     Query params:
@@ -941,12 +1002,12 @@ def get_console_log(report_id: str):
         from_line = request.args.get('from_line', 0, type=int)
 
         log_data = ReportManager.get_console_log(report_id, from_line=from_line)
-        
+
         return jsonify({
             "success": True,
             "data": log_data
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get console log: {str(e)}")
         return jsonify({
@@ -972,7 +1033,7 @@ def stream_console_log(report_id: str):
     """
     try:
         logs = ReportManager.get_console_log_stream(report_id)
-        
+
         return jsonify({
             "success": True,
             "data": {
@@ -980,7 +1041,7 @@ def stream_console_log(report_id: str):
                 "count": len(logs)
             }
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get console log: {str(e)}")
         return jsonify({
@@ -1007,34 +1068,35 @@ def search_graph_tool():
     """
     try:
         data = request.get_json() or {}
-        
+
         graph_id = data.get('graph_id')
         query = data.get('query')
         limit = data.get('limit', 10)
-        
+
         if not graph_id or not query:
             return jsonify({
                 "success": False,
                 "error": "graph_id and query are required"
                 "error": "Please provide both graph_id and query"
             }), 400
-        
+
         from ..services.zep_tools import ZepToolsService
-        
+
         tools = ZepToolsService()
         result = tools.search_graph(
             graph_id=graph_id,
             query=query,
             limit=limit
         )
-        
+
         return jsonify({
             "success": True,
             "data": result.to_dict()
         })
-        
+
     except Exception as e:
         logger.error(f"Graph search failed: {str(e)}")
+        logger.error(f"Failed to search graph: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
@@ -1045,28 +1107,35 @@ def search_graph_tool():
 def get_graph_statistics_tool():
     """
     Graph statistics tool (debug). Request: graph_id.
+    Graph statistics tool endpoint (for debugging).
+
+    Request body (JSON):
+        {
+            "graph_id": "mirofish_xxxx"
+        }
     """
     try:
         data = request.get_json() or {}
-        
+
         graph_id = data.get('graph_id')
-        
+
         if not graph_id:
             return jsonify({
                 "success": False,
                 "error": "graph_id is required"
+                "error": "Please provide graph_id"
             }), 400
-        
+
         from ..services.zep_tools import ZepToolsService
-        
+
         tools = ZepToolsService()
         result = tools.get_graph_statistics(graph_id)
-        
+
         return jsonify({
             "success": True,
             "data": result
         })
-        
+
     except Exception as e:
         logger.error(f"Failed to get graph statistics: {str(e)}")
         return jsonify({

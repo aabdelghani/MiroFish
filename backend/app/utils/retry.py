@@ -60,6 +60,10 @@ def retry_with_backoff(
                         raise
                     
                     # Compute delay
+                        logger.error(f"Function {func.__name__} still failed after {max_retries} retries: {str(e)}")
+                        raise
+                    
+                    # Calculate delay
                     current_delay = min(delay, max_delay)
                     if jitter:
                         current_delay = current_delay * (0.5 + random.random())
@@ -138,6 +142,7 @@ def retry_with_backoff_async(
 class RetryableAPIClient:
     """API client wrapper with retry support."""
     """Wrapper for API clients with built‑in retry logic."""
+    """Wrapper for API clients with built-in retry logic."""
     
     def __init__(
         self,

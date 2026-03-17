@@ -28,6 +28,13 @@ def _read_text_with_fallback(file_path: str) -> str:
     2. Use charset_normalizer to detect encoding.
     3. Fall back to chardet.
     4. Finally default to UTF‑8 with errors='replace'.
+    Read a text file, automatically detecting encoding if UTF-8 fails.
+
+    Strategy:
+    1. Try UTF-8 decode first.
+    2. Use charset_normalizer to detect encoding.
+    3. Fall back to chardet.
+    4. Finally default to UTF-8 with errors='replace'.
 
     Args:
         file_path: File path.
@@ -38,6 +45,7 @@ def _read_text_with_fallback(file_path: str) -> str:
     data = Path(file_path).read_bytes()
     
     # First, try UTF‑8
+    # First, try UTF-8
     try:
         return data.decode('utf-8')
     except UnicodeDecodeError:
@@ -66,6 +74,7 @@ def _read_text_with_fallback(file_path: str) -> str:
 
     
     # Final fallback: UTF‑8 + replace
+    # Final fallback: UTF-8 + replace
     if not encoding:
         encoding = 'utf-8'
     
@@ -75,6 +84,7 @@ def _read_text_with_fallback(file_path: str) -> str:
 class FileParser:
     """File parser."""
     """High‑level file parser."""
+    """High-level file parser."""
     
     SUPPORTED_EXTENSIONS = {'.pdf', '.md', '.markdown', '.txt', '.xml'}
     
@@ -124,6 +134,10 @@ class FileParser:
             import fitz  # PyMuPDF
         except ImportError:
             raise ImportError("PyMuPDF required: pip install PyMuPDF")
+        """Extract text from a PDF file."""
+        try:
+            import fitz  # PyMuPDF
+        except ImportError:
         """Extract text from a PDF file."""
         try:
             import fitz  # PyMuPDF
@@ -278,6 +292,8 @@ def split_text_into_chunks(
         if end < len(text):
         # Try to split at sentence boundaries
         if end < len(text):
+        # Try to split at sentence boundaries
+        if end < len(text):
             # Look for the nearest sentence terminator
             for sep in ['。', '！', '？', '.\n', '!\n', '?\n', '\n\n', '. ', '! ', '? ']:
                 last_sep = text[start:end].rfind(sep)
@@ -289,6 +305,7 @@ def split_text_into_chunks(
         if chunk:
             chunks.append(chunk)
         
+        # Next chunk starts from the overlap position
         start = end - overlap if end < len(text) else len(text)
     
     return chunks

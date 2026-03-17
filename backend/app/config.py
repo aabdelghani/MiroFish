@@ -135,6 +135,13 @@ class Config:
         if not cls.LLM_API_KEY:
             errors.append("LLM_API_KEY 未配置")
             errors.append("LLM_API_KEY is not set")
+        """Validate required configuration."""
+        errors = []
+        if not cls.LLM_API_KEY:
+            errors.append("LLM_API_KEY is not configured")
+        if not cls.ZEP_API_KEY:
+            errors.append("ZEP_API_KEY is not configured")
+        return errors
 
         # 根据模式验证对应的配置
         if cls.KNOWLEDGE_GRAPH_MODE == 'cloud':

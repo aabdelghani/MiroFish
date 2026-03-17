@@ -187,6 +187,8 @@ def show_expected_formats():
     print("\n1. Twitter Profile (CSV format)")
     """Show the profile formats expected by OASIS."""
     print("\n" + "=" * 60)
+    """Show the profile formats expected by OASIS."""
+    print("\n" + "=" * 60)
     print("Reference: OASIS expected profile formats")
     print("=" * 60)
     

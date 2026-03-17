@@ -206,7 +206,8 @@ class SimulationManager:
         defined_entity_types: Optional[List[str]] = None,
         use_llm_for_profiles: bool = True,
         progress_callback: Optional[callable] = None,
-        parallel_profile_count: int = 3
+        parallel_profile_count: int = 3,
+        language: str = "zh"
     ) -> SimulationState:
         """Prepare simulation: read entities, generate profiles, LLM config, save files."""
         state = self._load_simulation_state(simulation_id)
@@ -256,6 +257,9 @@ class SimulationManager:
                     total=total_entities
                 )
             generator = OasisProfileGenerator(graph_id=state.graph_id)
+            
+            # 传入graph_id以启用Zep检索功能，获取更丰富的上下文
+            generator = OasisProfileGenerator(graph_id=state.graph_id, language=language)
             
             def profile_progress(current, total, msg):
                 if progress_callback:
@@ -326,6 +330,9 @@ class SimulationManager:
                     total=3
                 )
             config_generator = SimulationConfigGenerator()
+            
+            config_generator = SimulationConfigGenerator(language=language)
+            
             if progress_callback:
                 progress_callback(
                     "generating_config", 30,

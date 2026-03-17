@@ -17,6 +17,7 @@
           >
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
+            {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
           </button>
         </div>
       </div>
@@ -26,6 +27,7 @@
           <span class="step-num">Step 3/5</span>
           <span class="step-name">{{ $t('steps.startSimulation') }}</span>
           <span class="step-name">Run Simulation</span>
+          <span class="step-name">{{ $t('home.step3Title') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -51,6 +53,7 @@
 
       <!-- Right Panel: Step 3 Start Simulation -->
       <!-- Right Panel: Step 3 Run Simulation -->
+      <!-- Right Panel: Step3 Start Simulation -->
       <div class="panel-wrapper right" :style="rightPanelStyle">
         <Step3Simulation
           :simulationId="currentSimulationId"
@@ -97,6 +100,9 @@ const minutesPerRound = ref(30)
 // Read maxRounds from the query on init so the child component gets it immediately.
 const maxRounds = ref(route.query.maxRounds ? parseInt(route.query.maxRounds) : null)
 const minutesPerRound = ref(30) // Default to 30 minutes per round.
+// Get maxRounds from query params at init time to ensure child components receive the value immediately
+const maxRounds = ref(route.query.maxRounds ? parseInt(route.query.maxRounds) : null)
+const minutesPerRound = ref(30) // Default 30 minutes per round
 const projectData = ref(null)
 const graphData = ref(null)
 const graphLoading = ref(false)
@@ -157,13 +163,19 @@ const handleGoBack = async () => {
   addLog('Preparing to return to Step 2. Closing the simulation...')
   
   // Stop polling.
+  // Before returning to Step 2, close any running simulation
+  addLog(t('simRun.preparingGoBack'))
+  
+  // Stop polling
   stopGraphRefresh()
   try {
     // Attempt a graceful shutdown first.
+    // First try to gracefully close the simulation environment
     const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
     if (envStatusRes.success && envStatusRes.data?.env_alive) {
       addLog(t('simulation.closingEnv'))
       addLog('Closing the simulation environment...')
+      addLog(t('simRun.closingEnv'))
       try {
         await closeSimulationEnv({
           simulation_id: currentSimulationId.value,
@@ -206,6 +218,25 @@ const handleGoBack = async () => {
           addLog('✓ Simulation stopped')
         } catch (err) {
           addLog(`Failed to stop simulation: ${err.message}`)
+        addLog(t('simRun.envClosed'))
+      } catch (closeErr) {
+        addLog(t('simRun.closeEnvFailedForceStop'))
+        try {
+          await stopSimulation({ simulation_id: currentSimulationId.value })
+          addLog(t('simRun.simForceStopped'))
+        } catch (stopErr) {
+          addLog(t('simRun.forceStopFailed', { error: stopErr.message }))
+        }
+      }
+    } else {
+      // Environment not running, check if process needs to be stopped
+      if (isSimulating.value) {
+        addLog(t('simRun.stoppingSimProcess'))
+        try {
+          await stopSimulation({ simulation_id: currentSimulationId.value })
+          addLog(t('simRun.simStopped'))
+        } catch (err) {
+          addLog(t('simRun.stopSimFailed', { error: err.message }))
         }
       }
     }
@@ -216,6 +247,10 @@ const handleGoBack = async () => {
   }
   
   // Return to Step 2 (environment setup).
+    addLog(t('simRun.checkStatusFailed', { error: err.message }))
+  }
+  
+  // Return to Step 2 (environment setup)
   router.push({ name: 'Simulation', params: { simulationId: currentSimulationId.value } })
 }
 
@@ -224,6 +259,9 @@ const handleNextStep = () => {
   // Step3Simulation handles report generation and routing directly.
   // This method remains as a fallback.
   addLog('Entered Step 4: Generate Report')
+  // Step3Simulation component handles report generation and routing directly
+  // This method is only a fallback
+  addLog(t('simRun.enterStep4'))
 }
 
 // --- Data Logic ---
@@ -236,11 +274,15 @@ const loadSimulationData = async () => {
     addLog(`Loading simulation data: ${currentSimulationId.value}`)
     
     // Fetch simulation data.
+    addLog(t('simRun.loadingSimData', { id: currentSimulationId.value }))
+    
+    // Get simulation info
     const simRes = await getSimulation(currentSimulationId.value)
     if (simRes.success && simRes.data) {
       const simData = simRes.data
       
       // Fetch simulation config to read minutes_per_round.
+      // Get simulation config to obtain minutes_per_round
       try {
         const configRes = await getSimulationConfig(currentSimulationId.value)
         if (configRes.success && configRes.data?.time_config?.minutes_per_round) {
@@ -257,6 +299,13 @@ const loadSimulationData = async () => {
       }
       
       // Fetch project data.
+          addLog(t('simRun.timeConfig', { minutes: minutesPerRound.value }))
+        }
+      } catch (configErr) {
+        addLog(t('simRun.timeConfigFallback', { minutes: minutesPerRound.value }))
+      }
+      
+      // Get project info
       if (simData.project_id) {
         const projRes = await getProject(simData.project_id)
         if (projRes.success && projRes.data) {
@@ -265,6 +314,9 @@ const loadSimulationData = async () => {
           addLog(`Project loaded: ${projRes.data.project_id}`)
           
           // Fetch graph data.
+          addLog(t('simRun.projectLoaded', { id: projRes.data.project_id }))
+          
+          // Get graph data
           if (projRes.data.graph_id) {
             await loadGraph(projRes.data.graph_id)
           }
@@ -279,6 +331,10 @@ const loadSimulationData = async () => {
     }
   } catch (err) {
     addLog(`Load error: ${err.message}`)
+      addLog(t('simRun.loadSimDataFailed', { error: simRes.error || t('common.unknownError') }))
+    }
+  } catch (err) {
+    addLog(t('simRun.loadException', { error: err.message }))
   }
 }
 
@@ -286,6 +342,8 @@ const loadGraph = async (graphId) => {
   if (!isSimulating.value) graphLoading.value = true
   // Avoid full-screen loading flashes during active simulation refreshes.
   // Keep loading visible for manual refreshes and the initial load.
+  // When simulating, auto-refresh doesn't show fullscreen loading to avoid flickering
+  // Show loading for manual refresh or initial load
   if (!isSimulating.value) {
     graphLoading.value = true
   }
@@ -304,6 +362,11 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(`Failed to load graph data: ${err.message}`)
+        addLog(t('simRun.graphDataLoaded'))
+      }
+    }
+  } catch (err) {
+    addLog(t('simRun.graphLoadFailed', { error: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -323,6 +386,8 @@ const startGraphRefresh = () => {
   addLog(t('simulation.graphRefreshOn'))
   addLog('Enabled live graph refresh (30s)')
   // Refresh immediately, then every 30 seconds
+  addLog(t('simRun.startGraphRefresh'))
+  // Refresh once immediately, then every 30 seconds
   graphRefreshTimer = setInterval(refreshGraph, 30000)
 }
 
@@ -332,6 +397,7 @@ const stopGraphRefresh = () => {
     graphRefreshTimer = null
     addLog(t('simulation.graphRefreshOff'))
     addLog('Stopped live graph refresh')
+    addLog(t('simRun.stopGraphRefresh'))
   }
 }
 
@@ -348,6 +414,12 @@ onMounted(() => {
   if (maxRounds.value) {
     addLog(t('simulation.customRoundsValue', { n: maxRounds.value }))
   addLog('SimulationRunView initialized')
+  addLog(t('simRun.viewInit'))
+  
+  // Log maxRounds config (value already obtained from query params at init)
+  if (maxRounds.value) {
+    addLog(t('simRun.customRounds', { rounds: maxRounds.value }))
+  }
   
   // Log maxRounds configuration (value is already read from query on init)
   if (maxRounds.value) {

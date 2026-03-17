@@ -5,6 +5,7 @@
     ref="historyContainer"
   >
     <!-- Background decoration: technical grid lines (only when projects exist) -->
+    <!-- Background decoration: tech grid lines (only shown when projects exist) -->
     <div v-if="projects.length > 0 || loading" class="tech-grid-bg">
       <div class="grid-pattern"></div>
       <div class="gradient-overlay"></div>
@@ -18,6 +19,11 @@
     </div>
 
     <!-- Card container (only when projects exist) -->
+      <span class="section-title">{{ $t('history.title') }}</span>
+      <div class="section-line"></div>
+    </div>
+
+    <!-- Card container (only shown when projects exist) -->
     <div v-if="projects.length > 0" class="cards-container" :class="{ expanded: isExpanded }" :style="containerStyle">
       <div 
         v-for="(project, index) in projects" 
@@ -30,6 +36,7 @@
         @click="navigateToProject(project)"
       >
         <!-- Card header: simulation ID and feature availability -->
+        <!-- Card header: simulation_id and feature availability status -->
         <div class="card-header">
           <span class="card-id">{{ formatSimulationId(project.simulation_id) }}</span>
           <div class="card-status-icons">
@@ -41,11 +48,17 @@
             <span 
               class="status-icon available" 
               title="Environment Setup"
+              :title="$t('history.graphBuild')"
+            >◇</span>
+            <span
+              class="status-icon available"
+              :title="$t('history.envSetup')"
             >◈</span>
-            <span 
-              class="status-icon" 
+            <span
+              class="status-icon"
               :class="{ available: project.report_id, unavailable: !project.report_id }"
               title="Analysis Report"
+              :title="$t('history.report')"
             >◆</span>
           </div>
         </div>
@@ -53,6 +66,7 @@
         <!-- File list area -->
         <div class="card-files-wrapper">
           <!-- Corner decoration -->
+          <!-- Corner decoration - viewfinder style -->
           <div class="corner-mark top-left-only"></div>
           
           <!-- File list -->
@@ -81,6 +95,22 @@
         <h3 class="card-title">{{ getSimulationTitle(project.simulation_requirement) }}</h3>
 
         <!-- Card description -->
+            <!-- If more files exist, show hint -->
+            <div v-if="project.files.length > 3" class="files-more">
+              {{ $t('history.moreFiles', { count: project.files.length - 3 }) }}
+            </div>
+          </div>
+          <!-- Placeholder when no files -->
+          <div class="files-empty" v-else>
+            <span class="empty-file-icon">◇</span>
+            <span class="empty-file-text">{{ $t('history.noFiles') }}</span>
+          </div>
+        </div>
+
+        <!-- Card title (first 20 characters of simulation requirement) -->
+        <h3 class="card-title">{{ getSimulationTitle(project.simulation_requirement) }}</h3>
+
+        <!-- Card description (full simulation requirement) -->
         <p class="card-desc">{{ truncateText(project.simulation_requirement, 55) }}</p>
 
         <!-- Card footer -->
@@ -109,6 +139,8 @@
         <!-- 底部装饰线 (hover时展开) -->
         
         <!-- Bottom decoration line -->
+        
+        <!-- Bottom decoration line (expands on hover) -->
         <div class="card-bottom-line"></div>
       </div>
     </div>
@@ -120,6 +152,10 @@
     </div>
 
     <!-- History replay modal -->
+      <span class="loading-text">{{ $t('history.loading') }}</span>
+    </div>
+
+    <!-- History replay detail modal -->
     <Teleport to="body">
       <Transition name="modal">
         <div v-if="selectedProject" class="modal-overlay" @click.self="closeModal">
@@ -142,11 +178,18 @@
               <div class="modal-section">
                 <div class="modal-label">Simulation Prompt</div>
                 <div class="modal-requirement">{{ selectedProject.simulation_requirement || 'None' }}</div>
+            <!-- Modal body -->
+            <div class="modal-body">
+              <!-- Simulation requirement -->
+              <div class="modal-section">
+                <div class="modal-label">{{ $t('history.simRequirement') }}</div>
+                <div class="modal-requirement">{{ selectedProject.simulation_requirement || '无' }}</div>
               </div>
 
               <!-- File list -->
               <div class="modal-section">
                 <div class="modal-label">Related Files</div>
+                <div class="modal-label">{{ $t('history.linkedFiles') }}</div>
                 <div class="modal-files" v-if="selectedProject.files && selectedProject.files.length > 0">
                   <div v-for="(file, index) in selectedProject.files" :key="index" class="modal-file-item">
                     <span class="file-tag" :class="getFileType(file.filename)">{{ getFileTypeLabel(file.filename) }}</span>
@@ -161,6 +204,14 @@
             <div class="modal-divider">
               <span class="divider-line"></span>
               <span class="divider-text">Replay</span>
+                <div class="modal-empty" v-else>{{ $t('history.noLinkedFiles') }}</div>
+              </div>
+            </div>
+
+            <!-- Simulation replay divider -->
+            <div class="modal-divider">
+              <span class="divider-line"></span>
+              <span class="divider-text">{{ $t('history.replayTitle') }}</span>
               <span class="divider-line"></span>
             </div>
 
@@ -174,6 +225,7 @@
                 <span class="btn-step">Step1</span>
                 <span class="btn-icon">◇</span>
                 <span class="btn-text">Graph Build</span>
+                <span class="btn-text">{{ $t('history.graphBuild') }}</span>
               </button>
               <button 
                 class="modal-btn btn-simulation" 
@@ -182,6 +234,7 @@
                 <span class="btn-step">Step2</span>
                 <span class="btn-icon">◈</span>
                 <span class="btn-text">Environment Setup</span>
+                <span class="btn-text">{{ $t('history.envSetup') }}</span>
               </button>
               <button 
                 class="modal-btn btn-report" 
@@ -223,6 +276,12 @@
                 <span v-if="deletingId" class="delete-spinner"></span>
                 <span v-else>确认删除</span>
               </button>
+                <span class="btn-text">{{ $t('history.report') }}</span>
+              </button>
+            </div>
+            <!-- Non-replayable hint -->
+            <div class="modal-playback-hint">
+              <span class="hint-text">{{ $t('history.replayHint') }}</span>
             </div>
           </div>
         </div>
@@ -235,9 +294,12 @@
 import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { getSimulationHistory, deleteSimulation } from '../api/simulation'
+import { useI18n } from 'vue-i18n'
+import { getSimulationHistory } from '../api/simulation'
 
 const router = useRouter()
 const route = useRoute()
+const { t } = useI18n()
 
 // State
 const projects = ref([])
@@ -255,6 +317,13 @@ let expandDebounceTimer = null  // Debounce timer
 let pendingState = null  // Pending target expanded/collapsed state
 
 // Card layout configuration - wider proportions
+const selectedProject = ref(null)  // Currently selected project (for modal)
+let observer = null
+let isAnimating = false  // Animation lock to prevent flickering
+let expandDebounceTimer = null  // Debounce timer
+let pendingState = null  // Record pending target state
+
+// Card layout config - adjusted for wider proportions
 const CARDS_PER_ROW = 4
 const CARD_WIDTH = 280  
 const CARD_HEIGHT = 280 
@@ -268,6 +337,14 @@ const containerStyle = computed(() => {
   }
   
   // Expanded: compute required height from number of rows
+// Dynamically calculate container height styles
+const containerStyle = computed(() => {
+  if (!isExpanded.value) {
+    // Collapsed state: fixed height
+    return { minHeight: '420px' }
+  }
+  
+  // Expanded state: dynamically calculate height based on card count
   const total = projects.value.length
   if (total === 0) {
     return { minHeight: '280px' }
@@ -275,23 +352,27 @@ const containerStyle = computed(() => {
   
   const rows = Math.ceil(total / CARDS_PER_ROW)
   // rows * card height + (rows - 1) * gap + small bottom padding
+  // Calculate actual height needed: rows * card height + (rows-1) * gap + small bottom margin
   const expandedHeight = rows * CARD_HEIGHT + (rows - 1) * CARD_GAP + 10
   
   return { minHeight: `${expandedHeight}px` }
 })
 
 // Compute per-card transform for stacked/expanded layouts
+// Get card style
 const getCardStyle = (index) => {
   const total = projects.value.length
   
   if (isExpanded.value) {
     // Expanded: grid layout
+    // Expanded state: grid layout
     const transition = 'transform 700ms cubic-bezier(0.23, 1, 0.32, 1), opacity 700ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.3s ease, border-color 0.3s ease'
 
     const col = index % CARDS_PER_ROW
     const row = Math.floor(index / CARDS_PER_ROW)
     
     // Determine card count in this row so it can be centered
+    // Calculate card count in current row, ensure centering
     const currentRowStart = row * CARDS_PER_ROW
     const currentRowCards = Math.min(CARDS_PER_ROW, total - currentRowStart)
     
@@ -302,6 +383,7 @@ const getCardStyle = (index) => {
     const x = startX + colInRow * (CARD_WIDTH + CARD_GAP)
     
     // Expand downward, adding some space under the section title
+    // Expand downward, add spacing from title
     const y = 20 + row * (CARD_HEIGHT + CARD_GAP)
 
     return {
@@ -312,13 +394,14 @@ const getCardStyle = (index) => {
     }
   } else {
     // Collapsed: fanned stack
+    // Collapsed state: fan-stacked
     const transition = 'transform 700ms cubic-bezier(0.23, 1, 0.32, 1), opacity 700ms cubic-bezier(0.23, 1, 0.32, 1), box-shadow 0.3s ease, border-color 0.3s ease'
 
     const centerIndex = (total - 1) / 2
     const offset = index - centerIndex
     
     const x = offset * 35
-    // 调整起始位置，靠近标题但保持适当间距
+    // Adjust start position, close to title but with proper spacing
     const y = 25 + Math.abs(offset) * 8
     const r = offset * 3
     const s = 0.95 - Math.abs(offset) * 0.05
@@ -333,6 +416,7 @@ const getCardStyle = (index) => {
 }
 
 // Style class from round progress
+// Get style class based on round progress
 const getProgressClass = (simulation) => {
   const current = simulation.current_round || 0
   const total = simulation.total_rounds || 0
@@ -361,6 +445,7 @@ const formatDate = (dateStr) => {
 }
 
 // Format time (HH:mm)
+// Format time (hours:minutes)
 const formatTime = (dateStr) => {
   if (!dateStr) return ''
   try {
@@ -374,6 +459,7 @@ const formatTime = (dateStr) => {
 }
 
 // Truncate generic text
+// Truncate text
 const truncateText = (text, maxLength) => {
   if (!text) return ''
   return text.length > maxLength ? text.slice(0, maxLength) + '...' : text
@@ -382,11 +468,15 @@ const truncateText = (text, maxLength) => {
 // Generate a title from the simulation requirement (first 20 chars)
 const getSimulationTitle = (requirement) => {
   if (!requirement) return 'Untitled simulation'
+// Generate title from simulation requirement (first 20 characters)
+const getSimulationTitle = (requirement) => {
+  if (!requirement) return t('history.unnamedSim')
   const title = requirement.slice(0, 20)
   return requirement.length > 20 ? title + '...' : title
 }
 
 // Format simulation_id for display (first 6 characters)
+// Format simulation_id display (first 6 characters)
 const formatSimulationId = (simulationId) => {
   if (!simulationId) return 'SIM_UNKNOWN'
   const prefix = simulationId.replace('sim_', '').slice(0, 6)
@@ -402,6 +492,15 @@ const formatRounds = (simulation) => {
 }
 
 // Derive file type (for styling)
+// Format rounds display (current/total)
+const formatRounds = (simulation) => {
+  const current = simulation.current_round || 0
+  const total = simulation.total_rounds || 0
+  if (total === 0) return t('history.notStarted')
+  return t('history.roundsSuffix', { current, total })
+}
+
+// Get file type (for styling)
 const getFileType = (filename) => {
   if (!filename) return 'other'
   const ext = filename.split('.').pop()?.toLowerCase()
@@ -418,6 +517,7 @@ const getFileType = (filename) => {
 }
 
 // File type label text
+// Get file type label text
 const getFileTypeLabel = (filename) => {
   if (!filename) return 'FILE'
   const ext = filename.split('.').pop()?.toUpperCase()
@@ -427,6 +527,9 @@ const getFileTypeLabel = (filename) => {
 // Truncate filename while preserving extension
 const truncateFilename = (filename, maxLength) => {
   if (!filename) return 'Unknown file'
+// Truncate filename (preserve extension)
+const truncateFilename = (filename, maxLength) => {
+  if (!filename) return t('history.unknownFile')
   if (filename.length <= maxLength) return filename
   
   const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''
@@ -436,6 +539,7 @@ const truncateFilename = (filename, maxLength) => {
 }
 
 // Open project details modal
+// Open project detail modal
 const navigateToProject = (simulation) => {
   selectedProject.value = simulation
 }
@@ -446,6 +550,7 @@ const closeModal = () => {
 }
 
 // Navigate to Step 1 (graph build / project)
+// Navigate to graph build page (Project)
 const goToProject = () => {
   if (selectedProject.value?.project_id) {
     router.push({
@@ -457,6 +562,7 @@ const goToProject = () => {
 }
 
 // Navigate to Step 2 (environment setup / simulation)
+// Navigate to environment setup page (Simulation)
 const goToSimulation = () => {
   if (selectedProject.value?.simulation_id) {
     router.push({
@@ -468,6 +574,7 @@ const goToSimulation = () => {
 }
 
 // Navigate to Step 4 (analysis report)
+// Navigate to analysis report page (Report)
 const goToReport = () => {
   if (selectedProject.value?.report_id) {
     router.push({
@@ -516,6 +623,7 @@ const confirmDelete = async () => {
 
 // 加载历史项目
 // Load simulation history
+// Load project history
 const loadHistory = async () => {
   try {
     loading.value = true
@@ -525,6 +633,7 @@ const loadHistory = async () => {
     }
   } catch (error) {
     console.error('Failed to load simulation history:', error)
+    console.error(t('history.loadFailed') + ':', error)
     projects.value = []
   } finally {
     loading.value = false
@@ -532,6 +641,7 @@ const loadHistory = async () => {
 }
 
 // Initialize IntersectionObserver for expand/collapse behavior
+// Initialize IntersectionObserver
 const initObserver = () => {
   if (observer) {
     observer.disconnect()
@@ -546,6 +656,10 @@ const initObserver = () => {
         pendingState = shouldExpand
         
         // Clear any previous debounce timer so the latest scroll intent wins
+        // Update pending target state (always record latest target state regardless of animation)
+        pendingState = shouldExpand
+        
+        // Clear previous debounce timer (new scroll intent overrides old one)
         if (expandDebounceTimer) {
           clearTimeout(expandDebounceTimer)
           expandDebounceTimer = null
@@ -555,6 +669,10 @@ const initObserver = () => {
         if (isAnimating) return
         
         // No-op if desired state already matches current expanded/collapsed state
+        // If animating, only record state, handle after animation ends
+        if (isAnimating) return
+        
+        // If target state matches current state, no processing needed
         if (shouldExpand === isExpanded.value) {
           pendingState = null
           return
@@ -572,6 +690,18 @@ const initObserver = () => {
           if (pendingState === null || pendingState === isExpanded.value) return
           
           // Lock while animating and flip the expanded flag
+        // Use debounced delay for state toggle to prevent rapid flickering
+        // Shorter delay for expand (50ms), longer for collapse (200ms) for stability
+        const delay = shouldExpand ? 50 : 200
+        
+        expandDebounceTimer = setTimeout(() => {
+          // Check if currently animating
+          if (isAnimating) return
+          
+          // Check if pending state still needs execution (may have been overridden by later scroll)
+          if (pendingState === null || pendingState === isExpanded.value) return
+          
+          // Set animation lock
           isAnimating = true
           isExpanded.value = pendingState
           pendingState = null
@@ -583,6 +713,13 @@ const initObserver = () => {
             // After unlock, see if a newer scroll wants a different state
             if (pendingState !== null && pendingState !== isExpanded.value) {
               // Small delay before applying the new state to avoid jitter
+          // Unlock after animation finishes, check for pending state changes
+          setTimeout(() => {
+            isAnimating = false
+            
+            // After animation ends, check for new pending state
+            if (pendingState !== null && pendingState !== isExpanded.value) {
+              // Delay briefly before executing, avoid switching too fast
               expandDebounceTimer = setTimeout(() => {
                 if (pendingState !== null && pendingState !== isExpanded.value) {
                   isAnimating = true
@@ -599,20 +736,21 @@ const initObserver = () => {
       })
     },
     {
-      // 使用多个阈值，使检测更平滑
+      // Use multiple thresholds for smoother detection
       threshold: [0.4, 0.6, 0.8],
-      // 调整 rootMargin，视口底部向上收缩，需要滚动更多才触发展开
+      // Adjust rootMargin, shrink viewport bottom upward, requiring more scroll to trigger expand
       rootMargin: '0px 0px -150px 0px'
     }
   )
   
-  // 开始观察
+  // Start observing
   if (historyContainer.value) {
     observer.observe(historyContainer.value)
   }
 }
 
 // When navigating back to home, reload history
+// Watch route changes, reload data when returning to home
 watch(() => route.path, (newPath) => {
   if (newPath === '/') {
     loadHistory()
@@ -625,23 +763,31 @@ onMounted(async () => {
   await loadHistory()
   
   // Initialize observer after the DOM has settled
+  // Ensure DOM rendering is complete before loading data
+  await nextTick()
+  await loadHistory()
+  
+  // Initialize observer after DOM rendering
   setTimeout(() => {
     initObserver()
   }, 100)
 })
 
 // With keep-alive, reload data when the component is re-activated
+// If using keep-alive, reload data when component is activated
 onActivated(() => {
   loadHistory()
 })
 
 onUnmounted(() => {
   // Clean up IntersectionObserver
+  // Clean up Intersection Observer
   if (observer) {
     observer.disconnect()
     observer = null
   }
   // Clear debounce timer
+  // Clean up debounce timer
   if (expandDebounceTimer) {
     clearTimeout(expandDebounceTimer)
     expandDebounceTimer = null
@@ -650,7 +796,7 @@ onUnmounted(() => {
 </script>
 
 <style scoped>
-/* 容器 */
+/* Container */
 .history-database {
   position: relative;
   width: 100%;
@@ -660,13 +806,13 @@ onUnmounted(() => {
   overflow: visible;
 }
 
-/* 无项目时简化显示 */
+/* Simplified display when no projects */
 .history-database.no-projects {
   min-height: auto;
   padding: 40px 0 20px;
 }
 
-/* 技术网格背景 */
+/* Tech grid background */
 .tech-grid-bg {
   position: absolute;
   top: 0;
@@ -677,7 +823,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* 使用CSS背景图案创建固定间距的正方形网格 */
+/* Use CSS background patterns to create a fixed-spacing square grid */
 .grid-pattern {
   position: absolute;
   top: 0;
@@ -688,7 +834,7 @@ onUnmounted(() => {
     linear-gradient(to right, rgba(0, 0, 0, 0.05) 1px, transparent 1px),
     linear-gradient(to bottom, rgba(0, 0, 0, 0.05) 1px, transparent 1px);
   background-size: 50px 50px;
-  /* 从左上角开始定位，高度变化时只在底部扩展，不影响已有网格位置 */
+  /* Position from top-left, height changes only expand at bottom without affecting existing grid positions */
   background-position: top left;
 }
 
@@ -704,7 +850,7 @@ onUnmounted(() => {
   pointer-events: none;
 }
 
-/* 标题区域 */
+/* Title area */
 .section-header {
   position: relative;
   z-index: 100;
@@ -732,7 +878,7 @@ onUnmounted(() => {
   text-transform: uppercase;
 }
 
-/* 卡片容器 */
+/* Card container */
 .cards-container {
   position: relative;
   display: flex;
@@ -740,10 +886,10 @@ onUnmounted(() => {
   align-items: flex-start;
   padding: 0 40px;
   transition: min-height 700ms cubic-bezier(0.23, 1, 0.32, 1);
-  /* min-height 由 JS 动态计算，根据卡片数量自适应 */
+  /* min-height dynamically calculated by JS, adapts to card count */
 }
 
-/* 项目卡片 */
+/* Project card */
 .project-card {
   position: absolute;
   width: 280px;
@@ -766,7 +912,7 @@ onUnmounted(() => {
   z-index: 1000 !important;
 }
 
-/* 卡片头部 */
+/* Card header */
 .card-header {
   display: flex;
   justify-content: space-between;
@@ -784,7 +930,7 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* 功能状态图标组 */
+/* Feature status icon group */
 .card-status-icons {
   display: flex;
   align-items: center;
@@ -801,17 +947,17 @@ onUnmounted(() => {
   opacity: 1;
 }
 
-/* 不同功能的颜色 */
-.status-icon:nth-child(1).available { color: #3B82F6; } /* 图谱构建 - 蓝色 */
-.status-icon:nth-child(2).available { color: #F59E0B; } /* 环境搭建 - 橙色 */
-.status-icon:nth-child(3).available { color: #10B981; } /* 分析报告 - 绿色 */
+/* Colors for different features */
+.status-icon:nth-child(1).available { color: #3B82F6; } /* Graph build - blue */
+.status-icon:nth-child(2).available { color: #F59E0B; } /* Env setup - orange */
+.status-icon:nth-child(3).available { color: #10B981; } /* Report - green */
 
 .status-icon.unavailable {
   color: #D1D5DB;
   opacity: 0.5;
 }
 
-/* 轮数进度显示 */
+/* Round progress display */
 .card-progress {
   display: flex;
   align-items: center;
@@ -825,13 +971,13 @@ onUnmounted(() => {
   font-size: 0.5rem;
 }
 
-/* 进度状态颜色 */
-.card-progress.completed { color: #10B981; }    /* 已完成 - 绿色 */
-.card-progress.in-progress { color: #F59E0B; }  /* 进行中 - 橙色 */
-.card-progress.not-started { color: #9CA3AF; }  /* 未开始 - 灰色 */
+/* Progress status colors */
+.card-progress.completed { color: #10B981; }    /* Completed - green */
+.card-progress.in-progress { color: #F59E0B; }  /* In progress - orange */
+.card-progress.not-started { color: #9CA3AF; }  /* Not started - gray */
 .card-status.pending { color: #9CA3AF; }
 
-/* 文件列表区域 */
+/* File list area */
 .card-files-wrapper {
   position: relative;
   width: 100%;
@@ -851,7 +997,7 @@ onUnmounted(() => {
   gap: 4px;
 }
 
-/* 更多文件提示 */
+/* More files hint */
 .files-more {
   display: flex;
   align-items: center;
@@ -881,7 +1027,7 @@ onUnmounted(() => {
   border-color: #e5e7eb;
 }
 
-/* 简约文件标签样式 */
+/* Minimal file tag style */
 .file-tag {
   display: inline-flex;
   align-items: center;
@@ -899,7 +1045,7 @@ onUnmounted(() => {
   min-width: 28px;
 }
 
-/* 低饱和度配色方案 - Morandi色系 */
+/* Low saturation color scheme - Morandi palette */
 .file-tag.pdf { background: #f2e6e6; color: #a65a5a; }
 .file-tag.doc { background: #e6eff5; color: #5a7ea6; }
 .file-tag.xls { background: #e6f2e8; color: #5aa668; }
@@ -920,7 +1066,7 @@ onUnmounted(() => {
   letter-spacing: 0.1px;
 }
 
-/* 无文件时的占位 */
+/* Placeholder when no files */
 .files-empty {
   display: flex;
   align-items: center;
@@ -941,13 +1087,13 @@ onUnmounted(() => {
   letter-spacing: 0.5px;
 }
 
-/* 悬停时文件区域效果 */
+/* File area effect on hover */
 .project-card:hover .card-files-wrapper {
   border-color: #d1d5db;
   background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
 }
 
-/* 角落装饰 */
+/* Corner decoration */
 .corner-mark.top-left-only {
   position: absolute;
   top: 6px;
@@ -960,7 +1106,7 @@ onUnmounted(() => {
   z-index: 10;
 }
 
-/* 卡片标题 */
+/* Card title */
 .card-title {
   font-family: 'Inter', -apple-system, sans-serif;
   font-size: 0.9rem;
@@ -978,7 +1124,7 @@ onUnmounted(() => {
   color: #2563EB;
 }
 
-/* 卡片描述 */
+/* Card description */
 .card-desc {
   font-family: 'Inter', sans-serif;
   font-size: 0.75rem;
@@ -992,7 +1138,7 @@ onUnmounted(() => {
   -webkit-box-orient: vertical;
 }
 
-/* 卡片底部 */
+/* Card footer */
 .card-footer {
   position: relative;
   display: flex;
@@ -1006,14 +1152,14 @@ onUnmounted(() => {
   font-weight: 500;
 }
 
-/* 日期时间组合 */
+/* Date-time combination */
 .card-datetime {
   display: flex;
   align-items: center;
   gap: 8px;
 }
 
-/* 底部轮数进度显示 */
+/* Bottom round progress display */
 .card-footer .card-progress {
   display: flex;
   align-items: center;
@@ -1027,12 +1173,12 @@ onUnmounted(() => {
   font-size: 0.5rem;
 }
 
-/* 进度状态颜色 - 底部 */
+/* Progress status colors - bottom */
 .card-footer .card-progress.completed { color: #10B981; }
 .card-footer .card-progress.in-progress { color: #F59E0B; }
 .card-footer .card-progress.not-started { color: #9CA3AF; }
 
-/* 底部装饰线 */
+/* Bottom decoration line */
 .card-bottom-line {
   position: absolute;
   bottom: 0;
@@ -1048,7 +1194,7 @@ onUnmounted(() => {
   width: 100%;
 }
 
-/* 空状态 */
+/* Empty state */
 .empty-state, .loading-state {
   display: flex;
   flex-direction: column;
@@ -1076,7 +1222,7 @@ onUnmounted(() => {
   to { transform: rotate(360deg); }
 }
 
-/* 响应式 */
+/* Responsive */
 @media (max-width: 1200px) {
   .project-card {
     width: 240px;
@@ -1092,7 +1238,7 @@ onUnmounted(() => {
   }
 }
 
-/* ===== 历史回放详情弹窗样式 ===== */
+/* ===== History replay detail modal styles ===== */
 .modal-overlay {
   position: fixed;
   top: 0;
@@ -1118,7 +1264,7 @@ onUnmounted(() => {
   box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
 }
 
-/* 动画过渡 */
+/* Animation transitions */
 .modal-enter-active,
 .modal-leave-active {
   transition: opacity 0.3s ease;
@@ -1147,7 +1293,7 @@ onUnmounted(() => {
   opacity: 0;
 }
 
-/* 弹窗头部 */
+/* Modal header */
 .modal-header {
   display: flex;
   justify-content: space-between;
@@ -1214,7 +1360,7 @@ onUnmounted(() => {
   color: #111827;
 }
 
-/* 弹窗内容 */
+/* Modal body */
 .modal-body {
   padding: 24px 32px;
 }
@@ -1256,7 +1402,7 @@ onUnmounted(() => {
   padding-right: 4px;
 }
 
-/* 自定义滚动条样式 */
+/* Custom scrollbar styles */
 .modal-files::-webkit-scrollbar {
   width: 4px;
 }
@@ -1310,7 +1456,7 @@ onUnmounted(() => {
   text-align: center;
 }
 
-/* 推演回放分割线 */
+/* Simulation replay divider */
 .modal-divider {
   display: flex;
   align-items: center;
@@ -1334,7 +1480,7 @@ onUnmounted(() => {
   white-space: nowrap;
 }
 
-/* 导航按钮 */
+/* Navigation buttons */
 .modal-actions {
   display: flex;
   gap: 16px;
@@ -1401,7 +1547,7 @@ onUnmounted(() => {
   color: #111827;
 }
 
-/* 不可回放提示 */
+/* Non-replayable hint */
 .modal-playback-hint {
   display: flex;
   align-items: center;

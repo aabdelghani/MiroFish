@@ -3,6 +3,7 @@
     <div class="panel-header">
       <span class="panel-title">Graph Relationship Visualization</span>
       <!-- Top toolbar -->
+      <!-- Top toolbar (Internal Top Right) -->
       <div class="header-tools">
         <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" :title="$t('graph.refreshGraph')">
           <span class="icon-refresh" :class="{ 'spinning': loading }">↻</span>
@@ -16,6 +17,7 @@
           <span class="btn-text">Refresh</span>
         </button>
         <button class="tool-btn" @click="$emit('toggle-maximize')" title="Maximize or restore">
+        <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('graph.maximize')">
           <span class="icon-maximize">⛶</span>
         </button>
       </div>
@@ -28,6 +30,7 @@
         
         <!-- Building / simulating hint -->
         <!-- Build and simulation hint -->
+        <!-- Building/simulating hint -->
         <div v-if="currentPhase === 1 || isSimulating" class="graph-building-hint">
           <div class="memory-icon-wrapper">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="memory-icon">
@@ -37,6 +40,7 @@
           </div>
           {{ isSimulating ? $t('graph.graphRagUpdating') : $t('graph.updatingShort') }}
           {{ isSimulating ? 'GraphRAG long- and short-term memory is updating in real time' : 'Updating in real time...' }}
+          {{ isSimulating ? $t('process.graphMemoryUpdate') : $t('process.updatingLive') }}
         </div>
         
         <!-- Post-simulation hint -->
@@ -52,6 +56,8 @@
           <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('common.closeHint')">
           <span class="hint-text">A small amount of processing is still finishing. Refresh the graph manually in a moment.</span>
           <button class="hint-close-btn" @click="dismissFinishedHint" title="Dismiss hint">
+          <span class="hint-text">{{ $t('process.remainingContent') }}</span>
+          <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('graph.closeHint')">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -167,6 +173,7 @@
             
             <!-- Regular edge details -->
             <!-- Standard edge details -->
+            <!-- Normal edge details -->
             <template v-else>
               <div class="edge-relation-header">
                 {{ selectedItem.data.source_name }} → {{ selectedItem.data.name || 'RELATED_TO' }} → {{ selectedItem.data.target_name }}
@@ -219,6 +226,10 @@
       </div>
       
       <!-- Empty / waiting state -->
+        <p>{{ $t('graph.loadingData') }}</p>
+      </div>
+      
+      <!-- Waiting/empty state -->
       <div v-else class="graph-state">
         <div class="empty-icon">❖</div>
         <p class="empty-text">{{ $t('graph.waitingOntology') }}</p>
@@ -237,6 +248,7 @@
     </div>
 
     <!-- Bottom-left legend -->
+    <!-- Bottom legend (Bottom Left) -->
     <div v-if="graphData && entityTypes.length" class="graph-legend">
       <span class="legend-title">Entity Types</span>
       <div class="legend-items">
@@ -261,7 +273,10 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
+import { useI18n } from 'vue-i18n'
 import * as d3 from 'd3'
+
+const { t } = useI18n()
 
 const props = defineProps({
   graphData: Object,
@@ -286,6 +301,12 @@ const showSimulationFinishedHint = ref(false) // Post-simulation hint visibility
 const wasSimulating = ref(false) // Track whether the panel was previously simulating.
 
 // Dismiss the post-simulation hint.
+const showEdgeLabels = ref(true) // Show edge labels by default
+const expandedSelfLoops = ref(new Set()) // Expanded self-loop items
+const showSimulationFinishedHint = ref(false) // Post-simulation hint
+const wasSimulating = ref(false) // Track whether simulation was previously running
+
+// Dismiss the simulation finished hint
 const dismissFinishedHint = () => {
   showSimulationFinishedHint.value = false
 }
@@ -296,6 +317,10 @@ watch(() => props.isSimulating, (newValue, oldValue) => {
 watch(() => props.isSimulating, (newValue, oldValue) => {
   if (wasSimulating.value && !newValue) {
     // Show the completion hint when the graph switches out of simulation mode.
+// Watch isSimulating changes to detect simulation completion
+watch(() => props.isSimulating, (newValue, oldValue) => {
+  if (wasSimulating.value && !newValue) {
+    // Transitioned from simulating to non-simulating state, show finished hint
     showSimulationFinishedHint.value = true
   }
   wasSimulating.value = newValue
@@ -303,6 +328,7 @@ watch(() => props.isSimulating, (newValue, oldValue) => {
 
 /** Toggle self-loop item expand/collapse */
 // Toggle expanded state for self-loop groups.
+// Toggle self-loop item expand/collapse state
 const toggleSelfLoop = (id) => {
   const newSet = new Set(expandedSelfLoops.value)
   if (newSet.has(id)) {
@@ -318,6 +344,7 @@ const toggleSelfLoop = (id) => {
 const entityTypes = computed(() => {
   if (!props.graphData?.nodes) return []
   const typeMap = {}
+  // Aesthetically pleasing color palette
   const colors = ['#FF6B35', '#004E89', '#7B2D8E', '#1A936F', '#C5283D', '#E9724C', '#3498db', '#9b59b6', '#27ae60', '#f39c12']
   
   props.graphData.nodes.forEach(node => {
@@ -331,6 +358,7 @@ const entityTypes = computed(() => {
 })
 
 // Format timestamps for display
+// Format date/time
 const formatDateTime = (dateStr) => {
   if (!dateStr) return ''
   try {
@@ -351,6 +379,7 @@ const formatDateTime = (dateStr) => {
 const closeDetailPanel = () => {
   selectedItem.value = null
   expandedSelfLoops.value = new Set()
+  expandedSelfLoops.value = new Set() // Reset expanded state
 }
 
 let currentSimulation = null
@@ -361,6 +390,7 @@ const renderGraph = () => {
   if (!graphSvg.value || !props.graphData) return
   
   // Stop any previous force simulation
+  // Stop previous simulation
   if (currentSimulation) {
     currentSimulation.stop()
   }
@@ -402,6 +432,16 @@ const renderGraph = () => {
   
   tempEdges.forEach(e => {
     if (e.source_node_uuid === e.target_node_uuid) {
+  // Process edge data, count edges between each node pair and assign indices
+  const edgePairCount = {}
+  const selfLoopEdges = {} // Self-loop edges grouped by node
+  const tempEdges = edgesData
+    .filter(e => nodeIds.has(e.source_node_uuid) && nodeIds.has(e.target_node_uuid))
+  
+  // Count edges between each node pair, collect self-loop edges
+  tempEdges.forEach(e => {
+    if (e.source_node_uuid === e.target_node_uuid) {
+      // Self-loop - collect into array
       if (!selfLoopEdges[e.source_node_uuid]) {
         selfLoopEdges[e.source_node_uuid] = []
       }
@@ -419,6 +459,10 @@ const renderGraph = () => {
   const edgePairIndex = {}
   const processedSelfLoopNodes = new Set()
 
+  // Track current edge index for each node pair
+  const edgePairIndex = {}
+  const processedSelfLoopNodes = new Set() // Already processed self-loop nodes
+  
   const edges = []
 
   tempEdges.forEach(e => {
@@ -427,6 +471,9 @@ const renderGraph = () => {
     if (isSelfLoop) {
       if (processedSelfLoopNodes.has(e.source_node_uuid)) {
         return
+      // Self-loop edge - only add one merged self-loop per node
+      if (processedSelfLoopNodes.has(e.source_node_uuid)) {
+        return // Already processed, skip
       }
       processedSelfLoopNodes.add(e.source_node_uuid)
       
@@ -446,6 +493,7 @@ const renderGraph = () => {
           target_name: nodeName,
           selfLoopCount: allSelfLoops.length,
           selfLoopEdges: allSelfLoops
+          selfLoopEdges: allSelfLoops // Store detailed info for all self-loop edges
         }
       })
       return
@@ -461,6 +509,19 @@ const renderGraph = () => {
     if (totalCount > 1) {
       const curvatureRange = Math.min(1.2, 0.6 + totalCount * 0.15)
       curvature = ((currentIndex / (totalCount - 1)) - 0.5) * curvatureRange * 2
+    // Check if edge direction matches the normalized direction (source UUID < target UUID)
+    const isReversed = e.source_node_uuid > e.target_node_uuid
+    
+    // Calculate curvature: spread edges apart when multiple, straight line for single edge
+    let curvature = 0
+    if (totalCount > 1) {
+      // Evenly distribute curvature to ensure clear distinction
+      // Curvature range increases with edge count
+      const curvatureRange = Math.min(1.2, 0.6 + totalCount * 0.15)
+      curvature = ((currentIndex / (totalCount - 1)) - 0.5) * curvatureRange * 2
+      
+      // If edge direction is reversed from normalized direction, flip curvature
+      // This ensures all edges distribute under the same reference frame, preventing overlap
       if (isReversed) {
         curvature = -curvature
       }
@@ -490,6 +551,11 @@ const renderGraph = () => {
 
   const simulation = d3.forceSimulation(nodes)
     .force('link', d3.forceLink(edges).id(d => d.id).distance(d => {
+  // Simulation - dynamically adjust node spacing based on edge count
+  const simulation = d3.forceSimulation(nodes)
+    .force('link', d3.forceLink(edges).id(d => d.id).distance(d => {
+      // Dynamically adjust distance based on edge count between this node pair
+      // Base distance 150, increase by 40 per additional edge
       const baseDistance = 150
       const edgeCount = d.pairTotal || 1
       return baseDistance + (edgeCount - 1) * 50
@@ -497,6 +563,7 @@ const renderGraph = () => {
     .force('charge', d3.forceManyBody().strength(-400))
     .force('center', d3.forceCenter(width / 2, height / 2))
     .force('collide', d3.forceCollide(50))
+    // Add gravitational pull toward center so isolated node clusters gather in the center area
     .force('x', d3.forceX(width / 2).strength(0.04))
     .force('y', d3.forceY(height / 2).strength(0.04))
   
@@ -521,6 +588,24 @@ const renderGraph = () => {
       const y1 = sy - 4
       const x2 = sx + 8
       const y2 = sy + 4
+  // Links - use path elements to support curves
+  const linkGroup = g.append('g').attr('class', 'links')
+  
+  // Calculate curve path
+  const getLinkPath = (d) => {
+    const sx = d.source.x, sy = d.source.y
+    const tx = d.target.x, ty = d.target.y
+    
+    // Detect self-loop
+    if (d.isSelfLoop) {
+      // Self-loop: draw an arc departing from and returning to the node
+      const loopRadius = 30
+      // Start from right side of the node, loop around
+      const x1 = sx + 8  // Start offset
+      const y1 = sy - 4
+      const x2 = sx + 8  // End offset
+      const y2 = sy + 4
+      // Draw self-loop using arc (sweep-flag=1 clockwise)
       return `M${x1},${y1} A${loopRadius},${loopRadius} 0 1,1 ${x2},${y2}`
     }
 
@@ -532,6 +617,17 @@ const renderGraph = () => {
     const dist = Math.sqrt(dx * dx + dy * dy)
     const pairTotal = d.pairTotal || 1
     const offsetRatio = 0.25 + pairTotal * 0.05
+      // Straight line
+      return `M${sx},${sy} L${tx},${ty}`
+    }
+    
+    // Calculate curve control point - dynamically adjust based on edge count and distance
+    const dx = tx - sx, dy = ty - sy
+    const dist = Math.sqrt(dx * dx + dy * dy)
+    // Offset perpendicular to the line direction, proportional to distance, ensuring visible curves
+    // More edges means larger offset ratio
+    const pairTotal = d.pairTotal || 1
+    const offsetRatio = 0.25 + pairTotal * 0.05 // Base 25%, increase by 5% per additional edge
     const baseOffset = Math.max(35, dist * offsetRatio)
     const offsetX = -dy / dist * d.curvature * baseOffset
     const offsetY = dx / dist * d.curvature * baseOffset
@@ -552,6 +648,22 @@ const renderGraph = () => {
     if (d.curvature === 0) {
       return { x: (sx + tx) / 2, y: (sy + ty) / 2 }
     }
+  // Calculate curve midpoint (for label positioning)
+  const getLinkMidpoint = (d) => {
+    const sx = d.source.x, sy = d.source.y
+    const tx = d.target.x, ty = d.target.y
+    
+    // Detect self-loop
+    if (d.isSelfLoop) {
+      // Self-loop label position: right side of the node
+      return { x: sx + 70, y: sy }
+    }
+    
+    if (d.curvature === 0) {
+      return { x: (sx + tx) / 2, y: (sy + ty) / 2 }
+    }
+    
+    // Quadratic Bezier curve midpoint at t=0.5
     const dx = tx - sx, dy = ty - sy
     const dist = Math.sqrt(dx * dx + dy * dy)
     const pairTotal = d.pairTotal || 1
@@ -562,6 +674,7 @@ const renderGraph = () => {
     const cx = (sx + tx) / 2 + offsetX
     const cy = (sy + ty) / 2 + offsetY
     
+    // Quadratic Bezier formula B(t) = (1-t)²P0 + 2(1-t)tP1 + t²P2, t=0.5
     const midX = 0.25 * sx + 0.5 * cx + 0.25 * tx
     const midY = 0.25 * sy + 0.5 * cy + 0.25 * ty
     
@@ -580,6 +693,11 @@ const renderGraph = () => {
       linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
       linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
       linkLabels.attr('fill', '#666')
+      // Reset previously selected edge styles
+      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
+      linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
+      linkLabels.attr('fill', '#666')
+      // Highlight currently selected edge
       d3.select(event.target).attr('stroke', '#3498db').attr('stroke-width', 3)
       
       selectedItem.value = {
@@ -588,6 +706,7 @@ const renderGraph = () => {
       }
     })
 
+  // Link labels background (white background for better text readability)
   const linkLabelBg = linkGroup.selectAll('rect')
     .data(edges)
     .enter().append('rect')
@@ -602,6 +721,7 @@ const renderGraph = () => {
       linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
       linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
       linkLabels.attr('fill', '#666')
+      // Highlight the corresponding edge
       link.filter(l => l === d).attr('stroke', '#3498db').attr('stroke-width', 3)
       d3.select(event.target).attr('fill', 'rgba(52, 152, 219, 0.1)')
 
@@ -628,6 +748,7 @@ const renderGraph = () => {
       linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
       linkLabelBg.attr('fill', 'rgba(255,255,255,0.95)')
       linkLabels.attr('fill', '#666')
+      // Highlight the corresponding edge
       link.filter(l => l === d).attr('stroke', '#3498db').attr('stroke-width', 3)
       d3.select(event.target).attr('fill', '#3498db')
 
@@ -637,6 +758,8 @@ const renderGraph = () => {
       }
     })
 
+  
+  // Save references for external visibility control
   linkLabelsRef = linkLabels
   linkLabelBgRef = linkLabelBg
 
@@ -654,6 +777,7 @@ const renderGraph = () => {
     .style('cursor', 'pointer')
     .call(d3.drag()
       .on('start', (event, d) => {
+        // Only record position, do not restart simulation (distinguish click from drag)
         d.fx = d.x
         d.fy = d.y
         d._dragStartX = event.x
@@ -661,10 +785,12 @@ const renderGraph = () => {
         d._isDragging = false
       })
       .on('drag', (event, d) => {
+        // Detect whether a true drag has started (movement exceeds threshold)
         const dx = event.x - d._dragStartX
         const dy = event.y - d._dragStartY
         const distance = Math.sqrt(dx * dx + dy * dy)
         if (!d._isDragging && distance > 3) {
+          // First real drag detected, now restart the simulation
           d._isDragging = true
           simulation.alphaTarget(0.3).restart()
         }
@@ -674,6 +800,7 @@ const renderGraph = () => {
         }
       })
       .on('end', (event, d) => {
+        // Only let simulation gradually stop if an actual drag occurred
         if (d._isDragging) {
           simulation.alphaTarget(0)
         }
@@ -687,6 +814,12 @@ const renderGraph = () => {
       node.attr('stroke', '#fff').attr('stroke-width', 2.5)
       linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
       d3.select(event.target).attr('stroke', '#E91E63').attr('stroke-width', 4)
+      // Reset all node styles
+      node.attr('stroke', '#fff').attr('stroke-width', 2.5)
+      linkGroup.selectAll('path').attr('stroke', '#C0C0C0').attr('stroke-width', 1.5)
+      // Highlight selected node
+      d3.select(event.target).attr('stroke', '#E91E63').attr('stroke-width', 4)
+      // Highlight edges connected to this node
       link.filter(l => l.source.id === d.id || l.target.id === d.id)
         .attr('stroke', '#E91E63')
         .attr('stroke-width', 2.5)
@@ -724,6 +857,10 @@ const renderGraph = () => {
 
   simulation.on('tick', () => {
     link.attr('d', d => getLinkPath(d))
+    // Update curve paths
+    link.attr('d', d => getLinkPath(d))
+    
+    // Update edge label positions (no rotation, horizontal display is clearer)
     linkLabels.each(function(d) {
       const mid = getLinkMidpoint(d)
       d3.select(this)
@@ -731,6 +868,10 @@ const renderGraph = () => {
         .attr('y', mid.y)
         .attr('transform', '')
     })
+        .attr('transform', '') // Remove rotation, keep horizontal
+    })
+    
+    // Update edge label backgrounds
     linkLabelBg.each(function(d, i) {
       const mid = getLinkMidpoint(d)
       const textEl = linkLabels.nodes()[i]
@@ -741,6 +882,7 @@ const renderGraph = () => {
         .attr('width', bbox.width + 8)
         .attr('height', bbox.height + 4)
         .attr('transform', '')
+        .attr('transform', '') // Remove rotation
     })
 
     node
@@ -752,6 +894,7 @@ const renderGraph = () => {
       .attr('y', d => d.y)
   })
   
+  // Click on blank area to close the detail panel
   svg.on('click', () => {
     selectedItem.value = null
     node.attr('stroke', '#fff').attr('stroke-width', 2.5)
@@ -765,6 +908,7 @@ watch(() => props.graphData, () => {
   nextTick(renderGraph)
 }, { deep: true })
 
+// Watch edge label visibility toggle
 watch(showEdgeLabels, (newVal) => {
   if (linkLabelsRef) {
     linkLabelsRef.style('display', newVal ? 'block' : 'none')
@@ -1228,6 +1372,7 @@ input:checked + .slider:before {
 }
 
 /* Post-simulation hint */
+/* Post-simulation hint styles */
 .graph-building-hint.finished-hint {
   background: rgba(0, 0, 0, 0.65);
   border: 1px solid rgba(255, 255, 255, 0.1);

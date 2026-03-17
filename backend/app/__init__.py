@@ -74,6 +74,18 @@ def create_app(config_class=Config):
     if should_log_startup:
         logger.info("Registered simulation process cleanup")
     
+        logger.info("Starting MiroFish backend...")
+        logger.info("=" * 50)
+    
+    # Enable CORS.
+    CORS(app, resources={r"/api/*": {"origins": "*"}})
+    
+    # Register simulation-process cleanup so all child processes stop on shutdown.
+    from .services.simulation_runner import SimulationRunner
+    SimulationRunner.register_cleanup()
+    if should_log_startup:
+        logger.info("Registered simulation process cleanup")
+    
     # Request logging middleware.
     @app.before_request
     def log_request():
@@ -92,6 +104,11 @@ def create_app(config_class=Config):
         response.headers['X-XSS-Protection'] = '1; mode=block'
         return response
 
+            logger.debug(f"Request body: {request.get_json(silent=True)}")
+    
+    @app.after_request
+    def log_response(response):
+        logger = get_logger('mirofish.request')
             logger.debug(f"Request body: {request.get_json(silent=True)}")
     
     @app.after_request

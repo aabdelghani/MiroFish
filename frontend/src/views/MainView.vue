@@ -17,6 +17,7 @@
           >
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
+            {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
           </button>
         </div>
       </div>
@@ -31,6 +32,9 @@
           <span class="dot"></span>
           {{ statusText }}
         </span>
+        <button class="lang-toggle" @click="toggleLang">
+          {{ locale === 'en' ? '中文' : 'EN' }}
+        </button>
       </div>
     </header>
 
@@ -91,6 +95,12 @@ import { getPendingUpload, clearPendingUpload } from '../store/pendingUpload'
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
+const { t, locale } = useI18n()
+
+const toggleLang = () => {
+  locale.value = locale.value === 'en' ? 'zh' : 'en'
+  localStorage.setItem('locale', locale.value)
+}
 
 const viewMode = ref('split')
 const currentStep = ref(1)
@@ -107,6 +117,8 @@ const viewMode = ref('split') // graph | split | workbench
 // Step State
 const currentStep = ref(1) // 1: Graph build, 2: Environment setup, 3: Run simulation, 4: Generate report, 5: Deep interaction
 const stepNames = ['Graph Build', 'Environment Setup', 'Run Simulation', 'Generate Report', 'Deep Interaction']
+const currentStep = ref(1) // 1: Graph Build, 2: Env Setup, 3: Start Simulation, 4: Report Generation, 5: Deep Interaction
+const stepNames = computed(() => t('mainView.stepNames'))
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -182,6 +194,11 @@ const handleNextStep = (params = {}) => {
     // Record the custom round setting when moving from Step 2 to Step 3.
     if (currentStep.value === 3 && params.maxRounds) {
       addLog(`Custom simulation rounds: ${params.maxRounds}`)
+    addLog(t('mainView.enterStep', { step: currentStep.value, name: stepNames.value[currentStep.value - 1] }))
+    
+    // If moving from Step 2 to Step 3, log simulation rounds config
+    if (currentStep.value === 3 && params.maxRounds) {
+      addLog(t('mainView.customRounds', { rounds: params.maxRounds }))
     }
   }
 }
@@ -191,6 +208,7 @@ const handleGoBack = () => {
     currentStep.value--
     addLog(`Back to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
     addLog(`Returned to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(t('mainView.returnStep', { step: currentStep.value, name: stepNames.value[currentStep.value - 1] }))
   }
 }
 
@@ -546,6 +564,23 @@ onUnmounted(() => {
 .status-indicator.processing .dot { background: #FF5722; animation: pulse 1s infinite; }
 .status-indicator.completed .dot { background: #4CAF50; }
 .status-indicator.error .dot { background: #F44336; }
+
+.lang-toggle {
+  border: 1px solid #E0E0E0;
+  background: transparent;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #666;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'JetBrains Mono', monospace;
+}
+.lang-toggle:hover {
+  background: #F5F5F5;
+  color: #000;
+}
 
 @keyframes pulse { 50% { opacity: 0.5; } }
 

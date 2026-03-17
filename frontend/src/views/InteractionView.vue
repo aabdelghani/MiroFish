@@ -17,6 +17,7 @@
           >
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
+            {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
           </button>
         </div>
       </div>
@@ -26,6 +27,7 @@
           <span class="step-num">Step 5/5</span>
           <span class="step-name">{{ $t('steps.deepInteraction') }}</span>
           <span class="step-name">Deep Interaction</span>
+          <span class="step-name">{{ $t('interactionView.stepName') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -50,6 +52,7 @@
       </div>
 
       <!-- Right Panel: Step 5 Deep Interaction -->
+      <!-- Right Panel: Step5 Deep Interaction -->
       <div class="panel-wrapper right" :style="rightPanelStyle">
         <Step5Interaction
           :reportId="currentReportId"
@@ -82,6 +85,7 @@ const props = defineProps({
 })
 
 // Layout state - default to workbench view.
+// Layout State - default to workbench view
 const viewMode = ref('workbench')
 
 // Data State
@@ -147,6 +151,9 @@ const loadReportData = async () => {
     addLog(`Loading report data: ${currentReportId.value}`)
     
     // Fetch report data to get the simulation_id.
+    addLog(t('interactionView.loadingReportData', { id: currentReportId.value }))
+    
+    // Get report info to obtain simulation_id
     const reportRes = await getReport(currentReportId.value)
     if (reportRes.success && reportRes.data) {
       const reportData = reportRes.data
@@ -156,11 +163,13 @@ const loadReportData = async () => {
         if (simRes.success && simRes.data) {
           const simData = simRes.data
         // Fetch simulation data.
+        // Get simulation info
         const simRes = await getSimulation(simulationId.value)
         if (simRes.success && simRes.data) {
           const simData = simRes.data
           
           // Fetch project data.
+          // Get project info
           if (simData.project_id) {
             const projRes = await getProject(simData.project_id)
             if (projRes.success && projRes.data) {
@@ -170,6 +179,9 @@ const loadReportData = async () => {
               addLog(`Project loaded: ${projRes.data.project_id}`)
               
               // Fetch graph data.
+              addLog(t('interactionView.projectLoaded', { id: projRes.data.project_id }))
+              
+              // Get graph data
               if (projRes.data.graph_id) {
                 await loadGraph(projRes.data.graph_id)
               }
@@ -186,6 +198,10 @@ const loadReportData = async () => {
     }
   } catch (err) {
     addLog(`Load error: ${err.message}`)
+      addLog(t('interactionView.getReportFailed', { error: reportRes.error || t('interactionView.unknownError') }))
+    }
+  } catch (err) {
+    addLog(t('interactionView.loadException', { error: err.message }))
   }
 }
 
@@ -204,6 +220,10 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(`Failed to load graph data: ${err.message}`)
+      addLog(t('interactionView.graphDataLoaded'))
+    }
+  } catch (err) {
+    addLog(t('interactionView.graphLoadFailed', { error: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -226,6 +246,7 @@ watch(() => route.params.reportId, (newId) => {
 onMounted(() => {
   addLog(t('interaction.interactionViewInit'))
   addLog('InteractionView initialized')
+  addLog(t('interactionView.viewInit'))
   loadReportData()
 })
 </script>

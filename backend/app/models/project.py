@@ -175,6 +175,9 @@ class ProjectManager:
         Args:
             name: project name
             
+        Args:
+            name: project name
+
         Returns:
             Newly created project object
         """
@@ -228,6 +231,11 @@ class ProjectManager:
         Args:
             project_id: project ID
             
+        Get a project.
+
+        Args:
+            project_id: project ID
+
         Returns:
             Project object, or None if it does not exist
         """
@@ -255,6 +263,9 @@ class ProjectManager:
         Args:
             limit: maximum number of projects to return
             
+        Args:
+            limit: maximum number of projects to return
+
         Returns:
             Projects ordered by creation time descending
         """
@@ -287,6 +298,11 @@ class ProjectManager:
         Args:
             project_id: project ID
             
+        Delete a project and all of its files.
+
+        Args:
+            project_id: project ID
+
         Returns:
             Whether deletion succeeded
         """
@@ -322,11 +338,14 @@ class ProjectManager:
 
         Save an uploaded file into the project directory.
         
+        Save an uploaded file into the project directory.
+
         Args:
             project_id: project ID
             file_storage: Flask FileStorage object
             original_filename: original filename
             
+
         Returns:
             File info dict: {filename, path, size}
         """

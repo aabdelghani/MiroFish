@@ -17,6 +17,7 @@
           >
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
+            {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
           </button>
         </div>
       </div>
@@ -26,6 +27,7 @@
           <span class="step-num">Step 2/5</span>
           <span class="step-name">{{ $t('steps.envSetup') }}</span>
           <span class="step-name">Environment Setup</span>
+          <span class="step-name">{{ $t('home.step2Title') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -49,6 +51,7 @@
       </div>
 
       <!-- Right Panel: Step 2 Environment Setup -->
+      <!-- Right Panel: Step2 Environment Setup -->
       <div class="panel-wrapper right" :style="rightPanelStyle">
         <Step2EnvSetup
           :simulationId="currentSimulationId"
@@ -166,6 +169,14 @@ const handleNextStep = (params = {}) => {
   }
   
   // Build route params.
+  addLog(t('simView.enterStep3'))
+
+  if (params.maxRounds) {
+    addLog(t('simView.customRounds', { rounds: params.maxRounds }))
+  } else {
+    addLog(t('simView.autoRounds'))
+  }
+
   const routeParams = {
     name: 'SimulationRun',
     params: { simulationId: currentSimulationId.value }
@@ -180,6 +191,11 @@ const handleNextStep = (params = {}) => {
   }
   
   // Navigate to Step 3.
+
+  if (params.maxRounds) {
+    routeParams.query = { maxRounds: params.maxRounds }
+  }
+
   router.push(routeParams)
 }
 
@@ -200,6 +216,15 @@ const checkAndStopRunningSimulation = async () => {
       addLog('Detected a running simulation environment. Closing it...')
       
       // Try a graceful shutdown first.
+const checkAndStopRunningSimulation = async () => {
+  if (!currentSimulationId.value) return
+
+  try {
+    const envStatusRes = await getEnvStatus({ simulation_id: currentSimulationId.value })
+
+    if (envStatusRes.success && envStatusRes.data?.env_alive) {
+      addLog(t('simView.envRunningClosing'))
+
       try {
         const closeRes = await closeSimulationEnv({
           simulation_id: currentSimulationId.value,
@@ -213,6 +238,15 @@ const checkAndStopRunningSimulation = async () => {
         }
       } catch (closeErr) {
         addLog(t('simulation.closeEnvError', { msg: closeErr.message }))
+
+        if (closeRes.success) {
+          addLog(t('simView.envClosed'))
+        } else {
+          addLog(t('simView.closeEnvFailed', { error: closeRes.error || t('common.unknownError') }))
+          await forceStopSimulation()
+        }
+      } catch (closeErr) {
+        addLog(t('simView.closeEnvError', { error: closeErr.message }))
         await forceStopSimulation()
       }
     } else {
@@ -235,6 +269,7 @@ const checkAndStopRunningSimulation = async () => {
       const simRes = await getSimulation(currentSimulationId.value)
       if (simRes.success && simRes.data?.status === 'running') {
         addLog('Detected a running simulation state. Stopping it...')
+        addLog(t('simView.simRunningStopping'))
         await forceStopSimulation()
       }
     }
@@ -251,6 +286,10 @@ const checkAndStopRunningSimulation = async () => {
 /**
  * Force stop the simulation.
  */
+    console.warn('Check simulation status failed:', err)
+  }
+}
+
 const forceStopSimulation = async () => {
   try {
     const stopRes = await stopSimulation({ simulation_id: currentSimulationId.value })
@@ -267,6 +306,12 @@ const forceStopSimulation = async () => {
     }
   } catch (err) {
     addLog(`Error while force-stopping the simulation: ${err.message}`)
+      addLog(t('simView.simForceStopped'))
+    } else {
+      addLog(t('simView.forceStopFailed', { error: stopRes.error || t('common.unknownError') }))
+    }
+  } catch (err) {
+    addLog(t('simView.forceStopError', { error: err.message }))
   }
 }
 
@@ -284,6 +329,12 @@ const loadSimulationData = async () => {
       const simData = simRes.data
       
       // Fetch project data.
+    addLog(t('simView.loadingSimData', { id: currentSimulationId.value }))
+
+    const simRes = await getSimulation(currentSimulationId.value)
+    if (simRes.success && simRes.data) {
+      const simData = simRes.data
+
       if (simData.project_id) {
         const projRes = await getProject(simData.project_id)
         if (projRes.success && projRes.data) {
@@ -292,6 +343,8 @@ const loadSimulationData = async () => {
           addLog(`Project loaded: ${projRes.data.project_id}`)
           
           // Fetch graph data.
+          addLog(t('simView.projectLoaded', { id: projRes.data.project_id }))
+
           if (projRes.data.graph_id) {
             await loadGraph(projRes.data.graph_id)
           }
@@ -306,6 +359,10 @@ const loadSimulationData = async () => {
     }
   } catch (err) {
     addLog(`Load exception: ${err.message}`)
+      addLog(t('simView.loadSimDataFailed', { error: simRes.error || t('common.unknownError') }))
+    }
+  } catch (err) {
+    addLog(t('simView.loadException', { error: err.message }))
   }
 }
 
@@ -323,6 +380,10 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(`Failed to load graph: ${err.message}`)
+      addLog(t('simView.graphDataLoaded'))
+    }
+  } catch (err) {
+    addLog(t('simView.graphLoadFailed', { error: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -343,6 +404,10 @@ onMounted(async () => {
   await checkAndStopRunningSimulation()
   
   // Load simulation data
+  addLog(t('simView.viewInit'))
+
+  await checkAndStopRunningSimulation()
+
   loadSimulationData()
 })
 </script>

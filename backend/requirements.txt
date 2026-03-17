@@ -10,6 +10,10 @@ flask>=3.0.0
 flask-cors>=6.0.0
 
 # LLM (OpenAI-compatible API)
+# ============= Core Framework ======flask>=3.0.0
+flask-cors>=6.0.0
+
+=======
 # ============= Core Framework =============
 flask>=3.0.0
 flask-cors>=6.0.0
@@ -40,6 +44,17 @@ chardet>=5.0.0
 
 # Utilities
 python-dotenv>=1.0.0
+# ============= OASIS Social-Media Simulation ======# OASIS social simulation framework
+camel-oasis==0.2.5
+camel-ai==0.2.78
+
+# ============= File Processing =============
+PyMuPDF>=1.24.0
+# Encoding detection (supports non-UTF-8 text files)
+charset-normalizer>=3.0.0
+chardet>=5.0.0
+
+=======
 # ============= OASIS Social-Media Simulation =============
 # OASIS social simulation framework
 camel-oasis==0.2.5

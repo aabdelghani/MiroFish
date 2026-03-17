@@ -207,13 +207,15 @@ class OasisProfileGenerator:
     ]
     
     def __init__(
-        self, 
+        self,
         api_key: Optional[str] = None,
         base_url: Optional[str] = None,
         model_name: Optional[str] = None,
         zep_api_key: Optional[str] = None,
-        graph_id: Optional[str] = None
+        graph_id: Optional[str] = None,
+        language: str = "zh"
     ):
+        self.language = language
         self.api_key = api_key or Config.LLM_API_KEY
         self.base_url = base_url or Config.LLM_BASE_URL
         self.model_name = model_name or Config.LLM_MODEL_NAME
@@ -598,6 +600,8 @@ class OasisProfileGenerator:
                         result["bio"] = entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}"
                     if "persona" not in result or not result["persona"]:
                         result["persona"] = entity_summary or f"{entity_name} is a {entity_type}."
+                        result["persona"] = entity_summary or f"A {entity_type} named {entity_name}." if self.language == 'en' else f"{entity_name}是一个{entity_type}。"
+                    
                     return result
                 except json.JSONDecodeError as je:
                     logger.warning(f"JSON parse failed (attempt {attempt+1}): {str(je)[:80]}")
@@ -669,6 +673,9 @@ class OasisProfileGenerator:
         persona_match = re.search(r'"persona"\s*:\s*"([^"]*)', content)
         bio = bio_match.group(1) if bio_match else (entity_summary[:200] if entity_summary else f"{entity_type}: {entity_name}")
         persona = persona_match.group(1) if persona_match else (entity_summary or f"{entity_name} is a {entity_type}.")
+        persona = persona_match.group(1) if persona_match else (entity_summary or (f"A {entity_type} named {entity_name}." if self.language == 'en' else f"{entity_name}是一个{entity_type}。"))
+        
+        # 如果提取到了有意义的内容，标记为已修复
         if bio_match or persona_match:
             logger.info("Extracted partial info from malformed JSON")
             return {"bio": bio, "persona": persona, "_fixed": True}
@@ -686,6 +693,13 @@ class OasisProfileGenerator:
             "Respond in Chinese."
         )
 
+        """获取系统提示词"""
+        if self.language == 'en':
+            base_prompt = "You are a social media persona generation expert. Generate detailed, realistic personas for opinion simulation, restoring existing real-world situations as closely as possible. You must return valid JSON format. All string values must not contain unescaped newlines. Use English."
+        else:
+            base_prompt = "你是社交媒体用户画像生成专家。生成详细、真实的人设用于舆论模拟,最大程度还原已有现实情况。必须返回有效的JSON格式，所有字符串值不能包含未转义的换行符。使用中文。"
+        return base_prompt
+    
     def _build_individual_persona_prompt(
         self,
         entity_name: str,
@@ -698,6 +712,52 @@ class OasisProfileGenerator:
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No extra context"
         return f"""Generate a detailed social media user persona for this entity.
+        """构建个人实体的详细人设提示词"""
+
+        if self.language == 'en':
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
+            context_str = context[:3000] if context else "No additional context"
+
+            return f"""Generate a detailed social media persona for this entity, restoring real-world situations as closely as possible.
+
+Entity Name: {entity_name}
+Entity Type: {entity_type}
+Entity Summary: {entity_summary}
+Entity Attributes: {attrs_str}
+
+Context:
+{context_str}
+
+Generate JSON with the following fields:
+
+1. bio: Social media bio, 200 words
+2. persona: Detailed persona description (2000 words plain text), must include:
+   - Basic info (age, profession, education, location)
+   - Background (key experiences, connection to events, social relationships)
+   - Personality traits (MBTI type, core personality, emotional expression)
+   - Social media behavior (posting frequency, content preferences, interaction style, language characteristics)
+   - Stance and views (attitudes on topics, content that triggers/moves them)
+   - Unique features (catchphrases, special experiences, personal hobbies)
+   - Personal memory (important part: describe this individual's connection to events, and their past actions and reactions)
+3. age: Age as integer
+4. gender: Must be English: "male" or "female"
+5. mbti: MBTI type (e.g. INTJ, ENFP)
+6. country: Country name in English
+7. profession: Profession
+8. interested_topics: Array of topics of interest
+
+Important:
+- All field values must be strings or numbers, no newlines
+- persona must be a coherent text description
+- Use English for all fields
+- Content must be consistent with entity information
+- age must be a valid integer, gender must be "male" or "female"
+"""
+        else:
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
+            context_str = context[:3000] if context else "无额外上下文"
+
+            return f"""为实体生成详细的社交媒体用户人设,最大程度还原已有现实情况。
 
 Entity name: {entity_name}
 Entity type: {entity_type}
@@ -732,6 +792,51 @@ Rules: all values must be strings or numbers, no newlines; persona must be one c
         attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
         context_str = context[:3000] if context else "No extra context"
         return f"""Generate a detailed social media account persona for this organization/group entity.
+        """构建群体/机构实体的详细人设提示词"""
+
+        if self.language == 'en':
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "None"
+            context_str = context[:3000] if context else "No additional context"
+
+            return f"""Generate a detailed social media account profile for this organization/group entity, restoring real-world situations as closely as possible.
+
+Entity Name: {entity_name}
+Entity Type: {entity_type}
+Entity Summary: {entity_summary}
+Entity Attributes: {attrs_str}
+
+Context:
+{context_str}
+
+Generate JSON with the following fields:
+
+1. bio: Official account bio, 200 words, professional and appropriate
+2. persona: Detailed account description (2000 words plain text), must include:
+   - Organization basic info (formal name, nature, founding background, main functions)
+   - Account positioning (account type, target audience, core functionality)
+   - Speaking style (language characteristics, common expressions, forbidden topics)
+   - Publishing characteristics (content types, publishing frequency, active hours)
+   - Stance and attitude (official positions on core topics, handling of controversies)
+   - Special notes (represented group profile, operational habits)
+   - Organization memory (important part: describe this organization's connection to events, and their past actions and reactions)
+3. age: Fixed value 30 (virtual age for organizational accounts)
+4. gender: Fixed value "other" (organizational accounts use "other")
+5. mbti: MBTI type describing account style, e.g. ISTJ for rigorous and conservative
+6. country: Country name in English
+7. profession: Organization function description
+8. interested_topics: Array of focus areas
+
+Important:
+- All field values must be strings or numbers, no null values
+- persona must be a coherent text description, no newlines
+- Use English for all fields
+- age must be integer 30, gender must be string "other"
+- Organization account speech must match its identity positioning"""
+        else:
+            attrs_str = json.dumps(entity_attributes, ensure_ascii=False) if entity_attributes else "无"
+            context_str = context[:3000] if context else "无额外上下文"
+
+            return f"""为机构/群体实体生成详细的社交媒体账号设定,最大程度还原已有现实情况。
 
 Entity name: {entity_name}
 Entity type: {entity_type}

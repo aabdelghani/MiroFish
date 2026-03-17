@@ -13,6 +13,10 @@ export const createSimulation = (data) => {
  * @param {Object} data - { simulation_id, entity_types?, use_llm_for_profiles?, parallel_profile_count?, force_regenerate? }
  */
 export const prepareSimulation = (data) => {
+  // Attach the user's selected language so backend generates content in the right language
+  if (!data.language) {
+    data.language = localStorage.getItem('locale') || 'en'
+  }
   return requestWithRetry(() => service.post('/api/simulation/prepare', data), 3, 1000)
 }
 

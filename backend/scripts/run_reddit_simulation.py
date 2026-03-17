@@ -19,6 +19,17 @@ Features:
 
 Usage:
     python run_reddit_simulation.py --config /path/to/simulation_config.json
+OASIS Reddit simulation preset script
+This script reads parameters from the configuration file to run the simulation end-to-end
+
+Features:
+- Keep the environment alive after simulation completes and enter command-wait mode
+- Supports receiving interview commands over IPC
+- Supports single-agent and batch interviews
+- Supports remote environment shutdown commands
+
+Usage:
+    python run_reddit_simulation.py --config /path/to/simulation_config.json
     python run_reddit_simulation.py --config /path/to/simulation_config.json --no-wait  # Exit immediately after completion
 """
 
@@ -39,6 +50,10 @@ _shutdown_event = None
 _cleanup_done = False
 
 # Add project path
+# Global state used by signal handlers
+_shutdown_event = None
+_cleanup_done = False
+
 # Global state used by signal handlers
 _shutdown_event = None
 _cleanup_done = False
@@ -156,6 +171,10 @@ except ImportError as e:
     sys.exit(1)
 
 
+    print("Please install first: pip install oasis-ai camel-ai")
+    sys.exit(1)
+
+
 # IPC-related constants
 IPC_COMMANDS_DIR = "ipc_commands"
 IPC_RESPONSES_DIR = "ipc_responses"
@@ -250,6 +269,16 @@ class IPCHandler:
             
         """
         Handle a single‑agent interview command.
+
+        Returns:
+            True on success, False on failure.
+        """
+        try:
+            # Get the agent
+            agent = self.agent_graph.get_agent(agent_id)
+            
+        """
+        Handle a single-agent interview command.
 
         Returns:
             True on success, False on failure.
@@ -521,6 +550,10 @@ class RedditSimulationRunner:
         return os.path.join(self.simulation_dir, "reddit_profiles.json")
     
     def _get_db_path(self) -> str:
+        """Return the path to the profile file."""
+        return os.path.join(self.simulation_dir, "reddit_profiles.json")
+    
+    def _get_db_path(self) -> str:
         """Return the path to the SQLite database file."""
         return os.path.join(self.simulation_dir, "reddit_simulation.db")
     
@@ -529,6 +562,7 @@ class RedditSimulationRunner:
         Create the LLM model.
 
         Always prefer project‑root .env configuration (highest priority):
+        Always prefer project-root .env configuration (highest priority):
         - LLM_API_KEY: API key
         - LLM_BASE_URL: API base URL
         - LLM_MODEL_NAME: Model name
@@ -543,6 +577,7 @@ class RedditSimulationRunner:
             llm_model = self.config.get("llm_model", "gpt-4o-mini")
         
         # Set environment variables required by camel‑ai
+        # Set environment variables required by camel-ai
         if llm_api_key:
             os.environ["OPENAI_API_KEY"] = llm_api_key
         if not os.environ.get("OPENAI_API_KEY"):
@@ -669,6 +704,23 @@ class RedditSimulationRunner:
         if not os.path.exists(profile_path):
             print(f"Error: profile file does not exist: {profile_path}")
             return
+        
+        print(f"\nSimulation parameters:")
+        print(f"  - Total simulation time: {total_hours} hours")
+        print(f"  - Time per round: {minutes_per_round} minutes")
+        print(f"  - Total rounds: {total_rounds}")
+        if max_rounds:
+            print(f"  - Max round limit: {max_rounds}")
+        print(f"  - Agent count: {len(self.config.get('agent_configs', []))}")
+        
+        print("\nInitialize the LLM model...")
+        model = self._create_model()
+        
+        print("Load agent profiles...")
+        profile_path = self._get_profile_path()
+        if not os.path.exists(profile_path):
+            print(f"Error: profile file does not exist: {profile_path}")
+            return
         self.agent_graph = await generate_reddit_agent_graph(
             profile_path=profile_path,
             model=model,
@@ -688,6 +740,7 @@ class RedditSimulationRunner:
             platform=oasis.DefaultPlatformType.REDDIT,
             database_path=db_path,
             semaphore=30,
+            semaphore=30,  # Limit concurrent LLM requests to avoid API overload
         )
         await self.env.reset()
         print("Environment ready\n")
@@ -780,6 +833,13 @@ class RedditSimulationRunner:
         # Optionally enter command‑wait mode
         if self.wait_for_commands:
             print("\n" + "=" * 60)
+        print(f"\nSimulation loop completed!")
+        print(f"  - Total elapsed time: {total_elapsed:.1f}s")
+        print(f"  - Database: {db_path}")
+        
+        # Optionally enter command-wait mode
+        if self.wait_for_commands:
+            print("\n" + "=" * 60)
             print("Enter command-wait mode - environment stays alive")
             print("Supported commands: interview, batch_interview, close_env")
             print("=" * 60)
@@ -805,6 +865,14 @@ class RedditSimulationRunner:
             print("\nShutting down environment...")
         self.ipc_handler.update_status("stopped")
         await self.env.close()
+                        break  # Received shutdown signal
+                    except asyncio.TimeoutError:
+                        pass
+            except KeyboardInterrupt:
+                print("\nReceived interrupt signal")
+            except asyncio.CancelledError:
+                print("\nTask cancelled")
+            except Exception as e:
                         break  # Received shutdown signal
                     except asyncio.TimeoutError:
                         pass

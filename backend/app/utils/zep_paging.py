@@ -6,6 +6,10 @@ Zep node/edge list APIs use UUID cursor pagination; this module wraps auto-pagin
 
 Zep's node/edge listing APIs use UUID cursors for pagination.
 This module wraps automatic page fetching (with per‑page retry) and returns
+"""Zep Graph pagination utilities.
+
+Zep's node/edge listing APIs use UUID cursors for pagination.
+This module wraps automatic page fetching (with per-page retry) and returns
 complete lists transparently to callers.
 """
 
@@ -40,6 +44,9 @@ def _fetch_page_with_retry(
     """Fetch a single page with exponential backoff retry.
 
     Only network/IO‑style transient errors are retried.
+    """Fetch a single page with exponential backoff retry.
+
+    Only network/IO-style transient errors are retried.
     """
     if max_retries < 1:
         raise ValueError("max_retries must be >= 1")

@@ -107,6 +107,9 @@ class LLMClient:
         Send a chat completion request.
 
         Args:
+        Send a chat completion request.
+
+        Args:
             messages: List of chat messages.
             temperature: Sampling temperature.
             max_tokens: Maximum number of tokens to generate.
@@ -172,6 +175,9 @@ class LLMClient:
             temperature: 温度参数
             max_tokens: 最大token数（默认使用配置中的 LLM_MAX_TOKENS）
             max_tokens: 最大token数
+        Send a chat completion request and parse the response as JSON.
+
+        Args:
         Send a chat completion request and parse the response as JSON.
 
         Args:

@@ -19,6 +19,17 @@ Features:
 
 Usage:
     python run_twitter_simulation.py --config /path/to/simulation_config.json
+OASIS Twitter simulation preset script
+This script reads parameters from the configuration file to run the simulation end-to-end
+
+Features:
+- Keep the environment alive after simulation completes and enter command-wait mode
+- Supports receiving interview commands over IPC
+- Supports single-agent and batch interviews
+- Supports remote environment shutdown commands
+
+Usage:
+    python run_twitter_simulation.py --config /path/to/simulation_config.json
     python run_twitter_simulation.py --config /path/to/simulation_config.json --no-wait  # Exit immediately after completion
 """
 
@@ -39,6 +50,10 @@ _shutdown_event = None
 _cleanup_done = False
 
 # Add project path
+# Global state used by signal handlers
+_shutdown_event = None
+_cleanup_done = False
+
 # Global state used by signal handlers
 _shutdown_event = None
 _cleanup_done = False
@@ -158,6 +173,10 @@ except ImportError as e:
     sys.exit(1)
 
 
+    print("Please install first: pip install oasis-ai camel-ai")
+    sys.exit(1)
+
+
 # IPC-related constants
 IPC_COMMANDS_DIR = "ipc_commands"
 IPC_RESPONSES_DIR = "ipc_responses"
@@ -261,6 +280,16 @@ class IPCHandler:
             # Get the agent
             agent = self.agent_graph.get_agent(agent_id)
             
+        """
+        Handle a single-agent interview command
+
+        Returns:
+            True indicates success, False indicates failure
+        """
+        try:
+            # Get the agent
+            agent = self.agent_graph.get_agent(agent_id)
+            
             # Create the interview action
             interview_action = ManualAction(
                 action_type=ActionType.INTERVIEW,
@@ -294,6 +323,7 @@ class IPCHandler:
         """
         Handle a batch interview command
         
+
         Args:
             interviews: [{"agent_id": int, "prompt": str}, ...]
         """
@@ -419,6 +449,7 @@ class IPCHandler:
         """
         Handle all pending commands
         
+
         Returns:
             True to continue running, False to request exit
         """
@@ -480,6 +511,7 @@ class TwitterSimulationRunner:
         """
         Initialize the simulation runner
         
+
         Args:
             config_path: Configuration file path (simulation_config.json)
             wait_for_commands: Whether to wait for commands after the simulation completes (default: True)
@@ -512,6 +544,10 @@ class TwitterSimulationRunner:
         return os.path.join(self.simulation_dir, "twitter_profiles.csv")
     
     def _get_db_path(self) -> str:
+        """Get the profile file path (OASIS Twitter uses CSV)"""
+        return os.path.join(self.simulation_dir, "twitter_profiles.csv")
+    
+    def _get_db_path(self) -> str:
         """Get the database path"""
         return os.path.join(self.simulation_dir, "twitter_simulation.db")
     
@@ -519,6 +555,7 @@ class TwitterSimulationRunner:
         """
         Create the LLM model
         
+
         Always prefer the project-root .env configuration (highest priority):
         - LLM_API_KEY: API key
         - LLM_BASE_URL: API base URL
@@ -534,6 +571,10 @@ class TwitterSimulationRunner:
             llm_model = self.config.get("llm_model", "gpt-4o-mini")
         
         # Set env for camel-ai
+        # If .env does not provide a value, fall back to config
+        if not llm_model:
+            llm_model = self.config.get("llm_model", "gpt-4o-mini")
+        
         # If .env does not provide a value, fall back to config
         if not llm_model:
             llm_model = self.config.get("llm_model", "gpt-4o-mini")
@@ -575,6 +616,12 @@ class TwitterSimulationRunner:
             current_hour: current simulated hour（0-23）
             round_num: current round number
             
+
+        Args:
+            env: OASIS environment
+            current_hour: current simulated hour (0-23)
+            round_num: current round number
+
         Returns:
             list of active agents
         """
@@ -645,6 +692,8 @@ class TwitterSimulationRunner:
         total_rounds = (total_hours * 60) // minutes_per_round
         """Run the Twitter simulation
         
+        """Run the Twitter simulation
+
         Args:
             max_rounds: Maximum simulation rounds (optional, used to cap long simulations)
         """
@@ -692,6 +741,20 @@ class TwitterSimulationRunner:
         model = self._create_model()
         
         # 加载Agent图
+        
+        print(f"\nSimulation parameters:")
+        print(f"  - Total simulation time: {total_hours} hours")
+        print(f"  - Time per round: {minutes_per_round} minutes")
+        print(f"  - Total rounds: {total_rounds}")
+        if max_rounds:
+            print(f"  - Max round limit: {max_rounds}")
+        print(f"  - Agent count: {len(self.config.get('agent_configs', []))}")
+        
+        # Create model
+        print("\nInitialize the LLM model...")
+        model = self._create_model()
+        
+        # Load agent graph
         print("Load agent profiles...")
         profile_path = self._get_profile_path()
         if not os.path.exists(profile_path):
@@ -715,6 +778,14 @@ class TwitterSimulationRunner:
             print(f"Deleted old database: {db_path}")
         
         # 创建环境
+        
+        # Database path
+        db_path = self._get_db_path()
+        if os.path.exists(db_path):
+            os.remove(db_path)
+            print(f"Deleted old database: {db_path}")
+        
+        # Create environment
         print("Create the OASIS environment...")
         self.env = oasis.make(
             agent_graph=self.agent_graph,
@@ -739,6 +810,7 @@ class TwitterSimulationRunner:
         if initial_posts:
             print(f"Running initial events ({len(initial_posts)} posts)...")
             print(f"Run initial events ({len(initial_posts)}initial posts)...")
+            print(f"Run initial events ({len(initial_posts)} initial posts)...")
             initial_actions = {}
             for post in initial_posts:
                 agent_id = post.get("poster_agent_id", 0)
@@ -756,12 +828,14 @@ class TwitterSimulationRunner:
                 print(f"  Published {len(initial_actions)} initial posts")
         print("\nSimulation loop...")
                     print(f"  警告: Failed to create an initial post for agent {agent_id}创建初始帖子: {e}")
+                    print(f"  Warning: failed to create an initial post for agent {agent_id}: {e}")
             
             if initial_actions:
                 await self.env.step(initial_actions)
                 print(f"  Published {len(initial_actions)} initial posts")
         
         # 主模拟循环
+        # Main simulation loop
         print("\nStart the simulation loop...")
         start_time = datetime.now()
         for round_num in range(total_rounds):
@@ -812,6 +886,13 @@ class TwitterSimulationRunner:
         # 是否进入Command-wait mode
         if self.wait_for_commands:
             print("\n" + "=" * 60)
+        print(f"\nSimulation loop completed!")
+        print(f"  - Total elapsed time: {total_elapsed:.1f}s")
+        print(f"  - Database: {db_path}")
+        
+        # Optionally enter command-wait mode
+        if self.wait_for_commands:
+            print("\n" + "=" * 60)
             print("Enter command-wait mode - environment stays alive")
             print("Supported commands: interview, batch_interview, close_env")
             print("=" * 60)
@@ -837,6 +918,14 @@ class TwitterSimulationRunner:
             print("\nShutting down environment...")
         self.ipc_handler.update_status("stopped")
         await self.env.close()
+                        break  # Received shutdown signal
+                    except asyncio.TimeoutError:
+                        pass
+            except KeyboardInterrupt:
+                print("\nReceived interrupt signal")
+            except asyncio.CancelledError:
+                print("\nTask cancelled")
+            except Exception as e:
                         break  # Received shutdown signal
                     except asyncio.TimeoutError:
                         pass

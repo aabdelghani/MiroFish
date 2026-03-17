@@ -67,6 +67,30 @@ def setup_logger(name: str = 'mirofish', level: int = logging.DEBUG) -> logging.
     if logger.handlers:
         return logger
     
+    """
+    Configure a logger.
+
+    Args:
+        name: logger name
+        level: log level
+
+    Returns:
+        Configured logger instance
+    """
+    # Ensure the log directory exists.
+    os.makedirs(LOG_DIR, exist_ok=True)
+    
+    # Create the logger.
+    logger = logging.getLogger(name)
+    logger.setLevel(level)
+    
+    # Prevent propagation to the root logger to avoid duplicate output.
+    logger.propagate = False
+    
+    # Do not add handlers twice.
+    if logger.handlers:
+        return logger
+    
     # Log formatters.
     detailed_formatter = logging.Formatter(
         '[%(asctime)s] %(levelname)s [%(name)s.%(funcName)s:%(lineno)d] %(message)s',
@@ -111,6 +135,10 @@ def get_logger(name: str = 'mirofish') -> logging.Logger:
     Args:
         name: logger name
         
+
+    Args:
+        name: logger name
+
     Returns:
         Logger instance
     """

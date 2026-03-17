@@ -75,6 +75,10 @@ const { locale } = useI18n()
 </script>
 
 <style>
+// Vue Router manages page navigation.
+</script>
+
+<style>
 /* Global reset */
 * {
   margin: 0;

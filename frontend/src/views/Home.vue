@@ -1,12 +1,17 @@
 <template>
   <div class="home-container">
     <!-- Top navigation -->
+    <!-- Top navigation bar -->
     <nav class="navbar">
       <div class="nav-brand">MIROFISH</div>
       <div class="nav-links">
+        <button class="lang-toggle" @click="toggleLang">
+          {{ locale === 'en' ? '中文' : 'EN' }}
+        </button>
         <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
           {{ $t('home.navGithub') }} <span class="arrow">↗</span>
           Visit our GitHub page <span class="arrow">↗</span>
+          {{ t('nav.github') }} <span class="arrow">↗</span>
         </a>
       </div>
     </nav>
@@ -44,6 +49,23 @@
             </p>
             <p class="slogan-text">
               Rehearse the future through agent societies, then make decisions after a hundred simulations<span class="blinking-cursor">_</span>
+      <!-- Top half: Hero section -->
+      <section class="hero-section">
+        <div class="hero-left">
+          <div class="tag-row">
+            <span class="orange-tag">{{ t('home.tagline') }}</span>
+            <span class="version-text">{{ t('home.version') }}</span>
+          </div>
+          
+          <h1 class="main-title">
+            {{ t('home.title1') }}<br>
+            <span class="gradient-text">{{ t('home.title2') }}</span>
+          </h1>
+          
+          <div class=”hero-desc”>
+            <p>{{ t('home.descPart1') }}<span class=”highlight-bold”>MiroFish</span>{{ t('home.descPart2') }}<span class=”highlight-orange”>{{ t('home.agents') }}</span>{{ t('home.descPart3') }}<span class=”highlight-code”>{{ t('home.solution') }}</span>{{ t('home.descPart4') }}</p>
+            <p class="slogan-text">
+              {{ t('home.slogan') }}<span class="blinking-cursor">_</span>
             </p>
           </div>
            
@@ -117,6 +139,35 @@
           <div class="steps-container">
             <div class="steps-header">
                <span class="diamond-icon">◇</span> Workflow Sequence
+      <!-- Bottom half: two-column layout -->
+      <section class="dashboard-section">
+        <!-- Left column: status and steps -->
+        <div class="left-panel">
+          <div class="panel-header">
+            <span class="status-dot">■</span> {{ t('home.systemStatus') }}
+          </div>
+          
+          <h2 class="section-title">{{ t('home.ready') }}</h2>
+          <p class="section-desc">
+            {{ t('home.readyDesc') }}
+          </p>
+          
+          <!-- Data metric cards -->
+          <div class="metrics-row">
+            <div class="metric-card">
+              <div class="metric-value">{{ t('home.lowCost') }}</div>
+              <div class="metric-label">{{ t('home.lowCostDesc') }}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value">{{ t('home.highAvail') }}</div>
+              <div class="metric-label">{{ t('home.highAvailDesc') }}</div>
+            </div>
+          </div>
+
+          <!-- Simulation workflow steps (added section) -->
+          <div class="steps-container">
+            <div class="steps-header">
+               <span class="diamond-icon">◇</span> {{ t('home.workflowSeq') }}
             </div>
             <div class="workflow-list">
               <div class="workflow-item">
@@ -126,6 +177,8 @@
                   <div class="step-desc">{{ $t('home.step1Desc') }}</div>
                   <div class="step-title">Graph Build</div>
                   <div class="step-desc">Seed extraction, individual and collective memory injection, and GraphRAG construction</div>
+                  <div class="step-title">{{ t('home.step1Title') }}</div>
+                  <div class="step-desc">{{ t('home.step1Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -135,6 +188,8 @@
                   <div class="step-desc">{{ $t('home.step2Desc') }}</div>
                   <div class="step-title">Environment Setup</div>
                   <div class="step-desc">Entity extraction, persona generation, and simulation parameter injection by environment agents</div>
+                  <div class="step-title">{{ t('home.step2Title') }}</div>
+                  <div class="step-desc">{{ t('home.step2Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -144,6 +199,8 @@
                   <div class="step-desc">{{ $t('home.step3Desc') }}</div>
                   <div class="step-title">Run Simulation</div>
                   <div class="step-desc">Parallel platform simulation, automatic prompt parsing, and dynamic temporal memory updates</div>
+                  <div class="step-title">{{ t('home.step3Title') }}</div>
+                  <div class="step-desc">{{ t('home.step3Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -153,6 +210,8 @@
                   <div class="step-desc">{{ $t('home.step4Desc') }}</div>
                   <div class="step-title">Generate Report</div>
                   <div class="step-desc">ReportAgent uses a rich toolset to explore the post-simulation environment in depth</div>
+                  <div class="step-title">{{ t('home.step4Title') }}</div>
+                  <div class="step-desc">{{ t('home.step4Desc') }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -162,6 +221,8 @@
                   <div class="step-desc">{{ $t('home.step5Desc') }}</div>
                   <div class="step-title">Deep Interaction</div>
                   <div class="step-desc">Talk to any simulated individual and continue the analysis with ReportAgent</div>
+                  <div class="step-title">{{ t('home.step5Title') }}</div>
+                  <div class="step-desc">{{ t('home.step5Desc') }}</div>
                 </div>
               </div>
             </div>
@@ -184,6 +245,14 @@
               <div class="console-header">
                 <span class="console-label">01 / Seed Material</span>
                 <span class="console-meta">Supported formats: PDF, MD, TXT</span>
+        <!-- Right column: interactive console -->
+        <div class="right-panel">
+          <div class="console-box">
+            <!-- Upload area -->
+            <div class="console-section">
+              <div class="console-header">
+                <span class="console-label">{{ t('home.seedLabel') }}</span>
+                <span class="console-meta">{{ t('home.seedFormats') }}</span>
               </div>
               
               <div 
@@ -210,6 +279,8 @@
                   <div class="upload-hint">{{ $t('home.orClickBrowse') }}</div>
                   <div class="upload-title">Drag files here to upload</div>
                   <div class="upload-hint">or click to browse your filesystem</div>
+                  <div class="upload-title">{{ t('home.dragUpload') }}</div>
+                  <div class="upload-hint">{{ t('home.browseFiles') }}</div>
                 </div>
                 
                 <div v-else class="file-list">
@@ -238,6 +309,15 @@
             <div class="console-section">
               <div class="console-header">
                 <span class="console-label">>_ 02 / Simulation Prompt</span>
+            <!-- Divider -->
+            <div class="console-divider">
+              <span>{{ t('home.inputParams') }}</span>
+            </div>
+
+            <!-- Input area -->
+            <div class="console-section">
+              <div class="console-header">
+                <span class="console-label">{{ t('home.promptLabel') }}</span>
               </div>
               <div class="input-wrapper">
                 <textarea
@@ -260,6 +340,15 @@
             </div>
 
             <!-- Launch button -->
+                  :placeholder="t('home.promptPlaceholder')"
+                  rows="6"
+                  :disabled="loading"
+                ></textarea>
+                <div class="model-badge">{{ t('home.engineBadge') }}</div>
+              </div>
+            </div>
+
+            <!-- Start button -->
             <div class="console-section btn-section">
               <button 
                 class="start-engine-btn"
@@ -270,6 +359,8 @@
                 <span v-else>{{ $t('home.initializing') }}</span>
                 <span v-if="!loading">Launch Engine</span>
                 <span v-else>Initializing...</span>
+                <span v-if="!loading">{{ t('home.startEngine') }}</span>
+                <span v-else>{{ t('home.initializing') }}</span>
                 <span class="btn-arrow">→</span>
               </button>
             </div>
@@ -279,6 +370,7 @@
 
       <!-- History database -->
       <!-- Project history -->
+      <!-- History project database -->
       <HistoryDatabase />
     </div>
   </div>
@@ -306,6 +398,14 @@ const heroDescHtml = computed(() => {
 
 // Form data
 // Form state
+const { t, locale } = useI18n()
+
+const toggleLang = () => {
+  locale.value = locale.value === 'en' ? 'zh' : 'en'
+  localStorage.setItem('locale', locale.value)
+}
+
+// Form data
 const formData = ref({
   simulationRequirement: ''
 })
@@ -329,11 +429,13 @@ const isDragOver = ref(false)
 const fileInput = ref(null)
 
 // Whether the form can be submitted
+// Computed: whether form can be submitted
 const canSubmit = computed(() => {
   return formData.value.simulationRequirement.trim() !== '' && files.value.length > 0
 })
 
 // Open the file picker
+// Trigger file selection
 const triggerFileInput = () => {
   if (!loading.value) {
     fileInput.value?.click()
@@ -347,6 +449,7 @@ const handleFileSelect = (event) => {
 }
 
 // Drag and drop handlers
+// Handle drag-related events
 const handleDragOver = (e) => {
   if (!loading.value) {
     isDragOver.value = true
@@ -375,6 +478,7 @@ const addFiles = (newFiles) => {
 }
 
 // Remove files
+// Remove file
 const removeFile = (index) => {
   files.value.splice(index, 1)
 }
@@ -392,6 +496,7 @@ const startSimulation = () => {
   import('../store/pendingUpload.js').then(({ setPendingUpload }) => {
     setPendingUpload(files.value, formData.value.simulationRequirement)
 // Start the simulation immediately and navigate; the API call happens in the Process view
+// Start simulation - navigate immediately, API calls happen on Process page
 const startSimulation = () => {
   if (!canSubmit.value || loading.value) return
   
@@ -400,6 +505,7 @@ const startSimulation = () => {
     setPendingUpload(files.value, formData.value.simulationRequirement)
     
     // Navigate to the Process view immediately (using a special marker for a new project)
+    // Navigate to Process page immediately (use special identifier for new project)
     router.push({
       name: 'Process',
       params: { projectId: 'new' }
@@ -420,6 +526,8 @@ const startSimulation = () => {
   /* 
     Use Space Grotesk for headings and JetBrains Mono for code/label text
     Make sure these Google Fonts are loaded in index.html 
+    Use Space Grotesk as the main heading font, JetBrains Mono for code/label font
+    Ensure these Google Fonts are imported in index.html 
   */
   --font-mono: 'JetBrains Mono', monospace;
   --font-sans: 'Space Grotesk', 'Noto Sans SC', system-ui, sans-serif;
@@ -454,6 +562,24 @@ const startSimulation = () => {
 .nav-links {
   display: flex;
   align-items: center;
+  gap: 16px;
+}
+
+.lang-toggle {
+  border: 1px solid #333;
+  background: #000;
+  padding: 5px 14px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: 'JetBrains Mono', monospace;
+  letter-spacing: 0.5px;
+}
+.lang-toggle:hover {
+  background: #333;
 }
 
 .github-link {
@@ -708,6 +834,7 @@ const startSimulation = () => {
 }
 
 /* Simulation workflow overview */
+/* Simulation workflow steps */
 .steps-container {
   border: 1px solid var(--border);
   padding: 30px;
@@ -764,6 +891,7 @@ const startSimulation = () => {
 }
 
 /* Right-side control console */
+/* Right-side interactive console */
 .right-panel {
   flex: 1.2;
 }
@@ -771,6 +899,7 @@ const startSimulation = () => {
 .console-box {
   border: 1px solid #CCC; /* Outer solid border */
   padding: 8px; /* Padding creates a double-border feel */
+  padding: 8px; /* Inner padding creates double-border feel */
 }
 
 .console-section {
@@ -964,6 +1093,7 @@ const startSimulation = () => {
 }
 
 /* Guidance animation: subtle border pulse */
+/* Guide animation: subtle border pulse */
 @keyframes pulse-border {
   0% { box-shadow: 0 0 0 0 rgba(0, 0, 0, 0.2); }
   70% { box-shadow: 0 0 0 6px rgba(0, 0, 0, 0); }
@@ -971,6 +1101,7 @@ const startSimulation = () => {
 }
 
 /* Responsive layout */
+/* Responsive adaptation */
 @media (max-width: 1024px) {
   .dashboard-section {
     flex-direction: column;

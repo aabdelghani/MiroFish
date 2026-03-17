@@ -59,6 +59,7 @@
                     </svg>
                   </div>
                   <span class="loading-text">Generating {{ section.title }}...</span>
+                  <span class="loading-text">{{ $t('step5.generatingSection', { title: section.title }) }}</span>
                 </div>
               </div>
             </div>
@@ -99,6 +100,7 @@
                 <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path>
               </svg>
               <span>Chat with Report Agent</span>
+              <span>{{ $t('step5.chatWithReportAgent') }}</span>
             </button>
             <div class="agent-dropdown" v-if="profiles.length > 0">
               <button 
@@ -111,12 +113,14 @@
                   <circle cx="12" cy="7" r="4"></circle>
                 </svg>
                 <span>{{ selectedAgent ? selectedAgent.username : 'Chat with any individual in the world' }}</span>
+                <span>{{ selectedAgent ? selectedAgent.username : $t('step5.chatWithAnyAgent') }}</span>
                 <svg class="dropdown-arrow" :class="{ open: showAgentDropdown }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
               </button>
               <div v-if="showAgentDropdown" class="dropdown-menu">
                 <div class="dropdown-header">Choose a conversation target</div>
+                <div class="dropdown-header">{{ $t('step5.selectTarget') }}</div>
                 <div 
                   v-for="(agent, idx) in profiles" 
                   :key="idx"
@@ -127,6 +131,7 @@
                   <div class="agent-info">
                     <span class="agent-name">{{ agent.username }}</span>
                     <span class="agent-role">{{ agent.profession || 'Unknown profession' }}</span>
+                    <span class="agent-role">{{ agent.profession || $t('step5.unknownProfession') }}</span>
                   </div>
                 </div>
               </div>
@@ -142,6 +147,7 @@
                 <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path>
               </svg>
               <span>Send a survey into the world</span>
+              <span>{{ $t('step5.sendSurvey') }}</span>
             </button>
           </div>
         </div>
@@ -156,6 +162,7 @@
               <div class="tools-card-info">
                 <div class="tools-card-name">Report Agent - Chat</div>
                 <div class="tools-card-subtitle">A fast conversational version of the report-generation agent with access to 4 specialized tools and MiroFish's full memory</div>
+                <div class="tools-card-subtitle">{{ $t('step5.reportAgentDesc') }}</div>
               </div>
               <button class="tools-card-toggle" @click="showToolsDetail = !showToolsDetail">
                 <svg :class="{ 'is-expanded': showToolsDetail }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -174,6 +181,8 @@
                   <div class="tool-content">
                     <div class="tool-name">InsightForge</div>
                     <div class="tool-desc">Aligns real-world seed data with the simulation state and combines global and local memory for deep causal analysis across time and context</div>
+                    <div class="tool-name">{{ $t('step5.toolInsightForge') }}</div>
+                    <div class="tool-desc">{{ $t('step5.toolInsightForgeDesc') }}</div>
                   </div>
                 </div>
                 <div class="tool-item tool-blue">
@@ -186,6 +195,8 @@
                   <div class="tool-content">
                     <div class="tool-name">PanoramaSearch</div>
                     <div class="tool-desc">Uses graph traversal to reconstruct propagation paths and capture the topology of end-to-end information flow</div>
+                    <div class="tool-name">{{ $t('step5.toolPanoramaSearch') }}</div>
+                    <div class="tool-desc">{{ $t('step5.toolPanoramaSearchDesc') }}</div>
                   </div>
                 </div>
                 <div class="tool-item tool-orange">
@@ -197,6 +208,8 @@
                   <div class="tool-content">
                     <div class="tool-name">QuickSearch</div>
                     <div class="tool-desc">A GraphRAG-powered instant query interface optimized for fast extraction of node attributes and discrete facts</div>
+                    <div class="tool-name">{{ $t('step5.toolQuickSearch') }}</div>
+                    <div class="tool-desc">{{ $t('step5.toolQuickSearchDesc') }}</div>
                   </div>
                 </div>
                 <div class="tool-item tool-green">
@@ -210,6 +223,8 @@
                   <div class="tool-content">
                     <div class="tool-name">InterviewSubAgent</div>
                     <div class="tool-desc">Runs autonomous interviews in parallel with simulated individuals to collect unstructured opinions and psychological state signals</div>
+                    <div class="tool-name">{{ $t('step5.toolInterview') }}</div>
+                    <div class="tool-desc">{{ $t('step5.toolInterviewDesc') }}</div>
                   </div>
                 </div>
               </div>
@@ -225,6 +240,7 @@
                 <div class="profile-card-meta">
                   <span v-if="selectedAgent.name" class="profile-card-handle">@{{ selectedAgent.name }}</span>
                   <span class="profile-card-profession">{{ selectedAgent.profession || 'Unknown profession' }}</span>
+                  <span class="profile-card-profession">{{ selectedAgent.profession || $t('step5.unknownProfession') }}</span>
                 </div>
               </div>
               <button class="profile-card-toggle" @click="showFullProfile = !showFullProfile">
@@ -236,6 +252,7 @@
             <div v-if="showFullProfile && selectedAgent.bio" class="profile-card-body">
               <div class="profile-card-bio">
                 <div class="profile-card-label">Bio</div>
+                <div class="profile-card-label">{{ $t('step5.bio') }}</div>
                 <p>{{ selectedAgent.bio }}</p>
               </div>
             </div>
@@ -336,6 +353,7 @@
                   <div class="checkbox-info">
                     <span class="checkbox-name">{{ agent.username }}</span>
                     <span class="checkbox-role">{{ agent.profession || 'Unknown profession' }}</span>
+                    <span class="checkbox-role">{{ agent.profession || $t('step5.unknownProfession') }}</span>
                   </div>
                   <div class="checkbox-indicator">
                     <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="3">
@@ -390,6 +408,7 @@
                   <div class="result-info">
                     <span class="result-name">{{ result.agent_name }}</span>
                     <span class="result-role">{{ result.profession || 'Unknown profession' }}</span>
+                    <span class="result-role">{{ result.profession || $t('step5.unknownProfession') }}</span>
                   </div>
                 </div>
                 <div class="result-question">
@@ -412,8 +431,11 @@
 
 <script setup>
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { chatWithReport, getReport, getAgentLog } from '../api/report'
 import { interviewAgents, getSimulationProfilesRealtime } from '../api/simulation'
+
+const { t } = useI18n()
 
 const props = defineProps({
   reportId: String,
@@ -436,6 +458,7 @@ const chatInput = ref('')
 const chatHistory = ref([])
 // Cache all conversation histories: { 'report_agent': [], 'agent_0': [], 'agent_1': [], ... }
 const chatHistoryCache = ref({})
+const chatHistoryCache = ref({}) // Cache all conversation records: { 'report_agent': [], 'agent_0': [], 'agent_1': [], ... }
 const isSending = ref(false)
 const chatMessages = ref(null)
 const chatInputRef = ref(null)
@@ -486,6 +509,7 @@ const selectChatTarget = (target) => {
 }
 
 // Save the current conversation into the cache
+// Save current conversation records to cache
 const saveChatHistory = () => {
   if (chatHistory.value.length === 0) return
   
@@ -500,6 +524,7 @@ const saveChatHistory = () => {
 
 const selectReportAgentChat = () => {
   // Save the current conversation before switching
+  // Save current conversation records
   saveChatHistory()
   
   activeTab.value = 'chat'
@@ -509,6 +534,7 @@ const selectReportAgentChat = () => {
   showAgentDropdown.value = false
   
   // Restore the Report Agent conversation history
+  // Restore Report Agent conversation records
   chatHistory.value = chatHistoryCache.value['report_agent'] || []
 }
 
@@ -529,6 +555,7 @@ const toggleAgentDropdown = () => {
 
 const selectAgent = (agent, idx) => {
   // Save the current conversation before switching
+  // Save current conversation records
   saveChatHistory()
   
   selectedAgent.value = agent
@@ -539,6 +566,8 @@ const selectAgent = (agent, idx) => {
   // 恢复该 Agent 的对话记录 (使用 user_id 作为 key)
   const cacheKey = agent.user_id !== undefined ? `agent_${agent.user_id}` : `agent_${idx}`
   chatHistory.value = chatHistoryCache.value[cacheKey] || []
+  // Restore this Agent's conversation records
+  chatHistory.value = chatHistoryCache.value[`agent_${idx}`] || []
   addLog(`选择对话对象: ${agent.username}`)
   // Restore this agent's conversation history
   chatHistory.value = chatHistoryCache.value[`agent_${idx}`] || []
@@ -570,7 +599,7 @@ const renderMarkdown = (content) => {
   html = html.replace(/^# (.+)$/gm, '<h2 class="md-h2">$1</h2>')
   html = html.replace(/^> (.+)$/gm, '<blockquote class="md-quote">$1</blockquote>')
   
-  // 处理列表 - 支持子列表
+  // Process lists - support nested lists
   html = html.replace(/^(\s*)- (.+)$/gm, (match, indent, text) => {
     const level = Math.floor(indent.length / 2)
     return `<li class="md-li" data-level="${level}">${text}</li>`
@@ -580,17 +609,17 @@ const renderMarkdown = (content) => {
     return `<li class="md-oli" data-level="${level}">${text}</li>`
   })
   
-  // 包装无序列表
+  // Wrap unordered lists
   html = html.replace(/(<li class="md-li"[^>]*>.*?<\/li>\s*)+/g, '<ul class="md-ul">$&</ul>')
-  // 包装有序列表
+  // Wrap ordered lists
   html = html.replace(/(<li class="md-oli"[^>]*>.*?<\/li>\s*)+/g, '<ol class="md-ol">$&</ol>')
   
-  // 清理列表项之间的所有空白
+  // Clean up all whitespace between list items
   html = html.replace(/<\/li>\s+<li/g, '</li><li')
-  // 清理列表开始标签后的空白
+  // Clean up whitespace after list opening tags
   html = html.replace(/<ul class="md-ul">\s+/g, '<ul class="md-ul">')
   html = html.replace(/<ol class="md-ol">\s+/g, '<ol class="md-ol">')
-  // 清理列表结束标签前的空白
+  // Clean up whitespace before list closing tags
   html = html.replace(/\s+<\/ul>/g, '</ul>')
   html = html.replace(/\s+<\/ol>/g, '</ol>')
   
@@ -606,17 +635,17 @@ const renderMarkdown = (content) => {
   html = html.replace(/(<\/h[2-5]>)<\/p>/g, '$1')
   html = html.replace(/<p class="md-p">(<ul|<ol|<blockquote|<pre|<hr)/g, '$1')
   html = html.replace(/(<\/ul>|<\/ol>|<\/blockquote>|<\/pre>)<\/p>/g, '$1')
-  // 清理块级元素前后的 <br> 标签
+  // Clean up <br> tags around block-level elements
   html = html.replace(/<br>\s*(<ul|<ol|<blockquote)/g, '$1')
   html = html.replace(/(<\/ul>|<\/ol>|<\/blockquote>)\s*<br>/g, '$1')
-  // 清理 <p><br> 紧跟块级元素的情况（多余空行导致）
+  // Clean up <p><br> followed by block elements (caused by extra empty lines)
   html = html.replace(/<p class="md-p">(<br>\s*)+(<ul|<ol|<blockquote|<pre|<hr)/g, '$2')
-  // 清理连续的 <br> 标签
+  // Clean up consecutive <br> tags
   html = html.replace(/(<br>\s*){2,}/g, '<br>')
-  // 清理块级元素后紧跟的段落开始标签前的 <br>
+  // Clean up <br> before paragraph opening tags that follow block elements
   html = html.replace(/(<\/ol>|<\/ul>|<\/blockquote>)<br>(<p|<div)/g, '$1$2')
 
-  // 修复非连续有序列表的编号：当单项 <ol> 被段落内容隔开时，保持编号递增
+  // Fix non-contiguous ordered list numbering: when single-item <ol> are separated by paragraph content, maintain incrementing numbers
   const tokens = html.split(/(<ol class="md-ol">(?:<li class="md-oli"[^>]*>[\s\S]*?<\/li>)+<\/ol>)/g)
   let olCounter = 0
   let inSequence = false
@@ -678,7 +707,7 @@ const sendMessage = async () => {
   } finally {
     isSending.value = false
     scrollToBottom()
-    // 自动保存对话记录到缓存
+    // Auto-save conversation records to cache
     saveChatHistory()
   }
 }
@@ -743,10 +772,17 @@ const sendToAgent = async (message) => {
     const resultData = res.data.result || res.data
     const resultsDict = resultData.results || resultData
     
+    // Correct data path: res.data.result.results is an object dictionary
+    // Format: {"twitter_0": {...}, "reddit_0": {...}} or single platform {"reddit_0": {...}}
+    const resultData = res.data.result || res.data
+    const resultsDict = resultData.results || resultData
+    
+    // Convert object dictionary to array, prefer reddit platform replies
     let responseContent = null
     const agentId = selectedAgentIndex.value
     
     if (typeof resultsDict === 'object' && !Array.isArray(resultsDict)) {
+      // Prefer reddit platform replies, then twitter
       const redditKey = `reddit_${agentId}`
       const twitterKey = `twitter_${agentId}`
       const agentResult = resultsDict[redditKey] || resultsDict[twitterKey] || Object.values(resultsDict)[0]
@@ -754,7 +790,7 @@ const sendToAgent = async (message) => {
         responseContent = agentResult.response || agentResult.answer
       }
     } else if (Array.isArray(resultsDict) && resultsDict.length > 0) {
-      // 兼容数组格式
+      // Compatible with array format
       responseContent = resultsDict[0].response || resultsDict[0].answer
     }
     
@@ -828,6 +864,12 @@ const submitSurvey = async () => {
       const resultData = res.data.result || res.data
       const resultsDict = resultData.results || resultData
       
+      // Correct data path: res.data.result.results is an object dictionary
+      // Format: {"twitter_0": {...}, "reddit_0": {...}, "twitter_1": {...}, ...}
+      const resultData = res.data.result || res.data
+      const resultsDict = resultData.results || resultData
+      
+      // Convert object dictionary to array format
       const surveyResultsList = []
       
       for (const interview of interviews) {
@@ -837,6 +879,8 @@ const submitSurvey = async () => {
         
         // Prefer reddit platform responses, then twitter
         let responseContent = 'No response'
+        // Prefer reddit platform replies, then twitter
+        let responseContent = '无响应'
         
         if (typeof resultsDict === 'object' && !Array.isArray(resultsDict)) {
           const redditKey = `reddit_${agentId}`
@@ -848,6 +892,7 @@ const submitSurvey = async () => {
         } else if (Array.isArray(resultsDict)) {
           // 兼容数组格式
           const matchedResult = resultsDict.find(r => r.agent_id === agentId)
+          // Compatible with array format
           const matchedResult = resultsDict.find(r => r.agent_id === agentIdx)
           if (matchedResult) {
             responseContent = matchedResult.response || matchedResult.answer || 'No response'
@@ -987,7 +1032,7 @@ watch(() => props.simulationId, (newId) => {
   overflow: hidden;
 }
 
-/* Left Panel - Report Style (与 Step4Report.vue 完全一致) */
+/* Left Panel - Report Style (identical to Step4Report.vue) */
 .left-panel.report-style {
   width: 45%;
   min-width: 450px;
@@ -2035,7 +2080,7 @@ watch(() => props.simulationId, (newId) => {
   margin-bottom: 0;
 }
 
-/* 修复有序列表编号 - 使用 CSS 计数器让多个 ol 连续编号 */
+/* Fix ordered list numbering - use CSS counters for continuous numbering across multiple ol elements */
 .message-text {
   counter-reset: list-counter;
 }
@@ -2061,7 +2106,7 @@ watch(() => props.simulationId, (newId) => {
   flex-shrink: 0;
 }
 
-/* 无序列表样式 */
+/* Unordered list styles */
 .message-text :deep(.md-ul) {
   padding-left: 20px;
   margin: 8px 0;
@@ -2540,7 +2585,7 @@ watch(() => props.simulationId, (newId) => {
   margin: 6px 0;
 }
 
-/* 聊天/问卷区域的引用样式 */
+/* Chat/survey area blockquote styles */
 .chat-messages :deep(.md-quote),
 .result-answer :deep(.md-quote) {
   margin: 12px 0;

@@ -5,6 +5,9 @@ Layout: sim_xxx/twitter/actions.jsonl, sim_xxx/reddit/actions.jsonl, simulation.
 Action logger
 Records each agent action during OASIS simulations for backend monitoring
 
+Action logger
+Records each agent action during OASIS simulations for backend monitoring
+
 Log layout:
     sim_xxx/
     ├── twitter/
@@ -33,6 +36,7 @@ class PlatformActionLogger:
         """
         Initialize the logger
         
+
         Args:
             platform: Platform name (twitter/reddit)
             base_dir: Base simulation directory
@@ -138,6 +142,7 @@ class SimulationLogManager:
         """
         Initialize the log manager
         
+
         Args:
             simulation_dir: Simulation directory path
         """
@@ -225,6 +230,7 @@ class ActionLogger:
 class ActionLogger:
     """
     Action logger（Backward compatibility）
+    Action logger (Backward compatibility)
     Prefer SimulationLogManager instead
     """
     

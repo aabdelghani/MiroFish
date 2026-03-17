@@ -45,3 +45,5 @@ EXPOSE 3000 5001
 # Start frontend and backend (dev mode)
 # Start frontend and backend together (development mode)
 CMD ["npm", "run", "dev"]
+# Start frontend and backend together (development mode)
+CMD ["npm", "run", "dev"]
