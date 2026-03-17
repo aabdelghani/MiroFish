@@ -99,6 +99,7 @@
           <span v-if="isGeneratingReport" class="loading-spinner-small"></span>
           {{ isGeneratingReport ? 'Starting...' : 'Generate result report' }} 
           {{ isGeneratingReport ? $t('step3.launching') : $t('step3.generateReport') }} 
+          {{ isGeneratingReport ? t.s3_starting : t.s3_gen_report }} 
           <span v-if="!isGeneratingReport" class="arrow-icon">→</span>
         </button>
       </div>
@@ -265,7 +266,7 @@
 
         <div v-if="allActions.length === 0" class="waiting-state">
           <div class="pulse-ring"></div>
-          <span>Waiting for agent actions...</span>
+          <span>{{ t.s3_waiting }}</span>
         </div>
       </div>
     </div>
@@ -287,6 +288,7 @@
 </template>
 
 <script setup>
+import { t, currentLang, toggleLang } from '../i18n'
 import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'

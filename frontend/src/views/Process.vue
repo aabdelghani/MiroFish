@@ -24,6 +24,7 @@
       <div class="nav-center">
         <div class="step-badge">STEP 01</div>
         <div class="step-name">{{ $t('process.stepName') }}</div>
+        <div class="step-name">{{ t.step1Title }}</div>
       </div>
 
       <div class="nav-status">
@@ -80,6 +81,20 @@
                   <span class="icon-refresh" :class="{ 'spinning': graphLoading }">↻</span>
                 </button>
                 <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? $t('process.exitFullscreen') : $t('process.fullscreen')">
+            <span class="header-title">{{ t.pv_live_graph }}</span>
+          </div>
+          <div class="header-right">
+            <template v-if="graphData">
+              <span class="stat-item">{{ graphData.node_count || graphData.nodes?.length || 0 }} {{ t.pv_nodes }}</span>
+              <span class="stat-divider">|</span>
+              <span class="stat-item">{{ graphData.edge_count || graphData.edges?.length || 0 }} {{ t.pv_edges }}</span>
+              <span class="stat-divider">|</span>
+            </template>
+            <div class="action-buttons">
+                <button class="action-btn" @click="refreshGraph" :disabled="graphLoading" :title="t.pv_refresh">
+                  <span class="icon-refresh" :class="{ 'spinning': graphLoading }">↻</span>
+                </button>
+                <button class="action-btn" @click="toggleFullScreen" :title="isFullScreen ? t.pv_exit_fs : t.pv_fullscreen">
                   <span class="icon-fullscreen">{{ isFullScreen ? '↙' : '↗' }}</span>
                 </button>
             </div>
@@ -103,6 +118,7 @@
               <span class="building-dot"></span>
               Updating in real time...
               {{ $t('process.updatingLive') }}
+              {{ t.gp_updating }}
             </div>
             
             <!-- Node/edge detail panel -->
@@ -226,6 +242,7 @@
               <div class="loading-ring"></div>
             </div>
             <p class="loading-text">{{ $t('process.loadingGraph') }}</p>
+            <p class="loading-text">{{ t.gp_loading }}</p>
           </div>
           
             <p class="loading-text">Loading graph data...</p>
@@ -251,6 +268,8 @@
             </div>
             <p class="waiting-text">{{ $t('process.waitingOntologyShort') }}</p>
             <p class="waiting-hint">{{ $t('process.waitingOntologyHint') }}</p>
+            <p class="waiting-text">{{ t.gp_waiting }}</p>
+            <p class="waiting-hint">{{ t.pv_auto_build }}</p>
           </div>
           
             <p class="waiting-text">Waiting for ontology generation</p>
@@ -275,6 +294,8 @@
             <p class="waiting-hint">Data will appear shortly.</p>
             <p class="waiting-text">{{ $t('process.graphBuilding') }}</p>
             <p class="waiting-hint">{{ $t('process.dataComingSoon') }}</p>
+            <p class="waiting-text">{{ t.pv_building }}</p>
+            <p class="waiting-hint">{{ t.pv_data_soon }}</p>
           </div>
           
           <!-- Error state -->
@@ -299,6 +320,7 @@
         <div class="panel-header dark-header">
           <span class="header-icon">▣</span>
           <span class="header-title">{{ $t('process.buildFlow') }}</span>
+          <span class="header-title">{{ t.pv_build_flow }}</span>
         </div>
 
         <div class="process-content">
@@ -327,6 +349,7 @@
                 <div class="phase-title">{{ $t('process.ontologyPhase') }}</div>
                 <div class="phase-title">Ontology Generation</div>
                 <div class="phase-title">{{ $t('process.ontologyGeneration') }}</div>
+                <div class="phase-title">{{ t.s1_onto_title }}</div>
                 <div class="phase-api">/api/graph/ontology/generate</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(0)">
@@ -339,6 +362,9 @@
                 <div class="detail-label">{{ $t('process.apiDescription') }}</div>
                 <div class="detail-content">
                   {{ $t('process.ontologyApiDesc') }}
+                <div class="detail-label">{{ t.pv_api_desc }}</div>
+                <div class="detail-content">
+                  {{ t.pv_onto_api_desc }}
                 </div>
               </div>
               
@@ -357,6 +383,7 @@
               <!-- Ontology generation progress -->
               <div class="detail-section" v-if="ontologyProgress && currentPhase === 0">
                 <div class="detail-label">{{ $t('process.generationProgress') }}</div>
+                <div class="detail-label">{{ t.pv_gen_progress }}</div>
                 <div class="ontology-progress">
                   <div class="progress-spinner"></div>
                   <span class="progress-text">{{ ontologyProgress.message }}</span>
@@ -372,6 +399,7 @@
               <!-- Generated ontology info -->
               <div class="detail-section" v-if="projectData?.ontology">
                 <div class="detail-label">{{ $t('process.generatedEntityTypes') }} ({{ projectData.ontology.entity_types?.length || 0 }})</div>
+                <div class="detail-label">{{ t.pv_entity_types }} ({{ projectData.ontology.entity_types?.length || 0 }})</div>
                 <div class="entity-tags">
                   <span 
                     v-for="entity in projectData.ontology.entity_types" 
@@ -387,6 +415,7 @@
                 <div class="detail-label">{{ $t('process.relationTypesGenerated') }} ({{ projectData.ontology.relation_types?.length || 0 }})</div>
                 <div class="detail-label">Generated relation types ({{ projectData.ontology.relation_types?.length || 0 }})</div>
                 <div class="detail-label">{{ $t('process.generatedRelationTypes') }} ({{ projectData.ontology.relation_types?.length || 0 }})</div>
+                <div class="detail-label">{{ t.pv_relation_types }} ({{ projectData.ontology.relation_types?.length || 0 }})</div>
                 <div class="relation-list">
                   <div 
                     v-for="(rel, idx) in projectData.ontology.relation_types?.slice(0, 5) || []" 
@@ -402,6 +431,7 @@
                   <div v-if="(projectData.ontology.relation_types?.length || 0) > 5" class="relation-more">
                     +{{ projectData.ontology.relation_types.length - 5 }} {{ $t('process.moreRelations') }}
                     +{{ projectData.ontology.relation_types.length - 5 }} more relations...
+                    +{{ projectData.ontology.relation_types.length - 5 }} {{ t.pv_more_relations }}
                   </div>
                 </div>
               </div>
@@ -411,6 +441,7 @@
                 <div class="waiting-hint">{{ $t('process.waitingOntology') }}</div>
                 <div class="waiting-hint">Waiting for ontology generation...</div>
                 <div class="waiting-hint">{{ $t('process.waitingOntologyGenEllipsis') }}</div>
+                <div class="waiting-hint">{{ t.pv_waiting_onto }}</div>
               </div>
             </div>
           </div>
@@ -424,6 +455,7 @@
                 <div class="phase-title">{{ $t('process.graphBuildPhase') }}</div>
                 <div class="phase-title">Graph Build</div>
                 <div class="phase-title">{{ $t('process.graphBuild') }}</div>
+                <div class="phase-title">{{ t.s1_graphrag_title }}</div>
                 <div class="phase-api">/api/graph/build</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(1)">
@@ -446,6 +478,15 @@
               <!-- Waiting for ontology completion -->
               <div class="detail-section waiting-state" v-if="currentPhase < 1">
                 <div class="waiting-hint">{{ $t('process.waitingOntologyComplete') }}</div>
+                <div class="detail-label">{{ t.pv_api_desc }}</div>
+                <div class="detail-content">
+                  {{ t.pv_graph_api_desc }}
+                </div>
+              </div>
+              
+              <!-- 等待本体完成 -->
+              <div class="detail-section waiting-state" v-if="currentPhase < 1">
+                <div class="waiting-hint">{{ t.pv_waiting_onto_done }}</div>
               </div>
               
               <div class="detail-section" v-if="buildProgress && currentPhase >= 1">
@@ -467,6 +508,7 @@
               <!-- Build progress -->
               <div class="detail-section" v-if="buildProgress && currentPhase >= 1">
                 <div class="detail-label">{{ $t('process.buildProgress') }}</div>
+                <div class="detail-label">{{ t.pv_build_progress }}</div>
                 <div class="progress-bar">
                   <div class="progress-fill" :style="{ width: buildProgress.progress + '%' }"></div>
                 </div>
@@ -528,6 +570,19 @@
                   <div class="result-item">
                     <span class="result-value">{{ entityTypes.length }}</span>
                     <span class="result-label">entity types</span>
+                <div class="detail-label">{{ t.pv_build_result }}</div>
+                <div class="build-result">
+                  <div class="result-item">
+                    <span class="result-value">{{ graphData.node_count }}</span>
+                    <span class="result-label">{{ t.s1_stat_nodes }}</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-value">{{ graphData.edge_count }}</span>
+                    <span class="result-label">{{ t.s1_stat_edges }}</span>
+                  </div>
+                  <div class="result-item">
+                    <span class="result-value">{{ entityTypes.length }}</span>
+                    <span class="result-label">{{ t.s1_stat_types }}</span>
                   </div>
                 </div>
               </div>
@@ -545,6 +600,8 @@
                 <div class="phase-title">Build completed</div>
                 <div class="phase-api">Ready to enter the next step</div>
                 <div class="phase-api">{{ $t('process.readyForNextStep') }}</div>
+                <div class="phase-title">{{ t.s1_build_complete }}</div>
+                <div class="phase-api">{{ t.pv_ready_next }}</div>
               </div>
               <span class="phase-status" :class="getPhaseStatusClass(2)">
                 {{ getPhaseStatusText(2) }}
@@ -560,6 +617,7 @@
           <div class="next-step-section" v-if="currentPhase >= 2">
             <button class="next-step-btn" @click="goToNextStep" :disabled="currentPhase < 2">
               Go to environment setup
+              {{ t.s1_enter_env }}
               <span class="btn-arrow">→</span>
             </button>
           </div>
@@ -604,6 +662,23 @@
             <div class="project-item">
               <span class="item-label">Simulation requirement</span>
               <span class="item-label">{{ $t('process.simRequirement') }}</span>
+            <span class="project-title">{{ t.pv_project_info }}</span>
+          </div>
+          <div class="project-details" v-if="projectData">
+            <div class="project-item">
+              <span class="item-label">{{ t.pv_project_name }}</span>
+              <span class="item-value">{{ projectData.name }}</span>
+            </div>
+            <div class="project-item">
+              <span class="item-label">{{ t.pv_project_id }}</span>
+              <span class="item-value code">{{ projectData.project_id }}</span>
+            </div>
+            <div class="project-item" v-if="projectData.graph_id">
+              <span class="item-label">{{ t.pv_graph_id }}</span>
+              <span class="item-value code">{{ projectData.graph_id }}</span>
+            </div>
+            <div class="project-item">
+              <span class="item-label">{{ t.simReq }}</span>
               <span class="item-value">{{ projectData.simulation_requirement || '-' }}</span>
             </div>
           </div>
@@ -614,6 +689,7 @@
 </template>
 
 <script setup>
+import { t, currentLang } from '../i18n'
 import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -682,6 +758,11 @@ const statusText = computed(() => {
   if (currentPhase.value === 1) return t('process.statusBuilding')
   if (currentPhase.value === 0) return t('process.statusOntology')
   return t('process.statusInit')
+  if (error.value) return t.value.pv_status_failed
+  if (currentPhase.value >= 2) return t.value.pv_status_complete
+  if (currentPhase.value === 1) return t.value.pv_status_building
+  if (currentPhase.value === 0) return t.value.pv_status_ontology
+  return t.value.pv_status_init
 })
 
 const entityTypes = computed(() => {
@@ -773,6 +854,7 @@ const getPhaseStatusText = (phase) => {
   if (currentPhase.value > phase) return t('process.completed')
   if (currentPhase.value > phase) return 'Completed'
   if (currentPhase.value > phase) return t('process.phaseCompleted')
+  if (currentPhase.value > phase) return t.value.badge_done
   if (currentPhase.value === phase) {
     if (phase === 1 && buildProgress.value) {
       return `${buildProgress.value.progress}%`
@@ -780,6 +862,9 @@ const getPhaseStatusText = (phase) => {
     return t('process.inProgress')
   }
   return t('process.waiting')
+    return t.value.badge_running
+  }
+  return t.value.badge_wait
 }
 
 // Init: new project or load existing

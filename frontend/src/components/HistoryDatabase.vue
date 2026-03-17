@@ -15,6 +15,7 @@
     <div class="section-header">
       <div class="section-line"></div>
       <span class="section-title">Simulation History</span>
+      <span class="section-title">{{ t.historyTitle }}</span>
       <div class="section-line"></div>
     </div>
 
@@ -82,12 +83,14 @@
             <!-- Show an overflow hint when there are more files -->
             <div v-if="project.files.length > 3" class="files-more">
               +{{ project.files.length - 3 }} more files
+              {{ t.filesMore.replace("{count}", String(project.files.length - 3)) }}
             </div>
           </div>
           <!-- Empty file placeholder -->
           <div class="files-empty" v-else>
             <span class="empty-file-icon">◇</span>
             <span class="empty-file-text">No files</span>
+            <span class="empty-file-text">{{ t.noFiles }}</span>
           </div>
         </div>
 
@@ -149,6 +152,7 @@
     <div v-if="loading" class="loading-state">
       <span class="loading-spinner"></span>
       <span class="loading-text">Loading...</span>
+      <span class="loading-text">{{ t.loading }}</span>
     </div>
 
     <!-- History replay modal -->
@@ -184,12 +188,15 @@
               <div class="modal-section">
                 <div class="modal-label">{{ $t('history.simRequirement') }}</div>
                 <div class="modal-requirement">{{ selectedProject.simulation_requirement || '无' }}</div>
+                <div class="modal-label">{{ t.simReq }}</div>
+                <div class="modal-requirement">{{ selectedProject.simulation_requirement || t.none }}</div>
               </div>
 
               <!-- File list -->
               <div class="modal-section">
                 <div class="modal-label">Related Files</div>
                 <div class="modal-label">{{ $t('history.linkedFiles') }}</div>
+                <div class="modal-label">{{ t.linkedFiles }}</div>
                 <div class="modal-files" v-if="selectedProject.files && selectedProject.files.length > 0">
                   <div v-for="(file, index) in selectedProject.files" :key="index" class="modal-file-item">
                     <span class="file-tag" :class="getFileType(file.filename)">{{ getFileTypeLabel(file.filename) }}</span>
@@ -197,6 +204,7 @@
                   </div>
                 </div>
                 <div class="modal-empty" v-else>No related files</div>
+                <div class="modal-empty" v-else>{{ t.noLinkedFiles }}</div>
               </div>
             </div>
 
@@ -212,6 +220,7 @@
             <div class="modal-divider">
               <span class="divider-line"></span>
               <span class="divider-text">{{ $t('history.replayTitle') }}</span>
+              <span class="divider-text">{{ t.simPlayback }}</span>
               <span class="divider-line"></span>
             </div>
 
@@ -222,28 +231,31 @@
                 @click="goToProject"
                 :disabled="!selectedProject.project_id"
               >
-                <span class="btn-step">Step1</span>
+                <span class="btn-step">{{ t.step1 }}</span>
                 <span class="btn-icon">◇</span>
                 <span class="btn-text">Graph Build</span>
                 <span class="btn-text">{{ $t('history.graphBuild') }}</span>
+                <span class="btn-text">{{ t.step1Title }}</span>
               </button>
               <button 
                 class="modal-btn btn-simulation" 
                 @click="goToSimulation"
               >
-                <span class="btn-step">Step2</span>
+                <span class="btn-step">{{ t.step2 }}</span>
                 <span class="btn-icon">◈</span>
                 <span class="btn-text">Environment Setup</span>
                 <span class="btn-text">{{ $t('history.envSetup') }}</span>
+                <span class="btn-text">{{ t.step2Title }}</span>
               </button>
               <button 
                 class="modal-btn btn-report" 
                 @click="goToReport"
                 :disabled="!selectedProject.report_id"
               >
-                <span class="btn-step">Step4</span>
+                <span class="btn-step">{{ t.step4 }}</span>
                 <span class="btn-icon">◆</span>
                 <span class="btn-text">Analysis Report</span>
+                <span class="btn-text">{{ t.step4Title }}</span>
               </button>
             </div>
             <!-- Replay limitation hint -->
@@ -282,6 +294,7 @@
             <!-- Non-replayable hint -->
             <div class="modal-playback-hint">
               <span class="hint-text">{{ $t('history.replayHint') }}</span>
+              <span class="hint-text">{{ t.noPlaybackHint }}</span>
             </div>
           </div>
         </div>
@@ -292,6 +305,7 @@
 
 <script setup>
 import { ref, computed, onMounted, onUnmounted, onActivated, watch, nextTick } from 'vue'
+import { currentLang, t } from '../i18n'
 import { useRouter, useRoute } from 'vue-router'
 import { getSimulationHistory, deleteSimulation } from '../api/simulation'
 import { useI18n } from 'vue-i18n'
@@ -471,6 +485,7 @@ const getSimulationTitle = (requirement) => {
 // Generate title from simulation requirement (first 20 characters)
 const getSimulationTitle = (requirement) => {
   if (!requirement) return t('history.unnamedSim')
+  if (!requirement) return t.unnamedSim
   const title = requirement.slice(0, 20)
   return requirement.length > 20 ? title + '...' : title
 }
@@ -489,6 +504,8 @@ const formatRounds = (simulation) => {
   const total = simulation.total_rounds || 0
   if (total === 0) return 'Not started'
   return `${current}/${total} rounds`
+  if (total === 0) return t.notStarted
+  return `${current}/${total} 轮`
 }
 
 // Derive file type (for styling)
@@ -530,6 +547,7 @@ const truncateFilename = (filename, maxLength) => {
 // Truncate filename (preserve extension)
 const truncateFilename = (filename, maxLength) => {
   if (!filename) return t('history.unknownFile')
+  if (!filename) return t.unknownFile
   if (filename.length <= maxLength) return filename
   
   const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''

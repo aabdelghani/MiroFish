@@ -18,6 +18,7 @@
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
             {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
+            {{ { graph: t.view_graph, split: t.view_split, workbench: t.view_workbench }[mode] }}
           </button>
         </div>
       </div>
@@ -28,6 +29,7 @@
           <span class="step-name">{{ $t('steps.startSimulation') }}</span>
           <span class="step-name">Run Simulation</span>
           <span class="step-name">{{ $t('home.step3Title') }}</span>
+          <span class="step-name">{{ t.step3Title }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -73,6 +75,7 @@
 </template>
 
 <script setup>
+import { t, currentLang } from '../i18n'
 import { ref, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -161,6 +164,8 @@ const handleGoBack = async () => {
   addLog(t('simulation.preparingReturnStep2'))
   // Close any running simulation before returning to Step 2.
   addLog('Preparing to return to Step 2. Closing the simulation...')
+  // 在返回 Step 2 之前，先关闭正在运行的模拟
+  addLog('Returning to Step 2, closing simulation...')
   
   // Stop polling.
   // Before returning to Step 2, close any running simulation
@@ -176,6 +181,7 @@ const handleGoBack = async () => {
       addLog(t('simulation.closingEnv'))
       addLog('Closing the simulation environment...')
       addLog(t('simRun.closingEnv'))
+      addLog('Closing simulation environment...')
       try {
         await closeSimulationEnv({
           simulation_id: currentSimulationId.value,
@@ -189,6 +195,14 @@ const handleGoBack = async () => {
           addLog(t('simulation.forceStopDone'))
         } catch (stopErr) {
           addLog(t('simulation.forceStopFailedErr', { msg: stopErr.message }))
+        addLog('✓ Simulation environment closed')
+      } catch (closeErr) {
+        addLog('Close failed, force-stopping...')
+        try {
+          await stopSimulation({ simulation_id: currentSimulationId.value })
+          addLog('✓ Simulation force-stopped')
+        } catch (stopErr) {
+          addLog(`Force stop failed: ${stopErr.message}`)
         }
       }
     } else {
@@ -237,6 +251,12 @@ const handleGoBack = async () => {
           addLog(t('simRun.simStopped'))
         } catch (err) {
           addLog(t('simRun.stopSimFailed', { error: err.message }))
+        addLog('Stopping simulation process...')
+        try {
+          await stopSimulation({ simulation_id: currentSimulationId.value })
+          addLog('✓ Simulation stopped')
+        } catch (err) {
+          addLog(`Stop failed: ${err.message}`)
         }
       }
     }
@@ -244,6 +264,7 @@ const handleGoBack = async () => {
     addLog(t('simulation.checkStatusFailed', { msg: err.message }))
   }
     addLog(`Failed to inspect simulation status: ${err.message}`)
+    addLog(`Check simulation status failed: ${err.message}`)
   }
   
   // Return to Step 2 (environment setup).
@@ -262,6 +283,9 @@ const handleNextStep = () => {
   // Step3Simulation component handles report generation and routing directly
   // This method is only a fallback
   addLog(t('simRun.enterStep4'))
+  // Step3Simulation 组件会直接处理报告生成和路由跳转
+  // 这个方法仅作为备用
+  addLog('Entering Step 4: Report Generation')
 }
 
 // --- Data Logic ---
@@ -296,6 +320,10 @@ const loadSimulationData = async () => {
         }
       } catch (configErr) {
         addLog(`Failed to load time config. Using default: ${minutesPerRound.value} minutes per round`)
+          addLog(`Time config: ${minutesPerRound.value} min/round`)
+        }
+      } catch (configErr) {
+        addLog(`Time config failed, defaulting to ${minutesPerRound.value} min/round`)
       }
       
       // Fetch project data.
@@ -335,6 +363,10 @@ const loadSimulationData = async () => {
     }
   } catch (err) {
     addLog(t('simRun.loadException', { error: err.message }))
+      addLog(`Failed to load simulation: ${simRes.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    addLog(`Load exception: ${err.message}`)
   }
 }
 
@@ -367,6 +399,7 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(t('simRun.graphLoadFailed', { error: err.message }))
+    addLog(`Graph load failed: ${err.message}`)
   } finally {
     graphLoading.value = false
   }
@@ -388,6 +421,8 @@ const startGraphRefresh = () => {
   // Refresh immediately, then every 30 seconds
   addLog(t('simRun.startGraphRefresh'))
   // Refresh once immediately, then every 30 seconds
+  addLog('Started real-time graph refresh (30s)')
+  // 立即刷新一次，然后每30秒刷新
   graphRefreshTimer = setInterval(refreshGraph, 30000)
 }
 
@@ -398,6 +433,7 @@ const stopGraphRefresh = () => {
     addLog(t('simulation.graphRefreshOff'))
     addLog('Stopped live graph refresh')
     addLog(t('simRun.stopGraphRefresh'))
+    addLog('Stopped real-time graph refresh')
   }
 }
 
@@ -419,6 +455,11 @@ onMounted(() => {
   // Log maxRounds config (value already obtained from query params at init)
   if (maxRounds.value) {
     addLog(t('simRun.customRounds', { rounds: maxRounds.value }))
+  addLog('SimulationRunView initialized')
+  
+  // 记录 maxRounds 配置（值已在初始化时从 query 参数获取）
+  if (maxRounds.value) {
+    addLog(`Custom simulation rounds: ${maxRounds.value}`)
   }
   
   // Log maxRounds configuration (value is already read from query on init)

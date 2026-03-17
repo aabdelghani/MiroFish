@@ -41,6 +41,7 @@
           {{ isSimulating ? $t('graph.graphRagUpdating') : $t('graph.updatingShort') }}
           {{ isSimulating ? 'GraphRAG long- and short-term memory is updating in real time' : 'Updating in real time...' }}
           {{ isSimulating ? $t('process.graphMemoryUpdate') : $t('process.updatingLive') }}
+          {{ isSimulating ? t.gp_updating_sim : t.gp_updating }}
         </div>
         
         <!-- Post-simulation hint -->
@@ -58,6 +59,8 @@
           <button class="hint-close-btn" @click="dismissFinishedHint" title="Dismiss hint">
           <span class="hint-text">{{ $t('process.remainingContent') }}</span>
           <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('graph.closeHint')">
+          <span class="hint-text">{{ t.gp_refresh_hint }}</span>
+          <button class="hint-close-btn" @click="dismissFinishedHint" title="关闭提示">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -223,6 +226,7 @@
       <div v-else-if="loading" class="graph-state">
         <div class="loading-spinner"></div>
         <p>{{ $t('graph.loadingGraph') }}</p>
+        <p>{{ t.gp_loading }}</p>
       </div>
       
       <!-- Empty / waiting state -->
@@ -233,6 +237,7 @@
       <div v-else class="graph-state">
         <div class="empty-icon">❖</div>
         <p class="empty-text">{{ $t('graph.waitingOntology') }}</p>
+        <p class="empty-text">{{ t.gp_waiting }}</p>
       </div>
     </div>
 
@@ -272,6 +277,7 @@
 </template>
 
 <script setup>
+import { t, currentLang, toggleLang } from '../i18n'
 import { ref, onMounted, onUnmounted, watch, nextTick, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import * as d3 from 'd3'

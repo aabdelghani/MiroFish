@@ -18,6 +18,7 @@
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
             {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
+            {{ { graph: t.view_graph, split: t.view_split, workbench: t.view_workbench }[mode] }}
           </button>
         </div>
       </div>
@@ -28,6 +29,7 @@
           <span class="step-name">{{ $t('steps.envSetup') }}</span>
           <span class="step-name">Environment Setup</span>
           <span class="step-name">{{ $t('home.step2Title') }}</span>
+          <span class="step-name">{{ t.step2Title }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -69,6 +71,7 @@
 </template>
 
 <script setup>
+import { t, currentLang } from '../i18n'
 import { ref, computed, onMounted, onUnmounted } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -166,6 +169,13 @@ const handleNextStep = (params = {}) => {
     addLog(`Custom simulation rounds: ${params.maxRounds}`)
   } else {
     addLog('Using the auto-generated round count')
+  addLog('Entering Step 3: Simulation')
+  
+  // 记录模拟轮数配置
+  if (params.maxRounds) {
+    addLog(`Custom rounds: ${params.maxRounds}`)
+  } else {
+    addLog('Using auto-configured rounds')
   }
   
   // Build route params.
@@ -214,6 +224,7 @@ const checkAndStopRunningSimulation = async () => {
     if (envStatusRes.success && envStatusRes.data?.env_alive) {
       addLog(t('simulation.simRunningClosing'))
       addLog('Detected a running simulation environment. Closing it...')
+      addLog('Simulation environment running, closing...')
       
       // Try a graceful shutdown first.
 const checkAndStopRunningSimulation = async () => {
@@ -247,6 +258,15 @@ const checkAndStopRunningSimulation = async () => {
         }
       } catch (closeErr) {
         addLog(t('simView.closeEnvError', { error: closeErr.message }))
+          addLog('✓ Simulation environment closed')
+        } else {
+          addLog(`Failed to close simulation: ${closeRes.error || 'Unknown error'}`)
+          // 如果优雅关闭失败，尝试强制停止
+          await forceStopSimulation()
+        }
+      } catch (closeErr) {
+        addLog(`Exception closing simulation: ${closeErr.message}`)
+        // 如果优雅关闭异常，尝试强制停止
         await forceStopSimulation()
       }
     } else {
@@ -270,6 +290,7 @@ const checkAndStopRunningSimulation = async () => {
       if (simRes.success && simRes.data?.status === 'running') {
         addLog('Detected a running simulation state. Stopping it...')
         addLog(t('simView.simRunningStopping'))
+        addLog('Simulation running, stopping...')
         await forceStopSimulation()
       }
     }
@@ -312,6 +333,12 @@ const forceStopSimulation = async () => {
     }
   } catch (err) {
     addLog(t('simView.forceStopError', { error: err.message }))
+      addLog('✓ Simulation force-stopped')
+    } else {
+      addLog(`Force stop failed: ${stopRes.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    addLog(`Force stop exception: ${err.message}`)
   }
 }
 
@@ -363,6 +390,10 @@ const loadSimulationData = async () => {
     }
   } catch (err) {
     addLog(t('simView.loadException', { error: err.message }))
+      addLog(`Failed to load simulation data: ${simRes.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    addLog(`Load exception: ${err.message}`)
   }
 }
 
@@ -384,6 +415,10 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(t('simView.graphLoadFailed', { error: err.message }))
+      addLog('Graph data loaded successfully')
+    }
+  } catch (err) {
+    addLog(`Graph load failed: ${err.message}`)
   } finally {
     graphLoading.value = false
   }

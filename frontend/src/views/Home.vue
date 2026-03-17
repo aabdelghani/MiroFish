@@ -12,6 +12,11 @@
           {{ $t('home.navGithub') }} <span class="arrow">↗</span>
           Visit our GitHub page <span class="arrow">↗</span>
           {{ t('nav.github') }} <span class="arrow">↗</span>
+        <button class="lang-toggle-btn" @click="toggleLang" title="Toggle Language">
+          {{ currentLang === 'en' ? '🇬🇧' : '🇨🇳' }}
+        </button>
+        <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
+          {{ t.github }} <span class="arrow">↗</span>
         </a>
       </div>
     </nav>
@@ -41,6 +46,13 @@
           <h1 class="main-title">
             Upload any report<br>
             <span class="gradient-text">simulate the future instantly</span>
+            <span class="orange-tag">{{ t.tag }}</span>
+            <span class="version-text">{{ t.version }}</span>
+          </div>
+          
+          <h1 class="main-title">
+            {{ t.title1 }}<br>
+            <span class="gradient-text">{{ t.title2 }}</span>
           </h1>
           
           <div class="hero-desc">
@@ -66,6 +78,10 @@
             <p>{{ t('home.descPart1') }}<span class=”highlight-bold”>MiroFish</span>{{ t('home.descPart2') }}<span class=”highlight-orange”>{{ t('home.agents') }}</span>{{ t('home.descPart3') }}<span class=”highlight-code”>{{ t('home.solution') }}</span>{{ t('home.descPart4') }}</p>
             <p class="slogan-text">
               {{ t('home.slogan') }}<span class="blinking-cursor">_</span>
+              {{ t.desc1_1 }}<span class="highlight-bold">{{ t.desc1_bold }}</span>{{ t.desc1_2 }}<span class="highlight-orange">{{ t.desc1_orange }}</span>{{ t.desc1_3 }}<span class="highlight-code">{{ t.desc1_code }}</span>{{ t.desc1_4 }}
+            </p>
+            <p class="slogan-text">
+              {{ t.slogan }}<span class="blinking-cursor">_</span>
             </p>
           </div>
            
@@ -94,6 +110,12 @@
           <h2 class="section-title">{{ $t('home.ready') }}</h2>
           <p class="section-desc">
             {{ $t('home.sectionDesc') }}
+            <span class="status-dot">■</span> {{ t.sysStatus }}
+          </div>
+          
+          <h2 class="section-title">{{ t.ready }}</h2>
+          <p class="section-desc">
+            {{ t.readyDesc }}
           </p>
           
           <div class="metrics-row">
@@ -104,6 +126,12 @@
             <div class="metric-card">
               <div class="metric-value">{{ $t('home.highAvailability') }}</div>
               <div class="metric-label">{{ $t('home.highAvailabilityLabel') }}</div>
+              <div class="metric-value">{{ t.lowCost }}</div>
+              <div class="metric-label">{{ t.lowCostDesc }}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value">{{ t.highAvail }}</div>
+              <div class="metric-label">{{ t.highAvailDesc }}</div>
             </div>
           </div>
 
@@ -168,6 +196,7 @@
           <div class="steps-container">
             <div class="steps-header">
                <span class="diamond-icon">◇</span> {{ t('home.workflowSeq') }}
+               <span class="diamond-icon">◇</span> {{ t.workflow }}
             </div>
             <div class="workflow-list">
               <div class="workflow-item">
@@ -179,6 +208,8 @@
                   <div class="step-desc">Seed extraction, individual and collective memory injection, and GraphRAG construction</div>
                   <div class="step-title">{{ t('home.step1Title') }}</div>
                   <div class="step-desc">{{ t('home.step1Desc') }}</div>
+                  <div class="step-title">{{ t.step1Title }}</div>
+                  <div class="step-desc">{{ t.step1Desc }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -190,6 +221,8 @@
                   <div class="step-desc">Entity extraction, persona generation, and simulation parameter injection by environment agents</div>
                   <div class="step-title">{{ t('home.step2Title') }}</div>
                   <div class="step-desc">{{ t('home.step2Desc') }}</div>
+                  <div class="step-title">{{ t.step2Title }}</div>
+                  <div class="step-desc">{{ t.step2Desc }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -201,6 +234,8 @@
                   <div class="step-desc">Parallel platform simulation, automatic prompt parsing, and dynamic temporal memory updates</div>
                   <div class="step-title">{{ t('home.step3Title') }}</div>
                   <div class="step-desc">{{ t('home.step3Desc') }}</div>
+                  <div class="step-title">{{ t.step3Title }}</div>
+                  <div class="step-desc">{{ t.step3Desc }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -212,6 +247,8 @@
                   <div class="step-desc">ReportAgent uses a rich toolset to explore the post-simulation environment in depth</div>
                   <div class="step-title">{{ t('home.step4Title') }}</div>
                   <div class="step-desc">{{ t('home.step4Desc') }}</div>
+                  <div class="step-title">{{ t.step4Title }}</div>
+                  <div class="step-desc">{{ t.step4Desc }}</div>
                 </div>
               </div>
               <div class="workflow-item">
@@ -223,6 +260,8 @@
                   <div class="step-desc">Talk to any simulated individual and continue the analysis with ReportAgent</div>
                   <div class="step-title">{{ t('home.step5Title') }}</div>
                   <div class="step-desc">{{ t('home.step5Desc') }}</div>
+                  <div class="step-title">{{ t.step5Title }}</div>
+                  <div class="step-desc">{{ t.step5Desc }}</div>
                 </div>
               </div>
             </div>
@@ -253,6 +292,8 @@
               <div class="console-header">
                 <span class="console-label">{{ t('home.seedLabel') }}</span>
                 <span class="console-meta">{{ t('home.seedFormats') }}</span>
+                <span class="console-label">{{ t.seedTab }}</span>
+                <span class="console-meta">{{ t.supportFormats }}</span>
               </div>
               
               <div 
@@ -281,6 +322,8 @@
                   <div class="upload-hint">or click to browse your filesystem</div>
                   <div class="upload-title">{{ t('home.dragUpload') }}</div>
                   <div class="upload-hint">{{ t('home.browseFiles') }}</div>
+                  <div class="upload-title">{{ t.dragUpload }}</div>
+                  <div class="upload-hint">{{ t.clickBrowse }}</div>
                 </div>
                 
                 <div v-else class="file-list">
@@ -295,6 +338,7 @@
 
             <div class="console-divider">
               <span>{{ $t('home.inputParams') }}</span>
+              <span>{{ t.inputParams }}</span>
             </div>
 
             <div class="console-section">
@@ -318,6 +362,7 @@
             <div class="console-section">
               <div class="console-header">
                 <span class="console-label">{{ t('home.promptLabel') }}</span>
+                <span class="console-label">{{ t.simPromptTab }}</span>
               </div>
               <div class="input-wrapper">
                 <textarea
@@ -328,6 +373,11 @@
                   :disabled="loading"
                 ></textarea>
                 <div class="model-badge">{{ $t('home.engineBadge') }}</div>
+                  :placeholder="t.promptPlaceholder"
+                  rows="6"
+                  :disabled="loading"
+                ></textarea>
+                <div class="model-badge">{{ t.engineV1 }}</div>
               </div>
             </div>
 
@@ -361,6 +411,8 @@
                 <span v-else>Initializing...</span>
                 <span v-if="!loading">{{ t('home.startEngine') }}</span>
                 <span v-else>{{ t('home.initializing') }}</span>
+                <span v-if="!loading">{{ t.startEngine }}</span>
+                <span v-else>{{ t.initializing }}</span>
                 <span class="btn-arrow">→</span>
               </button>
             </div>
@@ -378,6 +430,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { currentLang, toggleLang, t } from '../i18n'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
@@ -580,6 +633,19 @@ const startSimulation = () => {
 }
 .lang-toggle:hover {
   background: #333;
+}
+
+.lang-toggle-btn {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  margin-right: 20px;
+  filter: grayscale(20%);
+  transition: transform 0.2s;
+}
+.lang-toggle-btn:hover {
+  transform: scale(1.1);
 }
 
 .github-link {

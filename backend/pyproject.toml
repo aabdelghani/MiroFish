@@ -6,6 +6,8 @@ description = "MiroFish - Concise general-purpose collective intelligence engine
 requires-python = ">=3.11,<3.13"
 description = "MiroFish - A simple and universal swarm intelligence engine for prediction"
 requires-python = ">=3.11"
+description = "MiroFish - 简洁通用的群体智能引擎，预测万物"
+requires-python = ">=3.11, <3.13"
 license = { text = "AGPL-3.0" }
 authors = [
     { name = "MiroFish Team" }
@@ -46,6 +48,7 @@ dependencies = [
     # OASIS social simulation
     "camel-oasis==0.2.5",
     "camel-ai==0.2.78",
+    "torch<2.3.0 ; sys_platform == 'darwin' and platform_machine == 'x86_64'",
     
     # File handling
     "PyMuPDF>=1.24.0",

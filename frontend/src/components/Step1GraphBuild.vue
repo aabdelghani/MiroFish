@@ -24,6 +24,12 @@
             <span v-if="currentPhase > 0" class="badge success">{{ $t('step1.completed') }}</span>
             <span v-else-if="currentPhase === 0" class="badge processing">{{ $t('step1.generating') }}</span>
             <span v-else class="badge pending">{{ $t('step1.pending') }}</span>
+            <span class="step-title">{{ t.s1_onto_title }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase > 0" class="badge success">{{ t.badge_done }}</span>
+            <span v-else-if="currentPhase === 0" class="badge processing">{{ t.s1_onto_generating }}</span>
+            <span v-else class="badge pending">{{ t.badge_wait }}</span>
           </div>
         </div>
         
@@ -33,6 +39,7 @@
             {{ $t('process.ontologyApiDesc') }}
             The LLM analyzes the source documents and simulation prompt, extracts real-world seeds, and generates a fitting ontology automatically.
             {{ $t('step1.ontologyDesc') }}
+            {{ t.s1_onto_desc }}
           </p>
 
           <!-- Loading / Progress -->
@@ -41,6 +48,7 @@
             <span>{{ ontologyProgress.message || $t('process.uploadingAnalyzing') }}</span>
             <span>{{ ontologyProgress.message || 'Analyzing documents...' }}</span>
             <span>{{ ontologyProgress.message || $t('step1.analyzingDocs') }}</span>
+            <span>{{ ontologyProgress.message || t.s1_analyzing }}</span>
           </div>
 
           <!-- Detail Overlay -->
@@ -144,6 +152,12 @@
             <span v-if="currentPhase > 1" class="badge success">{{ $t('step1.completed') }}</span>
             <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
             <span v-else class="badge pending">{{ $t('step1.pending') }}</span>
+            <span class="step-title">{{ t.s1_graphrag_title }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase > 1" class="badge success">{{ t.badge_done }}</span>
+            <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
+            <span v-else class="badge pending">{{ t.badge_wait }}</span>
           </div>
         </div>
 
@@ -153,6 +167,7 @@
             {{ $t('process.graphApiDesc') }}
             Using the generated ontology, the documents are chunked and sent to Zep to build a knowledge graph with entities, relationships, temporal memory, and community summaries.
             {{ $t('step1.graphRAGDesc') }}
+            {{ t.s1_graphrag_desc }}
           </p>
           
           <!-- Stats Cards -->
@@ -208,6 +223,15 @@
             <div class="stat-card">
               <span class="stat-value">{{ graphStats.types }}</span>
               <span class="stat-label">{{ $t('step1.schemaTypes') }}</span>
+              <span class="stat-label">{{ t.s1_stat_nodes }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ graphStats.edges }}</span>
+              <span class="stat-label">{{ t.s1_stat_edges }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ graphStats.types }}</span>
+              <span class="stat-label">{{ t.s1_stat_types }}</span>
             </div>
           </div>
         </div>
@@ -230,6 +254,10 @@
           </div>
           <div class="step-status">
             <span v-if="currentPhase >= 2" class="badge accent">{{ $t('step1.inProgress') }}</span>
+            <span class="step-title">{{ t.s1_build_complete }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase >= 2" class="badge accent">{{ t.badge_running }}</span>
           </div>
         </div>
         
@@ -238,6 +266,7 @@
           <p class="description">{{ $t('process.nextStepHint') }}</p>
           <p class="description">Graph construction is complete. Move on to environment setup.</p>
           <p class="description">{{ $t('step1.buildCompleteDesc') }}</p>
+          <p class="description">{{ t.s1_build_complete_desc }}</p>
           <button 
             class="action-btn" 
             :disabled="currentPhase < 2 || creatingSimulation"
@@ -247,6 +276,7 @@
             {{ creatingSimulation ? $t('process.processing') : $t('process.enterEnvSetup') + ' ➝' }}
             {{ creatingSimulation ? 'Creating...' : 'Enter Environment Setup ➝' }}
             {{ creatingSimulation ? $t('step1.creating') : $t('step1.enterEnvSetup') + ' ➝' }}
+            {{ creatingSimulation ? t.s1_creating : t.s1_enter_env }}
           </button>
         </div>
       </div>
@@ -269,6 +299,7 @@
 </template>
 
 <script setup>
+import { t, currentLang, toggleLang } from '../i18n'
 import { computed, ref, watch, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'

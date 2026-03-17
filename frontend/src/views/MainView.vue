@@ -18,6 +18,7 @@
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
             {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
+            {{ { graph: t.view_graph, split: t.view_split, workbench: t.view_workbench }[mode] }}
           </button>
         </div>
       </div>
@@ -83,6 +84,7 @@
 </template>
 
 <script setup>
+import { t, currentLang } from '../i18n'
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -119,6 +121,8 @@ const currentStep = ref(1) // 1: Graph build, 2: Environment setup, 3: Run simul
 const stepNames = ['Graph Build', 'Environment Setup', 'Run Simulation', 'Generate Report', 'Deep Interaction']
 const currentStep = ref(1) // 1: Graph Build, 2: Env Setup, 3: Start Simulation, 4: Report Generation, 5: Deep Interaction
 const stepNames = computed(() => t('mainView.stepNames'))
+const currentStep = ref(1) // 1: 图谱构建, 2: 环境搭建, 3: 开始模拟, 4: 报告生成, 5: 深度互动
+const stepNames = computed(() => [t.value.step1Title, t.value.step2Title, t.value.step3Title, t.value.step4Title, t.value.step5Title])
 
 // Data State
 const currentProjectId = ref(route.params.projectId)
@@ -188,6 +192,7 @@ const handleNextStep = (params = {}) => {
   if (currentStep.value < 5) {
     currentStep.value++
     addLog(`Entering Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
+    addLog(`Entering Step ${currentStep.value}: ${stepNames.value[currentStep.value - 1]}`)
     
     addLog(`Entered Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
     
@@ -209,6 +214,7 @@ const handleGoBack = () => {
     addLog(`Back to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
     addLog(`Returned to Step ${currentStep.value}: ${stepNames[currentStep.value - 1]}`)
     addLog(t('mainView.returnStep', { step: currentStep.value, name: stepNames.value[currentStep.value - 1] }))
+    addLog(`Back to Step ${currentStep.value}: ${stepNames.value[currentStep.value - 1]}`)
   }
 }
 

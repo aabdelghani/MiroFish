@@ -18,6 +18,7 @@
             {{ $t('common.modes.' + mode) }}
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
             {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
+            {{ { graph: t.view_graph, split: t.view_split, workbench: t.view_workbench }[mode] }}
           </button>
         </div>
       </div>
@@ -28,6 +29,7 @@
           <span class="step-name">{{ $t('steps.deepInteraction') }}</span>
           <span class="step-name">Deep Interaction</span>
           <span class="step-name">{{ $t('interactionView.stepName') }}</span>
+          <span class="step-name">{{ t.step5Title }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -67,6 +69,7 @@
 </template>
 
 <script setup>
+import { t, currentLang } from '../i18n'
 import { ref, computed, onMounted, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
@@ -202,6 +205,10 @@ const loadReportData = async () => {
     }
   } catch (err) {
     addLog(t('interactionView.loadException', { error: err.message }))
+      addLog(`Failed to fetch report: ${reportRes.error || 'Unknown error'}`)
+    }
+  } catch (err) {
+    addLog(`Load exception: ${err.message}`)
   }
 }
 
@@ -224,6 +231,10 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(t('interactionView.graphLoadFailed', { error: err.message }))
+      addLog('Graph data loaded')
+    }
+  } catch (err) {
+    addLog(`Graph load failed: ${err.message}`)
   } finally {
     graphLoading.value = false
   }
@@ -247,6 +258,7 @@ onMounted(() => {
   addLog(t('interaction.interactionViewInit'))
   addLog('InteractionView initialized')
   addLog(t('interactionView.viewInit'))
+  addLog('InteractionView initialized')
   loadReportData()
 })
 </script>
