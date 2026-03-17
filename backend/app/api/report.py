@@ -10,7 +10,8 @@ import threading
 from flask import request, jsonify, send_file
 
 from . import report_bp
-from ..config import Config
+from ..utils.request_locale import get_request_locale
+from ..utils.error_messages import get_error_message
 from ..services.report_agent import ReportAgent, ReportManager, ReportStatus
 from ..services.simulation_manager import SimulationManager
 from ..models.project import ProjectManager
@@ -65,6 +66,8 @@ def generate_report():
     """
     try:
         data = request.get_json() or {}
+        
+        locale = get_request_locale()
 
         simulation_id = data.get('simulation_id')
         if not simulation_id:
@@ -78,6 +81,12 @@ def generate_report():
         
 
         # Load the simulation.
+                "error": get_error_message('report_missing_sim_id', locale)
+            }), 400
+
+        force_regenerate = data.get('force_regenerate', False)
+
+        # 获取模拟信息
         manager = SimulationManager()
         state = manager.get_simulation(simulation_id)
 
@@ -89,6 +98,10 @@ def generate_report():
         
 
         # Reuse an existing completed report unless forced to regenerate.
+                "error": get_error_message('report_sim_not_found', locale).format(simulation_id=simulation_id)
+            }), 404
+
+        # 检查是否已有报告
         if not force_regenerate:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
@@ -105,11 +118,18 @@ def generate_report():
         
 
         # Load the project.
+                        "message": get_error_message('report_already_exists', locale),
+                        "already_generated": True
+                    }
+                })
+
+        # 获取项目信息
         project = ProjectManager.get_project(state.project_id)
         if not project:
             return jsonify({
                 "success": False,
                 "error": f"Project not found: {state.project_id}"
+                "error": get_error_message('report_project_not_found', locale).format(project_id=state.project_id)
             }), 404
 
         graph_id = state.graph_id or project.graph_id
@@ -118,6 +138,7 @@ def generate_report():
                 "success": False,
                 "error": "Graph ID is missing; ensure the graph has been built"
                 "error": "Missing graph_id. Make sure the graph has been built."
+                "error": get_error_message('report_missing_graph', locale)
             }), 400
 
         simulation_requirement = project.simulation_requirement
@@ -127,6 +148,13 @@ def generate_report():
                 "error": "Simulation requirement description is missing"
             }), 400
         
+                "error": get_error_message('report_missing_requirement', locale)
+            }), 400
+        
+        # 获取用户语言偏好（在启动线程前捕获，线程内 request 可能不可用）
+        report_language = locale
+        
+        # 提前生成 report_id，以便立即返回给前端
         import uuid
         report_id = f"report_{uuid.uuid4().hex[:12]}"
         
@@ -173,10 +201,15 @@ def generate_report():
                 )
 
                 # Create the report agent.
+                    message=get_error_message('report_init_agent', report_language)
+                )
+                
+                # 创建Report Agent（传入用户语言，报告和对话均使用该语言）
                 agent = ReportAgent(
                     graph_id=graph_id,
                     simulation_id=simulation_id,
-                    simulation_requirement=simulation_requirement
+                    simulation_requirement=simulation_requirement,
+                    report_language=report_language
                 )
                 
 
@@ -211,6 +244,8 @@ def generate_report():
                 else:
                     task_manager.fail_task(task_id, report.error or "Report generation failed")
                 
+                    task_manager.fail_task(task_id, report.error or get_error_message('report_gen_failed', report_language))
+
             except Exception as e:
                 logger.error(f"Report generation failed: {str(e)}")
                 task_manager.fail_task(task_id, str(e))
@@ -233,6 +268,7 @@ def generate_report():
                 "status": "generating",
                 "message": "Report generation task started; query progress via /api/report/generate/status",
                 "message": "Report generation started. Query progress via /api/report/generate/status.",
+                "message": get_error_message('report_gen_started', locale),
                 "already_generated": False
             }
         })
@@ -275,6 +311,7 @@ def get_generate_status():
         }
     """
     try:
+        locale = get_request_locale()
         data = request.get_json() or {}
 
         task_id = data.get('task_id')
@@ -282,6 +319,8 @@ def get_generate_status():
         
 
         # If simulation_id is provided, first check whether the report is already done.
+
+        # 如果提供了simulation_id，先检查是否已有完成的报告
         if simulation_id:
             existing_report = ReportManager.get_report_by_simulation(simulation_id)
             if existing_report and existing_report.status == ReportStatus.COMPLETED:
@@ -294,6 +333,7 @@ def get_generate_status():
                         "progress": 100,
                         "message": "Report generated",
                         "message": "Report already generated",
+                        "message": get_error_message('report_already_generated', locale),
                         "already_completed": True
                     }
                 })
@@ -303,6 +343,7 @@ def get_generate_status():
                 "success": False,
                 "error": "task_id or simulation_id is required"
                 "error": "Please provide task_id or simulation_id"
+                "error": get_error_message('report_missing_task_or_sim_id', locale)
             }), 400
 
         task_manager = TaskManager()
@@ -312,6 +353,7 @@ def get_generate_status():
             return jsonify({
                 "success": False,
                 "error": f"Task not found: {task_id}"
+                "error": get_error_message('report_task_not_found', locale).format(task_id=task_id)
             }), 404
 
         return jsonify({
@@ -355,9 +397,11 @@ def get_report(report_id: str):
         report = ReportManager.get_report(report_id)
 
         if not report:
+            locale = get_request_locale()
             return jsonify({
                 "success": False,
                 "error": f"Report not found: {report_id}"
+                "error": get_error_message('report_not_found', locale).format(report_id=report_id)
             }), 404
 
         return jsonify({
@@ -395,10 +439,12 @@ def get_report_by_simulation(simulation_id: str):
         report = ReportManager.get_report_by_simulation(simulation_id)
 
         if not report:
+            locale = get_request_locale()
             return jsonify({
                 "success": False,
                 "error": f"No report for this simulation: {simulation_id}",
                 "error": f"No report exists for simulation: {simulation_id}",
+                "error": get_error_message('report_no_report_for_sim', locale).format(simulation_id=simulation_id),
                 "has_report": False
             }), 404
 
@@ -410,6 +456,7 @@ def get_report_by_simulation(simulation_id: str):
 
     except Exception as e:
         logger.error(f"Failed to get report: {str(e)}")
+        logger.error(f"Failed to get report by simulation: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
@@ -524,11 +571,18 @@ def delete_report(report_id: str):
             return jsonify({
                 "success": False,
                 "error": f"Report not found: {report_id}"
+        
+        locale = get_request_locale()
+        if not success:
+            return jsonify({
+                "success": False,
+                "error": get_error_message('report_not_found', locale).format(report_id=report_id)
             }), 404
 
         return jsonify({
             "success": True,
             "message": f"Report deleted: {report_id}"
+            "message": get_error_message('report_deleted', locale).format(report_id=report_id)
         })
 
     except Exception as e:
@@ -591,12 +645,19 @@ def chat_with_report_agent():
                 "success": False,
                 "error": "simulation_id is required"
                 "error": "Please provide simulation_id"
+        
+        report_lang = get_request_locale()
+        if not simulation_id:
+            return jsonify({
+                "success": False,
+                "error": get_error_message('missing_simulation_id', report_lang)
             }), 400
 
         if not message:
             return jsonify({
                 "success": False,
                 "error": "message is required"
+                "error": get_error_message('missing_message', report_lang)
             }), 400
         
                 "error": "Please provide message"
@@ -613,6 +674,7 @@ def chat_with_report_agent():
             return jsonify({
                 "success": False,
                 "error": f"Simulation not found: {simulation_id}"
+                "error": f"{get_error_message('simulation_not_found', report_lang)}: {simulation_id}"
             }), 404
 
         project = ProjectManager.get_project(state.project_id)
@@ -620,6 +682,7 @@ def chat_with_report_agent():
             return jsonify({
                 "success": False,
                 "error": f"Project not found: {state.project_id}"
+                "error": f"{get_error_message('project_not_found', report_lang)}: {state.project_id}"
             }), 404
 
         graph_id = state.graph_id or project.graph_id
@@ -628,16 +691,20 @@ def chat_with_report_agent():
                 "success": False,
                 "error": "Graph ID is missing"
                 "error": "Missing graph_id"
+                "error": get_error_message('missing_graph_id', report_lang)
             }), 400
 
         simulation_requirement = project.simulation_requirement or ""
+        report_language = report_lang
         
 
         # Create the agent and run the conversation.
+        # 创建Agent并进行对话（使用用户选择的语言）
         agent = ReportAgent(
             graph_id=graph_id,
             simulation_id=simulation_id,
-            simulation_requirement=simulation_requirement
+            simulation_requirement=simulation_requirement,
+            report_language=report_language
         )
 
         result = agent.chat(message=message, chat_history=chat_history)
@@ -684,9 +751,11 @@ def get_report_progress(report_id: str):
         progress = ReportManager.get_progress(report_id)
 
         if not progress:
+            locale = get_request_locale()
             return jsonify({
                 "success": False,
                 "error": f"Report not found or progress unavailable: {report_id}"
+                "error": get_error_message('report_progress_not_found', locale).format(report_id=report_id)
             }), 404
 
         return jsonify({
@@ -751,6 +820,7 @@ def get_report_sections(report_id: str):
 
     except Exception as e:
         logger.error(f"Failed to get section list: {str(e)}")
+        logger.error(f"Failed to get sections: {str(e)}")
         return jsonify({
             "success": False,
             "error": str(e)
@@ -778,10 +848,12 @@ def get_single_section(report_id: str, section_index: int):
         section_path = ReportManager._get_section_path(report_id, section_index)
 
         if not os.path.exists(section_path):
+            locale = get_request_locale()
             return jsonify({
                 "success": False,
                 "error": f"Section not found: section_{section_index:02d}.md"
                 "error": f"Section does not exist: section_{section_index:02d}.md"
+                "error": get_error_message('report_section_not_found', locale).format(index=section_index)
             }), 404
 
         with open(section_path, 'r', encoding='utf-8') as f:
@@ -1074,10 +1146,12 @@ def search_graph_tool():
         limit = data.get('limit', 10)
 
         if not graph_id or not query:
+            locale = get_request_locale()
             return jsonify({
                 "success": False,
                 "error": "graph_id and query are required"
                 "error": "Please provide both graph_id and query"
+                "error": get_error_message('report_missing_graph_and_query', locale)
             }), 400
 
         from ..services.zep_tools import ZepToolsService
@@ -1120,10 +1194,12 @@ def get_graph_statistics_tool():
         graph_id = data.get('graph_id')
 
         if not graph_id:
+            locale = get_request_locale()
             return jsonify({
                 "success": False,
                 "error": "graph_id is required"
                 "error": "Please provide graph_id"
+                "error": get_error_message('report_missing_graph_id', locale)
             }), 400
 
         from ..services.zep_tools import ZepToolsService

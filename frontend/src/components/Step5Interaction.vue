@@ -60,6 +60,7 @@
                   </div>
                   <span class="loading-text">Generating {{ section.title }}...</span>
                   <span class="loading-text">{{ $t('step5.generatingSection', { title: section.title }) }}</span>
+                  <span class="loading-text">{{ $t('step5.generating') }}{{ section.title }}...</span>
                 </div>
               </div>
             </div>
@@ -101,6 +102,7 @@
               </svg>
               <span>Chat with Report Agent</span>
               <span>{{ $t('step5.chatWithReportAgent') }}</span>
+              <span>{{ $t('step5.chatWithReport') }}</span>
             </button>
             <div class="agent-dropdown" v-if="profiles.length > 0">
               <button 
@@ -114,6 +116,7 @@
                 </svg>
                 <span>{{ selectedAgent ? selectedAgent.username : 'Chat with any individual in the world' }}</span>
                 <span>{{ selectedAgent ? selectedAgent.username : $t('step5.chatWithAnyAgent') }}</span>
+                <span>{{ selectedAgent ? selectedAgent.username : $t('step5.chatWithAgent') }}</span>
                 <svg class="dropdown-arrow" :class="{ open: showAgentDropdown }" viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2">
                   <polyline points="6 9 12 15 18 9"></polyline>
                 </svg>
@@ -163,6 +166,7 @@
                 <div class="tools-card-name">Report Agent - Chat</div>
                 <div class="tools-card-subtitle">A fast conversational version of the report-generation agent with access to 4 specialized tools and MiroFish's full memory</div>
                 <div class="tools-card-subtitle">{{ $t('step5.reportAgentDesc') }}</div>
+                <div class="tools-card-subtitle">{{ $t('step5.toolsSubtitle') }}</div>
               </div>
               <button class="tools-card-toggle" @click="showToolsDetail = !showToolsDetail">
                 <svg :class="{ 'is-expanded': showToolsDetail }" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
@@ -183,6 +187,8 @@
                     <div class="tool-desc">Aligns real-world seed data with the simulation state and combines global and local memory for deep causal analysis across time and context</div>
                     <div class="tool-name">{{ $t('step5.toolInsightForge') }}</div>
                     <div class="tool-desc">{{ $t('step5.toolInsightForgeDesc') }}</div>
+                    <div class="tool-name">{{ $t('step5.insightForge') }}</div>
+                    <div class="tool-desc">{{ $t('step5.insightForgeDesc') }}</div>
                   </div>
                 </div>
                 <div class="tool-item tool-blue">
@@ -197,6 +203,8 @@
                     <div class="tool-desc">Uses graph traversal to reconstruct propagation paths and capture the topology of end-to-end information flow</div>
                     <div class="tool-name">{{ $t('step5.toolPanoramaSearch') }}</div>
                     <div class="tool-desc">{{ $t('step5.toolPanoramaSearchDesc') }}</div>
+                    <div class="tool-name">{{ $t('step5.panoramaSearch') }}</div>
+                    <div class="tool-desc">{{ $t('step5.panoramaSearchDesc') }}</div>
                   </div>
                 </div>
                 <div class="tool-item tool-orange">
@@ -210,6 +218,8 @@
                     <div class="tool-desc">A GraphRAG-powered instant query interface optimized for fast extraction of node attributes and discrete facts</div>
                     <div class="tool-name">{{ $t('step5.toolQuickSearch') }}</div>
                     <div class="tool-desc">{{ $t('step5.toolQuickSearchDesc') }}</div>
+                    <div class="tool-name">{{ $t('step5.quickSearch') }}</div>
+                    <div class="tool-desc">{{ $t('step5.quickSearchDesc') }}</div>
                   </div>
                 </div>
                 <div class="tool-item tool-green">
@@ -225,6 +235,8 @@
                     <div class="tool-desc">Runs autonomous interviews in parallel with simulated individuals to collect unstructured opinions and psychological state signals</div>
                     <div class="tool-name">{{ $t('step5.toolInterview') }}</div>
                     <div class="tool-desc">{{ $t('step5.toolInterviewDesc') }}</div>
+                    <div class="tool-name">{{ $t('step5.interviewAgent') }}</div>
+                    <div class="tool-desc">{{ $t('step5.interviewAgentDesc') }}</div>
                   </div>
                 </div>
               </div>
@@ -268,6 +280,7 @@
               </div>
               <p class="empty-text">
                 {{ chatTarget === 'report_agent' ? 'Chat with the Report Agent to explore the report in more depth' : 'Chat with simulated individuals to understand their views' }}
+                {{ chatTarget === 'report_agent' ? $t('step5.chatWithReportDesc') : $t('step5.chatWithAgentDesc') }}
               </p>
             </div>
             <div 
@@ -310,6 +323,7 @@
               v-model="chatInput"
               class="chat-input"
               placeholder="Type your question..."
+              :placeholder="$t('step5.placeholder')"
               @keydown.enter.exact.prevent="sendMessage"
               :disabled="isSending || (!selectedAgent && chatTarget === 'agent')"
               rows="1"
@@ -336,6 +350,8 @@
               <div class="section-header">
                 <span class="section-title">Select survey targets</span>
                 <span class="selection-count">Selected {{ selectedAgents.size }} / {{ profiles.length }}</span>
+                <span class="section-title">{{ $t('step5.selectSurveyTarget') }}</span>
+                <span class="selection-count">{{ $t('step5.selectedCount', { n: selectedAgents.size, total: profiles.length }) }}</span>
               </div>
               <div class="agents-grid">
                 <label 
@@ -366,17 +382,22 @@
                 <button class="action-link" @click="selectAllAgents">Select all</button>
                 <span class="action-divider">|</span>
                 <button class="action-link" @click="clearAgentSelection">Clear</button>
+                <button class="action-link" @click="selectAllAgents">{{ $t('step5.selectAll') }}</button>
+                <span class="action-divider">|</span>
+                <button class="action-link" @click="clearAgentSelection">{{ $t('step5.clear') }}</button>
               </div>
             </div>
 
             <div class="setup-section">
               <div class="section-header">
                 <span class="section-title">Survey question</span>
+                <span class="section-title">{{ $t('step5.questionnaire') }}</span>
               </div>
               <textarea 
                 v-model="surveyQuestion"
                 class="survey-input"
                 placeholder="Type the question you want to ask all selected targets..."
+                :placeholder="$t('step5.placeholderSurvey')"
                 rows="3"
               ></textarea>
             </div>
@@ -388,6 +409,7 @@
             >
               <span v-if="isSurveying" class="loading-spinner"></span>
               <span v-else>Send survey</span>
+              <span v-else>{{ $t('step5.sendQuestionnaire') }}</span>
             </button>
           </div>
 
@@ -396,6 +418,8 @@
             <div class="results-header">
               <span class="results-title">Survey results</span>
               <span class="results-count">{{ surveyResults.length }} responses</span>
+              <span class="results-title">{{ $t('step5.surveyResults') }}</span>
+              <span class="results-count">{{ $t('step5.repliesCount', { n: surveyResults.length }) }}</span>
             </div>
             <div class="results-list">
               <div 
@@ -443,6 +467,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['add-log', 'update-status'])
+const { t } = useI18n()
 
 // State
 const activeTab = ref('chat')
@@ -572,6 +597,7 @@ const selectAgent = (agent, idx) => {
   // Restore this agent's conversation history
   chatHistory.value = chatHistoryCache.value[`agent_${idx}`] || []
   addLog(`Selected conversation target: ${agent.username}`)
+  addLog(t('logs.s5_selectChatTarget', { name: agent.username }))
 }
 
 const formatTime = (timestamp) => {
@@ -699,6 +725,7 @@ const sendMessage = async () => {
     }
   } catch (err) {
     addLog(`Send failed: ${err.message}`)
+    addLog(`${t('errors.sendFailed')}: ${err.message}`)
     chatHistory.value.push({
       role: 'assistant',
       content: `Sorry, an error occurred: ${err.message}`,
@@ -714,6 +741,7 @@ const sendMessage = async () => {
 
 const sendToReportAgent = async (message) => {
   addLog(`Sending to Report Agent: ${message.substring(0, 50)}...`)
+  addLog(t('logs.s5_sendToReportAgent', { msg: message.substring(0, 50) }))
   
   // Build chat history for API
   const historyForApi = chatHistory.value
@@ -737,6 +765,7 @@ const sendToReportAgent = async (message) => {
       timestamp: new Date().toISOString()
     })
     addLog('Report Agent responded')
+    addLog(t('logs.s5_reportAgentReplied'))
   } else {
     throw new Error(res.error || 'Request failed')
   }
@@ -748,6 +777,7 @@ const sendToAgent = async (message) => {
   }
   
   addLog(`Sending to ${selectedAgent.value.username}: ${message.substring(0, 50)}...`)
+  addLog(t('logs.s5_sendToAgent', { name: selectedAgent.value.username, msg: message.substring(0, 50) }))
   
   // Build prompt with chat history
   let prompt = message
@@ -801,6 +831,7 @@ const sendToAgent = async (message) => {
         timestamp: new Date().toISOString()
       })
       addLog(`${selectedAgent.value.username} responded`)
+      addLog(t('logs.s5_agentReplied', { name: selectedAgent.value.username }))
     } else {
       throw new Error('No response data')
     }
@@ -843,6 +874,7 @@ const submitSurvey = async () => {
   
   isSurveying.value = true
   addLog(`Sending survey to ${selectedAgents.value.size} targets...`)
+  addLog(t('logs.s5_sendingSurvey', { count: selectedAgents.value.size }))
   
   try {
     // 使用 user_id 作为 agent_id，而不是数组索引
@@ -910,11 +942,13 @@ const submitSurvey = async () => {
       
       surveyResults.value = surveyResultsList
       addLog(`Received ${surveyResults.value.length} responses`)
+      addLog(t('logs.s5_surveyRepliesReceived', { count: surveyResults.value.length }))
     } else {
       throw new Error(res.error || 'Request failed')
     }
   } catch (err) {
     addLog(`Survey send failed: ${err.message}`)
+    addLog(`${t('errors.surveySendFailed')}: ${err.message}`)
   } finally {
     isSurveying.value = false
   }
@@ -926,6 +960,7 @@ const loadReportData = async () => {
   
   try {
     addLog(`Loading report data: ${props.reportId}`)
+    addLog(t('logs.s5_loadingReportData', { id: props.reportId }))
     
     // Get report info
     const reportRes = await getReport(props.reportId)
@@ -935,6 +970,7 @@ const loadReportData = async () => {
     }
   } catch (err) {
     addLog(`Failed to load report: ${err.message}`)
+    addLog(`${t('errors.loadReportFailed')}: ${err.message}`)
   }
 }
 
@@ -960,6 +996,10 @@ const loadAgentLogs = async () => {
     }
   } catch (err) {
     addLog(`Failed to load report logs: ${err.message}`)
+      addLog(t('logs.s5_reportDataLoaded'))
+    }
+  } catch (err) {
+    addLog(`${t('errors.loadReportLogFailed')}: ${err.message}`)
   }
 }
 
@@ -974,6 +1014,10 @@ const loadProfiles = async () => {
     }
   } catch (err) {
     addLog(`Failed to load simulated individuals: ${err.message}`)
+      addLog(t('logs.s5_profilesLoaded', { count: profiles.value.length }))
+    }
+  } catch (err) {
+    addLog(`${t('errors.loadProfilesFailed')}: ${err.message}`)
   }
 }
 
@@ -988,6 +1032,7 @@ const handleClickOutside = (e) => {
 // Lifecycle
 onMounted(() => {
   addLog('Step 5 deep interaction initialized')
+  addLog(t('logs.s5_init'))
   loadReportData()
   loadProfiles()
   document.addEventListener('click', handleClickOutside)

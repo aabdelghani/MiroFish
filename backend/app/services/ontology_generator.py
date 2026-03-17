@@ -138,7 +138,8 @@ class OntologyGenerator:
         self,
         document_texts: List[str],
         simulation_requirement: str,
-        additional_context: Optional[str] = None
+        additional_context: Optional[str] = None,
+        language: str = 'zh'
     ) -> Dict[str, Any]:
         """
         Generate ontology definition from documents and simulation requirement.
@@ -153,10 +154,22 @@ class OntologyGenerator:
             document_texts: 文档文本列表
             simulation_requirement: 模拟需求描述
             additional_context: 额外上下文
+            language: 输出语言 ('zh', 'en', 'ko')，用于 analysis_summary 等字段
 
         Returns:
             Ontology dict (entity_types, edge_types, analysis_summary, etc.)
         """
+        self._language = language
+        # 语言指令：让 LLM 的 analysis_summary 等自然语言输出与用户语言一致
+        lang_instructions = {
+            'zh': "\n\n**语言要求**：analysis_summary 必须使用中文撰写。",
+            'en': "\n\n**Language requirement**: You MUST write analysis_summary in English.",
+            'ko': "\n\n**언어 요구사항**: analysis_summary는 반드시 한국어로 작성해야 합니다.",
+        }
+        lang_instruction = lang_instructions.get(language, lang_instructions['zh'])
+        system_prompt = ONTOLOGY_SYSTEM_PROMPT + lang_instruction
+        
+        # 构建用户消息
         user_message = self._build_user_message(
             document_texts,
             simulation_requirement,
@@ -396,8 +409,8 @@ Design entity types and relationship types suitable for social opinion simulatio
                     attr_desc = attr.get("description", attr_name)
                     code_lines.append(f'    {attr_name}: EntityText = Field(')
                     code_lines.append(f'        description="{attr_desc}",')
-                    code_lines.append(f'        default=None')
-                    code_lines.append(f'    )')
+                    code_lines.append('        default=None')
+                    code_lines.append('    )')
             else:
                 code_lines.append('    pass')
             
@@ -420,8 +433,8 @@ Design entity types and relationship types suitable for social opinion simulatio
                     attr_desc = attr.get("description", attr_name)
                     code_lines.append(f'    {attr_name}: EntityText = Field(')
                     code_lines.append(f'        description="{attr_desc}",')
-                    code_lines.append(f'        default=None')
-                    code_lines.append(f'    )')
+                    code_lines.append('        default=None')
+                    code_lines.append('    )')
             else:
                 code_lines.append('    pass')
             

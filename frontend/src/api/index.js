@@ -1,4 +1,5 @@
 import axios from 'axios'
+import { getApiLocale } from '../i18n'
 
 // Create the shared axios instance.
 const service = axios.create({
@@ -14,8 +15,13 @@ const service = axios.create({
 })
 
 // Request interceptor
+// 请求拦截器 - 添加用户选择的语言，供后端 LLM 使用
 service.interceptors.request.use(
   config => {
+    const locale = getApiLocale()
+    if (locale) {
+      config.headers['X-Locale'] = locale
+    }
     return config
   },
   error => {

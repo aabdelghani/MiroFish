@@ -17,6 +17,10 @@
           <span class="btn-text">Refresh</span>
         </button>
         <button class="tool-btn" @click="$emit('toggle-maximize')" title="Maximize or restore">
+        <button class="tool-btn" @click="$emit('refresh')" :disabled="loading" :title="$t('graph.refresh')">
+          <span class="icon-refresh" :class="{ 'spinning': loading }">↻</span>
+          <span class="btn-text">Refresh</span>
+        </button>
         <button class="tool-btn" @click="$emit('toggle-maximize')" :title="$t('graph.maximize')">
           <span class="icon-maximize">⛶</span>
         </button>
@@ -42,6 +46,7 @@
           {{ isSimulating ? 'GraphRAG long- and short-term memory is updating in real time' : 'Updating in real time...' }}
           {{ isSimulating ? $t('process.graphMemoryUpdate') : $t('process.updatingLive') }}
           {{ isSimulating ? t.gp_updating_sim : t.gp_updating }}
+          {{ isSimulating ? $t('graph.memoryUpdating') : $t('graph.updating') }}
         </div>
         
         <!-- Post-simulation hint -->
@@ -61,6 +66,8 @@
           <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('graph.closeHint')">
           <span class="hint-text">{{ t.gp_refresh_hint }}</span>
           <button class="hint-close-btn" @click="dismissFinishedHint" title="关闭提示">
+          <span class="hint-text">{{ $t('graph.hintRefresh') }}</span>
+          <button class="hint-close-btn" @click="dismissFinishedHint" :title="$t('graph.closeHint')">
             <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="18" y1="6" x2="6" y2="18"></line>
               <line x1="6" y1="6" x2="18" y2="18"></line>
@@ -238,6 +245,7 @@
         <div class="empty-icon">❖</div>
         <p class="empty-text">{{ $t('graph.waitingOntology') }}</p>
         <p class="empty-text">{{ t.gp_waiting }}</p>
+        <p class="empty-text">{{ $t('graph.waitOntology') }}</p>
       </div>
     </div>
 

@@ -15,10 +15,16 @@ from dataclasses import dataclass, field
 
 from ..config import Config
 from ..utils.logger import get_logger
+from ..utils.error_messages import get_error_message
 from ..utils.llm_client import LLMClient
 from .kg_adapter import get_knowledge_graph_adapter
 
 logger = get_logger('mirofish.zep_tools')
+
+# zep_tools runs in background threads without Flask request context,
+# so we default to 'zh' for logger messages. The locale parameter can be
+# threaded through from callers if needed in the future.
+_ZEP_LOG_LOCALE = 'zh'
 
 
 @dataclass
@@ -89,6 +95,9 @@ class NodeInfo:
         """Format as text."""
         entity_type = next((l for l in self.labels if l not in ["Entity", "Node"]), "unknown")
         return f"Entity: {self.name} (type: {entity_type})\nSummary: {self.summary}"
+        """转换为文本格式"""
+        entity_type = next((label for label in self.labels if label not in ["Entity", "Node"]), "未知类型")
+        return f"实体: {self.name} (类型: {entity_type})\n摘要: {self.summary}"
 
 
 @dataclass
@@ -214,19 +223,29 @@ class InsightForgeResult:
             f"- Facts: {self.total_facts}",
             f"- Entities: {self.total_entities}",
             f"- Relationship chains: {self.total_relationships}"
+            "## 未来预测深度分析",
+            f"分析问题: {self.query}",
+            f"预测场景: {self.simulation_requirement}",
+            "\n### 预测数据统计",
+            f"- 相关预测事实: {self.total_facts}条",
+            f"- 涉及实体: {self.total_entities}个",
+            f"- 关系链: {self.total_relationships}条"
         ]
         if self.sub_queries:
             text_parts.append(f"\n### Sub-queries")
+            text_parts.append("\n### 分析的子问题")
             for i, sq in enumerate(self.sub_queries, 1):
                 text_parts.append(f"{i}. {sq}")
         
         if self.semantic_facts:
             text_parts.append(f"\n### Key facts (cite in report)")
+            text_parts.append("\n### 【关键事实】(请在报告中引用这些原文)")
             for i, fact in enumerate(self.semantic_facts, 1):
                 text_parts.append(f"{i}. \"{fact}\"")
         
         if self.entity_insights:
             text_parts.append(f"\n### Core entities")
+            text_parts.append("\n### 【核心实体】")
             for entity in self.entity_insights:
                 text_parts.append(f"- **{entity.get('name', 'Unknown')}** ({entity.get('type', 'Entity')})")
                 if entity.get('summary'):
@@ -236,6 +255,7 @@ class InsightForgeResult:
         
         if self.relationship_chains:
             text_parts.append(f"\n### Relationship chains")
+            text_parts.append("\n### 【关系链】")
             for chain in self.relationship_chains:
                 text_parts.append(f"- {chain}")
         
@@ -280,19 +300,31 @@ class PanoramaResult:
             f"- Total edges: {self.total_edges}",
             f"- Active facts: {self.active_count}",
             f"- Historical/expired facts: {self.historical_count}"
+            "## 广度搜索结果（未来全景视图）",
+            f"查询: {self.query}",
+            "\n### 统计信息",
+            f"- 总节点数: {self.total_nodes}",
+            f"- 总边数: {self.total_edges}",
+            f"- 当前有效事实: {self.active_count}条",
+            f"- 历史/过期事实: {self.historical_count}条"
         ]
         if self.active_facts:
             text_parts.append(f"\n### Current valid facts")
+            text_parts.append("\n### 【当前有效事实】(模拟结果原文)")
             for i, fact in enumerate(self.active_facts, 1):
                 text_parts.append(f"{i}. \"{fact}\"")
         if self.historical_facts:
             text_parts.append(f"\n### Historical/expired facts")
+            text_parts.append("\n### 【历史/过期事实】(演变过程记录)")
             for i, fact in enumerate(self.historical_facts, 1):
                 text_parts.append(f"{i}. \"{fact}\"")
         if self.all_nodes:
             text_parts.append(f"\n### Involved entities")
             for node in self.all_nodes:
                 entity_type = next((l for l in node.labels if l not in ["Entity", "Node"]), "Entity")
+            text_parts.append("\n### 【涉及实体】")
+            for node in self.all_nodes:
+                entity_type = next((label for label in node.labels if label not in ["Entity", "Node"]), "实体")
                 text_parts.append(f"- **{node.name}** ({entity_type})")
         
         return "\n".join(text_parts)
@@ -420,6 +452,8 @@ class ZepToolsService:
         self._llm_client = llm_client
         logger.info("ZepToolsService initialized")
 
+        logger.info(get_error_message('log_zep_service_init', _ZEP_LOG_LOCALE))
+    
     @property
     def llm(self) -> LLMClient:
         """Lazy-init LLM client."""
@@ -461,7 +495,7 @@ class ZepToolsService:
         Graph semantic search (hybrid semantic+BM25). Falls back to local keyword
         match if Zep Cloud search API is unavailable.
         """
-        logger.info(f"图谱搜索: graph_id={graph_id}, query={query[:50]}...")
+        logger.info(get_error_message('zep_graph_search', _ZEP_LOG_LOCALE).format(graph_id=graph_id, query=query[:50]))
         
         # 尝试使用图谱搜索 API
         logger.info(f"Graph search: graph_id={graph_id}, query={query[:50]}...")
@@ -560,6 +594,7 @@ class ZepToolsService:
                         facts.append(f"[{node.name}]: {node.summary}")
             
             logger.info(f"Search done: {len(facts)} relevant facts")
+            logger.info(get_error_message('zep_search_done', _ZEP_LOG_LOCALE).format(count=len(facts)))
             
             return SearchResult(
                 facts=facts,
@@ -582,6 +617,21 @@ class ZepToolsService:
     ) -> SearchResult:
         """Local keyword-match search (fallback when Zep Search API unavailable)."""
         logger.info(f"Using local search: query={query[:30]}...")
+        """
+        本地关键词匹配搜索（作为Zep Search API的降级方案）
+        
+        获取所有边/节点，然后在本地进行关键词匹配
+        
+        Args:
+            graph_id: 图谱ID
+            query: 搜索查询
+            limit: 返回结果数量
+            scope: 搜索范围
+            
+        Returns:
+            SearchResult: 搜索结果
+        """
+        logger.info(get_error_message('zep_local_search', _ZEP_LOG_LOCALE).format(query=query[:30]))
         
         facts = []
         edges_result = []
@@ -646,6 +696,7 @@ class ZepToolsService:
                         facts.append(f"[{node.name}]: {node.summary}")
             
             logger.info(f"Local search done: {len(facts)} relevant facts")
+            logger.info(get_error_message('zep_local_search_done', _ZEP_LOG_LOCALE).format(count=len(facts)))
             
         except Exception as e:
             logger.error(f"Local search failed: {str(e)}")
@@ -681,6 +732,10 @@ class ZepToolsService:
                 else:
                     nodes.append(item)
             page_count += 1
+        Returns:
+            节点列表
+        """
+        logger.info(get_error_message('zep_graph_nodes', _ZEP_LOG_LOCALE).format(graph_id=graph_id))
 
             # 如果返回数量 < limit，说明是最后一页
             if len(page) < 100:
@@ -707,6 +762,7 @@ class ZepToolsService:
             ))
 
         logger.info(f"Fetched {len(result)} nodes")
+        logger.info(get_error_message('zep_got_nodes', _ZEP_LOG_LOCALE).format(count=len(result)))
         return result
 
     def get_all_edges(self, graph_id: str, include_temporal: bool = True) -> List[EdgeInfo]:
@@ -730,6 +786,10 @@ class ZepToolsService:
                 else:
                     edges.append(item)
             page_count += 1
+        Returns:
+            边列表（包含created_at, valid_at, invalid_at, expired_at）
+        """
+        logger.info(get_error_message('zep_graph_edges', _ZEP_LOG_LOCALE).format(graph_id=graph_id))
 
             if len(page) < 100:
                 break
@@ -761,6 +821,7 @@ class ZepToolsService:
             result.append(edge_info)
 
         logger.info(f"Fetched {len(result)} edges")
+        logger.info(get_error_message('zep_got_edges', _ZEP_LOG_LOCALE).format(count=len(result)))
         return result
 
     def get_node_detail(self, node_uuid: str) -> Optional[NodeInfo]:
@@ -781,6 +842,8 @@ class ZepToolsService:
                 operation_name=f"获取节点详情(uuid={node_uuid[:8]}...)"
         """Get a single node by UUID."""
         logger.info(f"Getting node detail: {node_uuid[:8]}...")
+        logger.info(get_error_message('log_zep_node_detail', _ZEP_LOG_LOCALE).format(uuid=node_uuid[:8]))
+        
         try:
             node = self._call_with_retry(
                 func=lambda: self.client.graph.node.get(uuid_=node_uuid),
@@ -814,6 +877,20 @@ class ZepToolsService:
     def get_node_edges(self, graph_id: str, node_uuid: str) -> List[EdgeInfo]:
         """Get all edges for a node (fetch all graph edges then filter)."""
         logger.info(f"Getting edges for node {node_uuid[:8]}...")
+        """
+        获取节点相关的所有边
+        
+        通过获取图谱所有边，然后过滤出与指定节点相关的边
+        
+        Args:
+            graph_id: 图谱ID
+            node_uuid: 节点UUID
+            
+        Returns:
+            边列表
+        """
+        logger.info(get_error_message('log_zep_node_edges', _ZEP_LOG_LOCALE).format(uuid=node_uuid[:8]))
+        
         try:
             all_edges = self.get_all_edges(graph_id)
             result = []
@@ -821,6 +898,8 @@ class ZepToolsService:
                 if edge.source_node_uuid == node_uuid or edge.target_node_uuid == node_uuid:
                     result.append(edge)
             logger.info(f"Found {len(result)} edges for node")
+            
+            logger.info(get_error_message('log_zep_node_edges_count', _ZEP_LOG_LOCALE).format(count=len(result)))
             return result
         except Exception as e:
             logger.warning(f"Get node edges failed: {str(e)}")
@@ -836,6 +915,27 @@ class ZepToolsService:
         all_nodes = self.get_all_nodes(graph_id)
         filtered = [n for n in all_nodes if entity_type in n.labels]
         logger.info(f"Found {len(filtered)} entities of type {entity_type}")
+        """
+        按类型获取实体
+        
+        Args:
+            graph_id: 图谱ID
+            entity_type: 实体类型（如 Student, PublicFigure 等）
+            
+        Returns:
+            符合类型的实体列表
+        """
+        logger.info(get_error_message('zep_entity_type', _ZEP_LOG_LOCALE).format(entity_type=entity_type))
+        
+        all_nodes = self.get_all_nodes(graph_id)
+        
+        filtered = []
+        for node in all_nodes:
+            # 检查labels是否包含指定类型
+            if entity_type in node.labels:
+                filtered.append(node)
+        
+        logger.info(get_error_message('zep_entity_type_found', _ZEP_LOG_LOCALE).format(count=len(filtered), entity_type=entity_type))
         return filtered
     
     def get_entity_summary(
@@ -845,6 +945,21 @@ class ZepToolsService:
     ) -> Dict[str, Any]:
         """Get relationship summary for an entity (search + summarize)."""
         logger.info(f"Getting relationship summary for entity {entity_name}...")
+        """
+        获取指定实体的关系摘要
+        
+        搜索与该实体相关的所有信息，并生成摘要
+        
+        Args:
+            graph_id: 图谱ID
+            entity_name: 实体名称
+            
+        Returns:
+            实体摘要信息
+        """
+        logger.info(get_error_message('zep_entity_summary', _ZEP_LOG_LOCALE).format(entity_name=entity_name))
+        
+        # 先搜索该实体相关的信息
         search_result = self.search_graph(
             graph_id=graph_id,
             query=entity_name,
@@ -888,6 +1003,8 @@ class ZepToolsService:
         # 统计实体类型分布（兼容 dict 和对象）
         """Get graph statistics (nodes, edges, type counts)."""
         logger.info(f"Getting graph statistics for {graph_id}...")
+        logger.info(get_error_message('zep_graph_stats', _ZEP_LOG_LOCALE).format(graph_id=graph_id))
+        
         nodes = self.get_all_nodes(graph_id)
         edges = self.get_all_edges(graph_id)
         entity_types = {}
@@ -919,6 +1036,22 @@ class ZepToolsService:
     ) -> Dict[str, Any]:
         """Get simulation-related context (search + stats + entities)."""
         logger.info(f"Getting simulation context: {simulation_requirement[:50]}...")
+        """
+        获取模拟相关的上下文信息
+        
+        综合搜索与模拟需求相关的所有信息
+        
+        Args:
+            graph_id: 图谱ID
+            simulation_requirement: 模拟需求描述
+            limit: 每类信息的数量限制
+            
+        Returns:
+            模拟上下文信息
+        """
+        logger.info(get_error_message('zep_sim_context', _ZEP_LOG_LOCALE).format(requirement=simulation_requirement[:50]))
+        
+        # 搜索与模拟需求相关的信息
         search_result = self.search_graph(
             graph_id=graph_id,
             query=simulation_requirement,
@@ -928,7 +1061,7 @@ class ZepToolsService:
         all_nodes = self.get_all_nodes(graph_id)
         entities = []
         for node in all_nodes:
-            custom_labels = [l for l in node.labels if l not in ["Entity", "Node"]]
+            custom_labels = [label for label in node.labels if label not in ["Entity", "Node"]]
             if custom_labels:
                 entities.append({
                     "name": node.name,
@@ -957,6 +1090,7 @@ class ZepToolsService:
         semantic search, entity extraction, and relationship chains.
         """
         logger.info(f"InsightForge: {query[:50]}...")
+        logger.info(get_error_message('zep_insight_forge', _ZEP_LOG_LOCALE).format(query=query[:50]))
         
         result = InsightForgeResult(
             query=query,
@@ -973,6 +1107,9 @@ class ZepToolsService:
         )
         result.sub_queries = sub_queries
         logger.info(f"Generated {len(sub_queries)} sub-queries")
+        logger.info(get_error_message('zep_sub_queries', _ZEP_LOG_LOCALE).format(count=len(sub_queries)))
+        
+        # Step 2: 对每个子问题进行语义搜索
         all_facts = []
         all_edges = []
         seen_facts = set()
@@ -1028,6 +1165,14 @@ class ZepToolsService:
                     node_map[uuid] = node
                     entity_type = next((l for l in node.labels if l not in ["Entity", "Node"]), "Entity")
                     related_facts = [f for f in all_facts if node.name.lower() in f.lower()]
+                    entity_type = next((label for label in node.labels if label not in ["Entity", "Node"]), "实体")
+                    
+                    # 获取该实体相关的所有事实（不截断）
+                    related_facts = [
+                        f for f in all_facts 
+                        if node.name.lower() in f.lower()
+                    ]
+                    
                     entity_insights.append({
                         "uuid": node.uuid,
                         "name": node.name,
@@ -1058,6 +1203,7 @@ class ZepToolsService:
         result.total_relationships = len(relationship_chains)
         
         logger.info(f"InsightForge done: {result.total_facts} facts, {result.total_entities} entities, {result.total_relationships} relationships")
+        logger.info(get_error_message('zep_insight_done', _ZEP_LOG_LOCALE).format(facts=result.total_facts, entities=result.total_entities, relations=result.total_relationships))
         return result
 
     def _generate_sub_queries(
@@ -1113,6 +1259,27 @@ Return a JSON list of sub-queries."""
     ) -> PanoramaResult:
         """Panorama search: full view including historical/expired content."""
         logger.info(f"PanoramaSearch: {query[:50]}...")
+        """
+        【PanoramaSearch - 广度搜索】
+        
+        获取全貌视图，包括所有相关内容和历史/过期信息：
+        1. 获取所有相关节点
+        2. 获取所有边（包括已过期/失效的）
+        3. 分类整理当前有效和历史信息
+        
+        这个工具适用于需要了解事件全貌、追踪演变过程的场景。
+        
+        Args:
+            graph_id: 图谱ID
+            query: 搜索查询（用于相关性排序）
+            include_expired: 是否包含过期内容（默认True）
+            limit: 返回结果数量限制
+            
+        Returns:
+            PanoramaResult: 广度搜索结果
+        """
+        logger.info(get_error_message('zep_panorama_search', _ZEP_LOG_LOCALE).format(query=query[:50]))
+        
         result = PanoramaResult(query=query)
         all_nodes = self.get_all_nodes(graph_id)
         node_map = {n.uuid: n for n in all_nodes}
@@ -1129,6 +1296,12 @@ Return a JSON list of sub-queries."""
                 continue
             source_name = node_map.get(edge.source_node_uuid, NodeInfo('', '', [], '', {})).name or edge.source_node_uuid[:8]
             target_name = node_map.get(edge.target_node_uuid, NodeInfo('', '', [], '', {})).name or edge.target_node_uuid[:8]
+            
+            # 为事实添加实体名称
+            node_map.get(edge.source_node_uuid, NodeInfo('', '', [], '', {})).name or edge.source_node_uuid[:8]
+            node_map.get(edge.target_node_uuid, NodeInfo('', '', [], '', {})).name or edge.target_node_uuid[:8]
+            
+            # 判断是否过期/失效
             is_historical = edge.is_expired or edge.is_invalid
             if is_historical:
                 valid_at = edge.valid_at or "unknown"
@@ -1159,6 +1332,7 @@ Return a JSON list of sub-queries."""
         result.historical_count = len(historical_facts)
         
         logger.info(f"PanoramaSearch done: {result.active_count} active, {result.historical_count} historical")
+        logger.info(get_error_message('zep_panorama_done', _ZEP_LOG_LOCALE).format(active=result.active_count, historical=result.historical_count))
         return result
     
     def quick_search(
@@ -1171,6 +1345,9 @@ Return a JSON list of sub-queries."""
         Quick search: lightweight retrieval via Zep semantic search.
         """
         logger.info(f"QuickSearch: {query[:50]}...")
+        logger.info(get_error_message('zep_quick_search', _ZEP_LOG_LOCALE).format(query=query[:50]))
+        
+        # 直接调用现有的search_graph方法
         result = self.search_graph(
             graph_id=graph_id,
             query=query,
@@ -1179,6 +1356,7 @@ Return a JSON list of sub-queries."""
         )
         
         logger.info(f"QuickSearch done: {result.total_count} results")
+        logger.info(get_error_message('zep_quick_done', _ZEP_LOG_LOCALE).format(count=result.total_count))
         return result
     
     def interview_agents(
@@ -1197,6 +1375,9 @@ Return a JSON list of sub-queries."""
         from .simulation_runner import SimulationRunner
 
         logger.info(f"InterviewAgents: {interview_requirement[:50]}...")
+        
+        logger.info(get_error_message('log_zep_interview_start', _ZEP_LOG_LOCALE).format(preview=interview_requirement[:50]))
+        
         result = InterviewResult(
             interview_topic=interview_requirement,
             interview_questions=custom_questions or []
@@ -1208,6 +1389,9 @@ Return a JSON list of sub-queries."""
             return result
         result.total_agents = len(profiles)
         logger.info(f"Loaded {len(profiles)} agent profiles")
+        logger.info(get_error_message('log_zep_profiles_loaded', _ZEP_LOG_LOCALE).format(count=len(profiles)))
+        
+        # Step 2: 使用LLM选择要采访的Agent（返回agent_id列表）
         selected_agents, selected_indices, selection_reasoning = self._select_agents_for_interview(
             profiles=profiles,
             interview_requirement=interview_requirement,
@@ -1218,6 +1402,9 @@ Return a JSON list of sub-queries."""
         result.selected_agents = selected_agents
         result.selection_reasoning = selection_reasoning
         logger.info(f"Selected {len(selected_agents)} agents for interview: {selected_indices}")
+        logger.info(get_error_message('log_zep_agents_selected', _ZEP_LOG_LOCALE).format(count=len(selected_agents), indices=selected_indices))
+        
+        # Step 3: 生成采访问题（如果没有提供）
         if not result.interview_questions:
             result.interview_questions = self._generate_interview_questions(
                 interview_requirement=interview_requirement,
@@ -1225,6 +1412,9 @@ Return a JSON list of sub-queries."""
                 selected_agents=selected_agents
             )
             logger.info(f"Generated {len(result.interview_questions)} interview questions")
+            logger.info(get_error_message('log_zep_questions_gen', _ZEP_LOG_LOCALE).format(count=len(result.interview_questions)))
+        
+        # 将问题合并为一个采访prompt
         combined_prompt = "\n".join([f"{i+1}. {q}" for i, q in enumerate(result.interview_questions)])
         INTERVIEW_PROMPT_PREFIX = (
             "You are being interviewed. Answer the following in plain text based on your profile and memory.\n"
@@ -1238,6 +1428,18 @@ Return a JSON list of sub-queries."""
                 for agent_idx in selected_indices
             ]
             logger.info(f"Calling interview batch API (both platforms): {len(interviews_request)} agents")
+            # 构建批量采访列表（不指定platform，双平台采访）
+            interviews_request = []
+            for agent_idx in selected_indices:
+                interviews_request.append({
+                    "agent_id": agent_idx,
+                    "prompt": optimized_prompt  # 使用优化后的prompt
+                    # 不指定platform，API会在twitter和reddit两个平台都采访
+                })
+            
+            logger.info(get_error_message('log_zep_batch_interview', _ZEP_LOG_LOCALE).format(count=len(interviews_request)))
+            
+            # 调用 SimulationRunner 的批量采访方法（不传platform，双平台采访）
             api_result = SimulationRunner.interview_agents_batch(
                 simulation_id=simulation_id,
                 interviews=interviews_request,
@@ -1245,6 +1447,10 @@ Return a JSON list of sub-queries."""
                 timeout=180.0
             )
             logger.info(f"Interview API returned: {api_result.get('interviews_count', 0)} results, success={api_result.get('success')}")
+            
+            logger.info(get_error_message('log_zep_interview_result', _ZEP_LOG_LOCALE).format(count=api_result.get('interviews_count', 0), success=api_result.get('success')))
+            
+            # 检查API调用是否成功
             if not api_result.get("success", False):
                 error_msg = api_result.get("error", "Unknown error")
                 logger.warning(f"Interview API failed: {error_msg}")
@@ -1319,6 +1525,7 @@ Return a JSON list of sub-queries."""
             )
         
         logger.info(f"InterviewAgents done: interviewed {result.interviewed_count} agents (both platforms)")
+        logger.info(get_error_message('log_zep_interview_done', _ZEP_LOG_LOCALE).format(count=result.interviewed_count))
         return result
 
     @staticmethod
@@ -1360,6 +1567,7 @@ Return a JSON list of sub-queries."""
                 with open(reddit_profile_path, 'r', encoding='utf-8') as f:
                     profiles = json.load(f)
                 logger.info(f"Loaded {len(profiles)} profiles from reddit_profiles.json")
+                logger.info(get_error_message('log_zep_reddit_loaded', _ZEP_LOG_LOCALE).format(count=len(profiles)))
                 return profiles
             except Exception as e:
                 logger.warning(f"Failed to read reddit_profiles.json: {e}")
@@ -1377,6 +1585,7 @@ Return a JSON list of sub-queries."""
                             "profession": "Unknown"
                         })
                 logger.info(f"Loaded {len(profiles)} profiles from twitter_profiles.csv")
+                logger.info(get_error_message('log_zep_twitter_loaded', _ZEP_LOG_LOCALE).format(count=len(profiles)))
                 return profiles
             except Exception as e:
                 logger.warning(f"Failed to read twitter_profiles.csv: {e}")

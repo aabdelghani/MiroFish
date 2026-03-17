@@ -30,6 +30,12 @@
             <span v-if="currentPhase > 0" class="badge success">{{ t.badge_done }}</span>
             <span v-else-if="currentPhase === 0" class="badge processing">{{ t.s1_onto_generating }}</span>
             <span v-else class="badge pending">{{ t.badge_wait }}</span>
+            <span class="step-title">{{ $t('step1.ontology') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase > 0" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else-if="currentPhase === 0" class="badge processing">{{ $t('step1.processing') }}</span>
+            <span v-else class="badge pending">{{ $t('step1.waiting') }}</span>
           </div>
         </div>
         
@@ -40,6 +46,7 @@
             The LLM analyzes the source documents and simulation prompt, extracts real-world seeds, and generates a fitting ontology automatically.
             {{ $t('step1.ontologyDesc') }}
             {{ t.s1_onto_desc }}
+            {{ $t('step1.desc') }}
           </p>
 
           <!-- Loading / Progress -->
@@ -49,6 +56,7 @@
             <span>{{ ontologyProgress.message || 'Analyzing documents...' }}</span>
             <span>{{ ontologyProgress.message || $t('step1.analyzingDocs') }}</span>
             <span>{{ ontologyProgress.message || t.s1_analyzing }}</span>
+            <span>{{ ontologyProgress.message || $t('step1.analyzing') }}</span>
           </div>
 
           <!-- Detail Overlay -->
@@ -158,6 +166,12 @@
             <span v-if="currentPhase > 1" class="badge success">{{ t.badge_done }}</span>
             <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
             <span v-else class="badge pending">{{ t.badge_wait }}</span>
+            <span class="step-title">{{ $t('step1.graphBuild') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase > 1" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else-if="currentPhase === 1" class="badge processing">{{ buildProgress?.progress || 0 }}%</span>
+            <span v-else class="badge pending">{{ $t('step1.waiting') }}</span>
           </div>
         </div>
 
@@ -168,6 +182,7 @@
             Using the generated ontology, the documents are chunked and sent to Zep to build a knowledge graph with entities, relationships, temporal memory, and community summaries.
             {{ $t('step1.graphRAGDesc') }}
             {{ t.s1_graphrag_desc }}
+            {{ $t('step1.desc2') }}
           </p>
           
           <!-- Stats Cards -->
@@ -232,6 +247,15 @@
             <div class="stat-card">
               <span class="stat-value">{{ graphStats.types }}</span>
               <span class="stat-label">{{ t.s1_stat_types }}</span>
+              <span class="stat-label">{{ $t('step1.entityNodes') }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ graphStats.edges }}</span>
+              <span class="stat-label">{{ $t('step1.relationEdges') }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ graphStats.types }}</span>
+              <span class="stat-label">{{ $t('step1.schemaTypes') }}</span>
             </div>
           </div>
         </div>
@@ -258,6 +282,10 @@
           </div>
           <div class="step-status">
             <span v-if="currentPhase >= 2" class="badge accent">{{ t.badge_running }}</span>
+            <span class="step-title">{{ $t('step1.buildComplete') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="currentPhase >= 2" class="badge accent">{{ $t('step1.inProgress') }}</span>
           </div>
         </div>
         
@@ -267,6 +295,7 @@
           <p class="description">Graph construction is complete. Move on to environment setup.</p>
           <p class="description">{{ $t('step1.buildCompleteDesc') }}</p>
           <p class="description">{{ t.s1_build_complete_desc }}</p>
+          <p class="description">{{ $t('step1.descNext') }}</p>
           <button 
             class="action-btn" 
             :disabled="currentPhase < 2 || creatingSimulation"
@@ -277,6 +306,7 @@
             {{ creatingSimulation ? 'Creating...' : 'Enter Environment Setup ➝' }}
             {{ creatingSimulation ? $t('step1.creating') : $t('step1.enterEnvSetup') + ' ➝' }}
             {{ creatingSimulation ? t.s1_creating : t.s1_enter_env }}
+            {{ creatingSimulation ? $t('step1.creating') : $t('step1.enterEnvSetup') }}
           </button>
         </div>
       </div>

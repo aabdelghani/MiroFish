@@ -60,6 +60,7 @@
                   </div>
                   <span class="loading-text">Generating {{ section.title }}...</span>
                   <span class="loading-text">{{ $t('step4.generatingSection', { title: section.title }) }}</span>
+                  <span class="loading-text">{{ $t('step4.generating') }}{{ section.title }}...</span>
                 </div>
               </div>
             </div>
@@ -160,6 +161,7 @@
           <!-- Next Step Button - shown after completion -->
           <button v-if="isComplete" class="next-step-btn" @click="goToInteraction">
             <span>{{ $t('step4.enterDeepInteraction') }}</span>
+            <span>{{ $t('step4.enterInteraction') }}</span>
             <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2">
               <line x1="5" y1="12" x2="19" y2="12"></line>
               <polyline points="12 5 19 12 12 19"></polyline>

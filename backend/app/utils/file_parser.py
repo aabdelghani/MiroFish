@@ -11,7 +11,7 @@ Supports text extraction from PDF, Markdown, and TXT files.
 import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 
 def _read_text_with_fallback(file_path: str) -> str:

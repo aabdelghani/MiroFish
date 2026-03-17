@@ -22,6 +22,11 @@
           <div class="step-status">
             <span v-if="phase > 0" class="badge success">{{ t.badge_done }}</span>
             <span v-else class="badge processing">{{ t.s2_initializing }}</span>
+            <span class="step-title">{{ $t('step2.simInstance') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="phase > 0" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else class="badge processing">{{ $t('step2.init') }}</span>
           </div>
         </div>
         
@@ -31,6 +36,7 @@
             Create a simulation instance and fetch the simulation-world parameter template
             {{ $t('step2.simInitDesc') }}
             {{ t.s2_step01_desc }}
+            {{ $t('step2.desc1') }}
           </p>
 
           <div v-if="simulationId" class="info-card">
@@ -50,6 +56,7 @@
               <span class="info-label">Task ID</span>
               <span class="info-value mono">{{ taskId || 'Async task completed' }}</span>
               <span class="info-value mono">{{ taskId || $t('step2.asyncDone') }}</span>
+              <span class="info-value mono">{{ taskId || $t('step2.taskDone') }}</span>
             </div>
           </div>
         </div>
@@ -79,6 +86,12 @@
             <span v-if="phase > 1" class="badge success">{{ t.badge_done }}</span>
             <span v-else-if="phase === 1" class="badge processing">{{ prepareProgress }}%</span>
             <span v-else class="badge pending">{{ t.badge_wait }}</span>
+            <span class="step-title">{{ $t('step2.agentProfiles') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="phase > 1" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else-if="phase === 1" class="badge processing">{{ prepareProgress }}%</span>
+            <span v-else class="badge pending">{{ $t('step1.waiting') }}</span>
           </div>
         </div>
 
@@ -88,6 +101,7 @@
             Use the context and knowledge graph to extract entities and relationships, initialize simulated agents, and give them distinct behaviors and memories based on the source material.
             {{ $t('step2.agentPersonaDesc') }}
             {{ t.s2_step02_desc }}
+            {{ $t('step2.desc2') }}
           </p>
 
           <!-- Profiles Stats -->
@@ -121,6 +135,15 @@
             <div class="stat-card">
               <span class="stat-value">{{ totalTopicsCount }}</span>
               <span class="stat-label">{{ t.s2_total_topics }}</span>
+              <span class="stat-label">{{ $t('step2.agentCount') }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ expectedTotal || '-' }}</span>
+              <span class="stat-label">{{ $t('step2.expectedAgents') }}</span>
+            </div>
+            <div class="stat-card">
+              <span class="stat-value">{{ totalTopicsCount }}</span>
+              <span class="stat-label">{{ $t('step2.topicCount') }}</span>
             </div>
           </div>
 
@@ -130,6 +153,7 @@
               <span class="preview-title">Generated agent profiles</span>
               <span class="preview-title">{{ $t('step2.generatedPersonas') }}</span>
               <span class="preview-title">{{ t.s2_generated_agents }}</span>
+              <span class="preview-title">{{ $t('step2.generatedProfiles') }}</span>
             </div>
             <div class="profiles-list">
               <div 
@@ -153,10 +177,17 @@
                   <span 
                     v-for="topic in profile.interested_topics.slice(0, 3)" 
                     :key="topic" 
+                  <span class="profile-profession">{{ profile.profession || $t('step2.unknownProfession') }}</span>
+                </div>
+                <p class="profile-bio">{{ profile.bio || $t('step2.noBio') }}</p>
+                <div v-if="parsedTopics(profile.interested_topics).length" class="profile-topics">
+                  <span
+                    v-for="topic in parsedTopics(profile.interested_topics).slice(0, 3)"
+                    :key="topic"
                     class="topic-tag"
                   >{{ topic }}</span>
-                  <span v-if="profile.interested_topics.length > 3" class="topic-more">
-                    +{{ profile.interested_topics.length - 3 }}
+                  <span v-if="parsedTopics(profile.interested_topics).length > 3" class="topic-more">
+                    +{{ parsedTopics(profile.interested_topics).length - 3 }}
                   </span>
                 </div>
               </div>
@@ -189,6 +220,12 @@
             <span v-if="phase > 2" class="badge success">{{ t.badge_done }}</span>
             <span v-else-if="phase === 2" class="badge processing">{{ t.s2_generating }}</span>
             <span v-else class="badge pending">{{ t.badge_wait }}</span>
+            <span class="step-title">{{ $t('step2.dualPlatformConfig') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="phase > 2" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else-if="phase === 2" class="badge processing">{{ $t('step1.processing') }}</span>
+            <span v-else class="badge pending">{{ $t('step1.waiting') }}</span>
           </div>
         </div>
 
@@ -198,6 +235,7 @@
             The LLM configures time flow, recommendation dynamics, activity windows, posting frequency, and event triggers from the simulation request and source material
             {{ $t('step2.dualPlatformConfigDesc') }}
             {{ t.s2_step03_desc }}
+            {{ $t('step2.desc3') }}
           </p>
           
           <!-- Config Preview -->
@@ -245,6 +283,19 @@
                 </div>
                 <div class="config-item">
                   <span class="config-item-label">{{ t.s2_hourly_active }}</span>
+                  <span class="config-item-label">{{ $t('step2.simDuration') }}</span>
+                  <span class="config-item-value">{{ simulationConfig.time_config?.total_simulation_hours || '-' }} {{ $t('step2.hours') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-item-label">{{ $t('step2.perRound') }}</span>
+                  <span class="config-item-value">{{ simulationConfig.time_config?.minutes_per_round || '-' }} {{ $t('step2.minutes') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-item-label">{{ $t('step2.totalRounds') }}</span>
+                  <span class="config-item-value">{{ Math.floor((simulationConfig.time_config?.total_simulation_hours * 60 / simulationConfig.time_config?.minutes_per_round)) || '-' }} {{ $t('step2.rounds') }}</span>
+                </div>
+                <div class="config-item">
+                  <span class="config-item-label">{{ $t('step2.activePerHour') }}</span>
                   <span class="config-item-value">{{ simulationConfig.time_config?.agents_per_hour_min }}-{{ simulationConfig.time_config?.agents_per_hour_max }}</span>
                 </div>
               </div>
@@ -253,6 +304,7 @@
                   <span class="period-label">Peak hours</span>
                   <span class="period-label">{{ $t('step2.peakHours') }}</span>
                   <span class="period-label">{{ t.s2_peak_hours }}</span>
+                  <span class="period-label">{{ $t('step2.peakPeriod') }}</span>
                   <span class="period-hours">{{ simulationConfig.time_config?.peak_hours?.join(':00, ') }}:00</span>
                   <span class="period-multiplier">×{{ simulationConfig.time_config?.peak_activity_multiplier }}</span>
                 </div>
@@ -260,6 +312,7 @@
                   <span class="period-label">Work hours</span>
                   <span class="period-label">{{ $t('step2.workHours') }}</span>
                   <span class="period-label">{{ t.s2_work_hours }}</span>
+                  <span class="period-label">{{ $t('step2.workPeriod') }}</span>
                   <span class="period-hours">{{ simulationConfig.time_config?.work_hours?.[0] }}:00-{{ simulationConfig.time_config?.work_hours?.slice(-1)[0] }}:00</span>
                   <span class="period-multiplier">×{{ simulationConfig.time_config?.work_activity_multiplier }}</span>
                 </div>
@@ -267,6 +320,7 @@
                   <span class="period-label">Morning hours</span>
                   <span class="period-label">{{ $t('step2.morningHours') }}</span>
                   <span class="period-label">{{ t.s2_morning_hours }}</span>
+                  <span class="period-label">{{ $t('step2.morningPeriod') }}</span>
                   <span class="period-hours">{{ simulationConfig.time_config?.morning_hours?.[0] }}:00-{{ simulationConfig.time_config?.morning_hours?.slice(-1)[0] }}:00</span>
                   <span class="period-multiplier">×{{ simulationConfig.time_config?.morning_activity_multiplier }}</span>
                 </div>
@@ -274,6 +328,7 @@
                   <span class="period-label">Off-peak hours</span>
                   <span class="period-label">{{ $t('step2.offPeakHours') }}</span>
                   <span class="period-label">{{ t.s2_offpeak_hours }}</span>
+                  <span class="period-label">{{ $t('step2.lowPeriod') }}</span>
                   <span class="period-hours">{{ simulationConfig.time_config?.off_peak_hours?.[0] }}:00-{{ simulationConfig.time_config?.off_peak_hours?.slice(-1)[0] }}:00</span>
                   <span class="period-multiplier">×{{ simulationConfig.time_config?.off_peak_activity_multiplier }}</span>
                 </div>
@@ -289,6 +344,8 @@
                 <span class="config-block-badge">{{ simulationConfig.agent_configs?.length || 0 }} {{ $t('step2.count') }}</span>
                 <span class="config-block-title">{{ t.s2_agent_config }}</span>
                 <span class="config-block-badge">{{ simulationConfig.agent_configs?.length || 0 }} 个</span>
+                <span class="config-block-title">{{ $t('step2.agentConfig') }}</span>
+                <span class="config-block-badge">{{ simulationConfig.agent_configs?.length || 0 }}{{ $t('step2.agentsCount') }}</span>
               </div>
               <div class="agents-cards">
                 <div 
@@ -315,6 +372,7 @@
                   <div class="agent-timeline">
                     <span class="timeline-label">{{ $t('step2.activeHours') }}</span>
                     <span class="timeline-label">{{ t.s2_active_hours }}</span>
+                    <span class="timeline-label">{{ $t('step2.activeTime') }}</span>
                     <div class="mini-timeline">
                       <div 
                         v-for="hour in 24" 
@@ -364,6 +422,15 @@
                       </div>
                       <div class="param-item">
                         <span class="param-label">{{ t.s2_response_delay }}</span>
+                        <span class="param-label">{{ $t('step2.postsPerHour') }}</span>
+                        <span class="param-value">{{ agent.posts_per_hour }}</span>
+                      </div>
+                      <div class="param-item">
+                        <span class="param-label">{{ $t('step2.commentsPerHour') }}</span>
+                        <span class="param-value">{{ agent.comments_per_hour }}</span>
+                      </div>
+                      <div class="param-item">
+                        <span class="param-label">{{ $t('step2.responseDelay') }}</span>
                         <span class="param-value">{{ agent.response_delay_min }}-{{ agent.response_delay_max }}min</span>
                       </div>
                     </div>
@@ -372,6 +439,7 @@
                         <span class="param-label">Activity level</span>
                         <span class="param-label">{{ $t('step2.activityLevel') }}</span>
                         <span class="param-label">{{ t.s2_activity_level }}</span>
+                        <span class="param-label">{{ $t('step2.activityLevel') }}</span>
                         <span class="param-value with-bar">
                           <span class="mini-bar" :style="{ width: (agent.activity_level * 100) + '%' }"></span>
                           {{ (agent.activity_level * 100).toFixed(0) }}%
@@ -381,6 +449,7 @@
                         <span class="param-label">Sentiment</span>
                         <span class="param-label">{{ $t('step2.sentimentBias') }}</span>
                         <span class="param-label">{{ t.s2_sentiment }}</span>
+                        <span class="param-label">{{ $t('step2.sentimentBias') }}</span>
                         <span class="param-value" :class="agent.sentiment_bias > 0 ? 'positive' : agent.sentiment_bias < 0 ? 'negative' : 'neutral'">
                           {{ agent.sentiment_bias > 0 ? '+' : '' }}{{ agent.sentiment_bias?.toFixed(1) }}
                         </span>
@@ -389,6 +458,7 @@
                         <span class="param-label">Influence</span>
                         <span class="param-label">{{ $t('step2.influence') }}</span>
                         <span class="param-label">{{ t.s2_influence }}</span>
+                        <span class="param-label">{{ $t('step2.influence') }}</span>
                         <span class="param-value highlight">{{ agent.influence_weight?.toFixed(1) }}</span>
                       </div>
                     </div>
@@ -403,6 +473,7 @@
                 <span class="config-block-title">Recommendation algorithm configuration</span>
                 <span class="config-block-title">{{ $t('step2.twitterRecAlgo') }}</span>
                 <span class="config-block-title">{{ t.s2_algo_config }}</span>
+                <span class="config-block-title">{{ $t('step2.recAlgoConfig') }}</span>
               </div>
               <div class="platforms-grid">
                 <div v-if="simulationConfig.twitter_config" class="platform-card">
@@ -470,6 +541,27 @@
                     </div>
                     <div class="param-row">
                       <span class="param-label">{{ t.s2_echo }}</span>
+                    <span class="platform-name">{{ $t('step2.platform1') }}</span>
+                  </div>
+                  <div class="platform-params">
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.recencyWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.twitter_config.recency_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.popularityWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.twitter_config.popularity_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.relevanceWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.twitter_config.relevance_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.viralThreshold') }}</span>
+                      <span class="param-value">{{ simulationConfig.twitter_config.viral_threshold }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.echoChamber') }}</span>
                       <span class="param-value">{{ simulationConfig.twitter_config.echo_chamber_strength }}</span>
                     </div>
                   </div>
@@ -539,6 +631,27 @@
                     </div>
                     <div class="param-row">
                       <span class="param-label">{{ t.s2_echo }}</span>
+                    <span class="platform-name">{{ $t('step2.platform2') }}</span>
+                  </div>
+                  <div class="platform-params">
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.recencyWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.reddit_config.recency_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.popularityWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.reddit_config.popularity_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.relevanceWeight') }}</span>
+                      <span class="param-value">{{ simulationConfig.reddit_config.relevance_weight }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.viralThreshold') }}</span>
+                      <span class="param-value">{{ simulationConfig.reddit_config.viral_threshold }}</span>
+                    </div>
+                    <div class="param-row">
+                      <span class="param-label">{{ $t('step2.echoChamber') }}</span>
                       <span class="param-value">{{ simulationConfig.reddit_config.echo_chamber_strength }}</span>
                     </div>
                   </div>
@@ -552,6 +665,7 @@
                 <span class="config-block-title">LLM configuration reasoning</span>
                 <span class="config-block-title">{{ $t('step2.llmConfigReasoning') }}</span>
                 <span class="config-block-title">{{ t.s2_llm_reasoning }}</span>
+                <span class="config-block-title">{{ $t('step2.llmConfig') }}</span>
               </div>
               <div class="reasoning-content">
                 <div 
@@ -591,6 +705,12 @@
             <span v-if="phase > 3" class="badge success">{{ t.badge_done }}</span>
             <span v-else-if="phase === 3" class="badge processing">{{ t.s2_orchestrating }}</span>
             <span v-else class="badge pending">{{ t.badge_wait }}</span>
+            <span class="step-title">{{ $t('step2.initialActivation') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="phase > 3" class="badge success">{{ $t('step1.completed') }}</span>
+            <span v-else-if="phase === 3" class="badge processing">{{ $t('step2.arranging') }}</span>
+            <span v-else class="badge pending">{{ $t('step1.waiting') }}</span>
           </div>
         </div>
 
@@ -600,6 +720,7 @@
             Generate initial activation events and hot topics to shape the starting state of the simulation
             {{ $t('step2.orchestrationDesc') }}
             {{ t.s2_step04_desc }}
+            {{ $t('step2.desc4') }}
           </p>
 
           <div v-if="simulationConfig?.event_config" class="orchestration-content">
@@ -619,6 +740,7 @@
                 Narrative guidance
                 {{ $t('step2.narrativeDirection') }}
                 {{ t.s2_narrative }}
+                {{ $t('step2.narrativeDir') }}
               </span>
               <p class="narrative-text">{{ simulationConfig.event_config.narrative_direction }}</p>
             </div>
@@ -628,6 +750,7 @@
               <span class="box-label">Initial hot topics</span>
               <span class="box-label">{{ $t('step2.initialHotTopics') }}</span>
               <span class="box-label">{{ t.s2_hot_topics }}</span>
+              <span class="box-label">{{ $t('step2.hotTopics') }}</span>
               <div class="hot-topics-grid">
                 <span v-for="topic in simulationConfig.event_config.hot_topics" :key="topic" class="hot-topic-tag">
                   # {{ topic }}
@@ -642,6 +765,7 @@
             <div class="initial-posts-section">
               <span class="box-label">{{ $t('step2.initialActivationSeq') }} ({{ simulationConfig.event_config.initial_posts.length }})</span>
               <span class="box-label">{{ t.s2_initial_seq }} ({{ simulationConfig.event_config.initial_posts.length }})</span>
+              <span class="box-label">{{ $t('step2.initialPosts') }} ({{ simulationConfig.event_config.initial_posts.length }})</span>
               <div class="posts-timeline">
                 <div v-for="(post, idx) in simulationConfig.event_config.initial_posts" :key="idx" class="timeline-item">
                   <div class="timeline-marker"></div>
@@ -683,6 +807,11 @@
           <div class="step-status">
             <span v-if="phase >= 4" class="badge processing">{{ t.badge_running }}</span>
             <span v-else class="badge pending">{{ t.badge_wait }}</span>
+            <span class="step-title">{{ $t('step2.ready') }}</span>
+          </div>
+          <div class="step-status">
+            <span v-if="phase >= 4" class="badge processing">{{ $t('step1.inProgress') }}</span>
+            <span v-else class="badge pending">{{ $t('step1.waiting') }}</span>
           </div>
         </div>
 
@@ -690,6 +819,7 @@
           <p class="api-note">POST /api/simulation/start</p>
           <p class="description">The simulation environment is ready. You can start the run now.</p>
           <p class="description">{{ t.s2_step05_desc }}</p>
+          <p class="description">{{ $t('step2.desc5') }}</p>
           
           <!-- Round settings appear after config generation is complete -->
           <div v-if="simulationConfig && autoGeneratedRounds" class="rounds-config-section">
@@ -707,6 +837,8 @@
                 <span class="section-desc">{{ $t('step2.simRoundsDesc', { hours: simulationConfig?.time_config?.total_simulation_hours || '-', minutes: simulationConfig?.time_config?.minutes_per_round || '-' }) }}</span>
                 <span class="section-title">{{ t.s2_rounds_config }}</span>
                 <span class="section-desc">{{ t.s2_rounds_auto }} <span class="desc-highlight">{{ simulationConfig?.time_config?.total_simulation_hours || '-' }}</span> 小时，每轮代表现实 <span class="desc-highlight">{{ simulationConfig?.time_config?.minutes_per_round || '-' }}</span> 分钟时间流逝</span>
+                <span class="section-title">{{ $t('step2.roundsSetting') }}</span>
+                <span class="section-desc">{{ $t('step2.roundsDesc', { hours: simulationConfig?.time_config?.total_simulation_hours || '-', mins: simulationConfig?.time_config?.minutes_per_round || '-' }) }}</span>
               </div>
               <label class="switch-control">
                 <input type="checkbox" v-model="useCustomRounds">
@@ -714,6 +846,7 @@
                 <span class="switch-label">Custom</span>
                 <span class="switch-label">{{ $t('step2.customRounds') }}</span>
                 <span class="switch-label">{{ t.s2_custom }}</span>
+                <span class="switch-label">{{ $t('step2.custom') }}</span>
               </label>
             </div>
             
@@ -730,6 +863,10 @@
                   </div>
                   <div class="slider-meta-info">
                     <span>{{ $t('step2.estimatedTime', { minutes: Math.round(customMaxRounds * 0.6) }) }}</span>
+                    <span class="val-unit">{{ $t('step2.rounds') }}</span>
+                  </div>
+                  <div class="slider-meta-info">
+                    <span>{{ $t('step2.estTime', { n: Math.round(customMaxRounds * 0.6) }) }}</span>
                   </div>
                 </div>
 
@@ -752,6 +889,7 @@
                       :style="{ position: 'absolute', left: `calc(${(40 - 10) / (autoGeneratedRounds - 10) * 100}% - 30px)` }"
                     >40 (Recommended)</span>
                     >40 ({{ $t('step2.recommended') }})</span>
+                    >40 ({{ $t('step2.recOver40') }})</span>
                     <span>{{ autoGeneratedRounds }}</span>
                   </div>
                 </div>
@@ -782,6 +920,11 @@
                     <div class="auto-desc">
                       <p class="highlight-tip" @click="useCustomRounds = true">{{ $t('step2.firstRunTip') }} ➝</p>
                       <p class="highlight-tip" @click="useCustomRounds = true">{{ t.s2_first_run_tip }}</p>
+                        {{ $t('step2.estTimeAuto', { n: Math.round(autoGeneratedRounds * 0.6) }) }}
+                      </span>
+                    </div>
+                    <div class="auto-desc">
+                      <p class="highlight-tip" @click="useCustomRounds = true">{{ $t('step2.customTip') }}</p>
                     </div>
                   </div>
                 </div>
@@ -797,6 +940,7 @@
               ← Back to graph building
               ← {{ $t('step2.backToGraph') }}
               {{ t.s2_back }}
+              {{ $t('step2.backToGraph') }}
             </button>
             <button 
               class="action-btn primary"
@@ -806,6 +950,7 @@
               Start dual-world parallel simulation ➝
               {{ $t('step2.startDualSim') }} ➝
               {{ t.s2_start_sim }}
+              {{ $t('step2.startSim') }}
             </button>
           </div>
         </div>
@@ -870,6 +1015,19 @@
             </div>
             <div class="info-item">
               <span class="info-label">{{ t.s2_mbti }}</span>
+              <span class="info-label">{{ $t('step2.age') }}</span>
+              <span class="info-value">{{ selectedProfile.age || '-' }} {{ $t('step2.years') }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ $t('step2.gender') }}</span>
+              <span class="info-value">{{ { male: $t('step2.male'), female: $t('step2.female'), other: $t('step2.other') }[selectedProfile.gender] || selectedProfile.gender }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ $t('step2.country') }}</span>
+              <span class="info-value">{{ selectedProfile.country || '-' }}</span>
+            </div>
+            <div class="info-item">
+              <span class="info-label">{{ $t('step2.mbti') }}</span>
               <span class="info-value mbti">{{ selectedProfile.mbti || '-' }}</span>
             </div>
           </div>
@@ -880,6 +1038,8 @@
             <p class="section-bio">{{ selectedProfile.bio || 'No bio yet' }}</p>
             <span class="section-label">{{ t.s2_persona_desc }}</span>
             <p class="section-bio">{{ selectedProfile.bio || '暂无简介' }}</p>
+            <span class="section-label">{{ $t('step2Profile.bioLabel') }}</span>
+            <p class="section-bio">{{ selectedProfile.bio || $t('step2.noBio') }}</p>
           </div>
 
           <!-- Related topics -->
@@ -893,10 +1053,11 @@
           <div class="modal-section" v-if="selectedProfile.interested_topics?.length">
             <span class="section-label">{{ $t('step2.seedRelatedTopics') }}</span>
             <span class="section-label">{{ t.s2_seed_topics }}</span>
+            <span class="section-label">{{ $t('step2Profile.relatedTopics') }}</span>
             <div class="topics-grid">
-              <span 
-                v-for="topic in selectedProfile.interested_topics" 
-                :key="topic" 
+              <span
+                v-for="topic in parsedTopics(selectedProfile.interested_topics)"
+                :key="topic"
                 class="topic-item"
               >{{ topic }}</span>
             </div>
@@ -906,6 +1067,7 @@
           <div class="modal-section" v-if="selectedProfile.persona">
             <span class="section-label">Full profile background</span>
             <span class="section-label">{{ t.s2_persona_bg }}</span>
+            <span class="section-label">{{ $t('step2Profile.personaBg') }}</span>
             
             <!-- Profile dimensions overview -->
             <div class="persona-dimensions">
@@ -959,6 +1121,20 @@
               <div class="dimension-card">
                 <span class="dim-title">{{ t.s2_dim4 }}</span>
                 <span class="dim-desc">{{ t.s2_dim4_desc }}</span>
+                <span class="dim-title">{{ $t('step2Profile.eventTrajectory') }}</span>
+                <span class="dim-desc">{{ $t('step2Profile.eventTrajectoryDesc') }}</span>
+              </div>
+              <div class="dimension-card">
+                <span class="dim-title">{{ $t('step2Profile.behaviorProfile') }}</span>
+                <span class="dim-desc">{{ $t('step2Profile.behaviorProfileDesc') }}</span>
+              </div>
+              <div class="dimension-card">
+                <span class="dim-title">{{ $t('step2Profile.memoryImprint') }}</span>
+                <span class="dim-desc">{{ $t('step2Profile.memoryImprintDesc') }}</span>
+              </div>
+              <div class="dimension-card">
+                <span class="dim-title">{{ $t('step2Profile.socialNetwork') }}</span>
+                <span class="dim-desc">{{ $t('step2Profile.socialNetworkDesc') }}</span>
               </div>
             </div>
 
@@ -994,6 +1170,9 @@ import { useI18n } from 'vue-i18n'
 import {
   prepareSimulation,
   getPrepareStatus,
+import { 
+  prepareSimulation, 
+  getPrepareStatus, 
   getSimulationProfilesRealtime,
   getSimulationConfig,
   getSimulationConfigRealtime
@@ -1010,6 +1189,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(['go-back', 'next-step', 'add-log', 'update-status'])
+const { t } = useI18n()
 
 // State
 const phase = ref(0) // 0: initializing, 1: generating profiles, 2: generating config, 3: complete
@@ -1027,6 +1207,15 @@ const showProfilesDetail = ref(true)
 
 // De-duplicate logs by recording the last key message
 // Log deduplication: record last logged key info
+const parsedTopics = (topics) => {
+  if (Array.isArray(topics)) return topics
+  if (typeof topics === 'string') {
+    try { return JSON.parse(topics) } catch { return [topics] }
+  }
+  return []
+}
+
+// 日志去重：记录上一次输出的关键信息
 let lastLoggedMessage = ''
 let lastLoggedProfileCount = 0
 let lastLoggedConfigStage = ''
@@ -1047,6 +1236,7 @@ watch(currentStage, (newStage) => {
     // Enter config-generation stage and start polling for config
     if (!configTimer) {
       addLog('Start generating the dual-platform simulation config...')
+      addLog(t('logs.s2_startDualPlatformConfig'))
       startConfigPolling()
     }
   } else if (newStage === 'Prepare simulation scripts' || newStage === 'copying_scripts') {
@@ -1114,7 +1304,7 @@ const getAgentUsername = (agentId) => {
 // Calculate total topic count across all personas
 const totalTopicsCount = computed(() => {
   return profiles.value.reduce((sum, p) => {
-    return sum + (p.interested_topics?.length || 0)
+    return sum + (parsedTopics(p.interested_topics).length)
   }, 0)
 })
 
@@ -1147,6 +1337,10 @@ const handleStartSimulation = () => {
   } else {
     // User chose to keep auto-generated rounds, do not pass max_rounds parameter
     addLog(t('step2.log.startSimAuto', { rounds: autoGeneratedRounds.value }))
+    addLog(t('logs.s2_startSimCustomRounds', { rounds: customMaxRounds.value }))
+  } else {
+    // 用户选择保持自动生成的轮数，不传递 max_rounds 参数
+    addLog(t('logs.s2_startSimAutoRounds', { rounds: autoGeneratedRounds.value }))
   }
   
   emit('next-step', params)
@@ -1171,6 +1365,7 @@ const startPrepareSimulation = async () => {
 const startPrepareSimulation = async () => {
   if (!props.simulationId) {
     addLog(t('step2.log.missingSimId'))
+    addLog(t('errors.missingSimulationId'))
     emit('update-status', 'error')
     return
   }
@@ -1183,6 +1378,8 @@ const startPrepareSimulation = async () => {
   phase.value = 1
   addLog(t('step2.log.simCreated', { id: props.simulationId }))
   addLog(t('step2.log.preparingEnv'))
+  addLog(t('logs.s2_simInstanceCreated', { id: props.simulationId }))
+  addLog(t('logs.s2_preparingEnv'))
   emit('update-status', 'processing')
   
   try {
@@ -1196,12 +1393,14 @@ const startPrepareSimulation = async () => {
       if (res.data.already_prepared) {
         addLog('Detected completed preparation work and will reuse it directly')
         addLog(t('step2.log.alreadyPrepared'))
+        addLog(t('logs.s2_existingPrepDetected'))
         await loadPreparedData()
         return
       }
       
       taskId.value = res.data.task_id
       addLog(`Preparation task started`)
+      addLog(t('logs.s2_prepTaskStarted'))
       addLog(`  └─ Task ID: ${res.data.task_id}`)
       
       // Set the expected total agent count immediately from the prepare response
@@ -1215,6 +1414,14 @@ const startPrepareSimulation = async () => {
       
       addLog('Start polling preparation progress...')
       // Start polling progress
+        addLog(t('logs.s2_entitiesFromGraph', { count: res.data.expected_entities_count }))
+        if (res.data.entity_types && res.data.entity_types.length > 0) {
+          addLog(t('logs.s2_entityTypes', { types: res.data.entity_types.join(', ') }))
+        }
+      }
+      
+      addLog(t('logs.s2_startPollingProgress'))
+      // 开始轮询进度
       startPolling()
       // Start live profile retrieval
       startProfilesPolling()
@@ -1247,6 +1454,11 @@ const startPrepareSimulation = async () => {
     }
   } catch (err) {
     addLog(t('step2.log.prepareException', { error: err.message }))
+      addLog(`${t('errors.prepareFailed')}: ${res.error || t('errors.unknown')}`)
+      emit('update-status', 'error')
+    }
+  } catch (err) {
+    addLog(t('logs.s2_prepException', { error: err.message }))
     emit('update-status', 'error')
   }
 }
@@ -1331,12 +1543,14 @@ const pollPrepareStatus = async () => {
       // Check if completed
       if (data.status === 'completed' || data.status === 'ready' || data.already_prepared) {
         addLog(t('step2.log.prepareComplete'))
+        addLog(t('logs.s2_prepCompleted'))
         stopPolling()
         stopProfilesPolling()
         await loadPreparedData()
       } else if (data.status === 'failed') {
         addLog(`✗ Preparation failed: ${data.error || 'Unknown error'}`)
         addLog(`✗ ${t('step2.log.prepareFailed', { error: data.error || t('step2.log.unknownError') })}`)
+        addLog(`✗ ${t('errors.prepareFailed')}: ${data.error || t('errors.unknown')}`)
         stopPolling()
         stopProfilesPolling()
       }
@@ -1381,6 +1595,9 @@ const fetchProfilesRealtime = async () => {
           addLog(`Start generating agent profiles...`)
         }
         addLog(`→ Agent profile ${currentCount}/${total}: ${profileName} (${latestProfile?.profession || 'Unknown profession'})`)
+          addLog(t('logs.s2_startGenProfiles'))
+        }
+        addLog(t('logs.s2_profileProgress', { current: currentCount, total: total, name: profileName, profession: latestProfile?.profession || t('step2.unknownProfession') }))
         
         // If all profiles are generated
         if (expectedTotal.value && currentCount >= expectedTotal.value) {
@@ -1392,6 +1609,7 @@ const fetchProfilesRealtime = async () => {
         // If all generation is complete
         if (expectedTotal.value && currentCount >= expectedTotal.value) {
           addLog(t('step2.log.allProfilesDone', { count: currentCount }))
+          addLog(t('logs.s2_allProfilesGenerated', { count: currentCount }))
         }
       }
     }
@@ -1429,6 +1647,9 @@ const fetchConfigRealtime = async () => {
           addLog('Generating agent profile configuration...')
         } else if (data.generation_stage === 'generating_config') {
           addLog('Calling the LLM to generate simulation configuration parameters...')
+          addLog(t('logs.s2_generatingProfileConfig'))
+        } else if (data.generation_stage === 'generating_config') {
+          addLog(t('logs.s2_llmGeneratingConfig'))
         }
       }
       
@@ -1444,12 +1665,22 @@ const fetchConfigRealtime = async () => {
           addLog(`  ├─ Initial posts: ${data.summary.initial_posts_count}`)
           addLog(`  ├─ Hot topics: ${data.summary.hot_topics_count}`)
           addLog(`  └─ Platform configuration: Twitter ${data.summary.has_twitter_config ? '✓' : '✗'}, Reddit ${data.summary.has_reddit_config ? '✓' : '✗'}`)
+        addLog(t('logs.s2_simConfigGenerated'))
+
+        // 显示详细配置摘要
+        if (data.summary) {
+          addLog(t('logs.s2_cfgAgentCount', { count: data.summary.total_agents }))
+          addLog(t('logs.s2_cfgSimDuration', { hours: data.summary.simulation_hours }))
+          addLog(t('logs.s2_cfgInitialPosts', { count: data.summary.initial_posts_count }))
+          addLog(t('logs.s2_cfgHotTopics', { count: data.summary.hot_topics_count }))
+          addLog(`  └─ Platform: Twitter ${data.summary.has_twitter_config ? '✓' : '✗'}, Reddit ${data.summary.has_reddit_config ? '✓' : '✗'}`)
         }
         
         // Show time configuration details
         if (data.config.time_config) {
           const tc = data.config.time_config
           addLog(`Time configuration: ${tc.minutes_per_round} minutes per round, ${Math.floor((tc.total_simulation_hours * 60) / tc.minutes_per_round)} rounds total`)
+          addLog(t('logs.s2_cfgTimeConfig', { minsPerRound: tc.minutes_per_round, totalRounds: Math.floor((tc.total_simulation_hours * 60) / tc.minutes_per_round) }))
         }
         
         // Show event configuration
@@ -1463,6 +1694,7 @@ const fetchConfigRealtime = async () => {
           addLog(t('step2.log.genProfileConfig'))
         } else if (data.generation_stage === 'generating_config') {
           addLog(t('step2.log.genSimConfig'))
+          addLog(t('logs.s2_cfgNarrative', { narrative: narrative.length > 50 ? narrative.substring(0, 50) + '...' : narrative }))
         }
       }
       
@@ -1496,6 +1728,7 @@ const fetchConfigRealtime = async () => {
         phase.value = 4
         addLog('✓ Environment setup complete. Ready to simulate')
         addLog(t('step2.log.envSetupComplete'))
+        addLog(t('logs.s2_envSetupComplete'))
         emit('update-status', 'completed')
       }
     }
@@ -1508,10 +1741,12 @@ const fetchConfigRealtime = async () => {
 const loadPreparedData = async () => {
   phase.value = 2
   addLog('Loading existing config data...')
+  addLog(t('logs.s2_loadingExistingConfig'))
 
   // Fetch profiles one last time
   await fetchProfilesRealtime()
   addLog(`Loaded ${profiles.value.length} agent profiles`)
+  addLog(t('logs.s2_profilesLoaded', { count: profiles.value.length }))
 
   // Fetch config using the live endpoint
   addLog(t('step2.log.loadingConfig'))
@@ -1556,12 +1791,28 @@ const loadPreparedData = async () => {
       } else {
         // Config not yet generated, start polling
         addLog(t('step2.log.configPolling'))
+        addLog(t('logs.s2_simConfigLoaded'))
+
+        // 显示详细配置摘要
+        if (res.data.summary) {
+          addLog(t('logs.s2_cfgAgentCount', { count: res.data.summary.total_agents }))
+          addLog(t('logs.s2_cfgSimDuration', { hours: res.data.summary.simulation_hours }))
+          addLog(t('logs.s2_cfgInitialPostsLast', { count: res.data.summary.initial_posts_count }))
+        }
+        
+        addLog(t('logs.s2_envSetupComplete'))
+        phase.value = 4
+        emit('update-status', 'completed')
+      } else {
+        // 配置尚未生成，开始轮询
+        addLog(t('logs.s2_configPollingWait'))
         startConfigPolling()
       }
     }
   } catch (err) {
     addLog(`Failed to load config: ${err.message}`)
     addLog(t('step2.log.configLoadFailed', { error: err.message }))
+    addLog(`${t('errors.loadFailed')}: ${err.message}`)
     emit('update-status', 'error')
   }
 }
@@ -1583,6 +1834,7 @@ onMounted(() => {
   // Auto-start preparation workflow
   if (props.simulationId) {
     addLog(t('step2.log.step2Init'))
+    addLog(t('logs.s2_init'))
     startPrepareSimulation()
   }
 })

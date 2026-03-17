@@ -20,6 +20,19 @@ from .zep_entity_reader import EntityNode, ZepEntityReader
 logger = get_logger('mirofish.simulation_config')
 
 # China timezone activity config (Beijing time): dead/morning/work/peak/night hours and multipliers
+from ..utils.error_messages import get_error_message
+from .zep_entity_reader import EntityNode
+
+logger = get_logger('mirofish.simulation_config')
+
+# 语言指令（根据 locale 动态追加到 LLM 提示词）
+LANGUAGE_INSTRUCTIONS = {
+    'zh': "\n\n【语言要求】所有输出必须使用中文。",
+    'en': "\n\n【Language requirement】All output MUST be in English.",
+    'ko': "\n\n【언어 요구사항】모든 출력은 반드시 한국어로 작성해야 합니다.",
+}
+
+# 中国作息时间配置（北京时间）
 CHINA_TIMEZONE_CONFIG = {
     "dead_hours": [0, 1, 2, 3, 4, 5],
     "morning_hours": [6, 7, 8],
@@ -172,9 +185,34 @@ class SimulationConfigGenerator:
         enable_twitter: bool = True,
         enable_reddit: bool = True,
         progress_callback: Optional[Callable[[int, int, str], None]] = None,
+        locale: str = 'zh',
     ) -> SimulationParameters:
         """Generate full simulation config stepwise (time -> events -> batched agents -> platform)."""
         logger.info(f"Starting simulation config generation: simulation_id={simulation_id}, entities={len(entities)}")
+        """
+        智能生成完整的模拟配置（分步生成）
+
+        Args:
+            simulation_id: 模拟ID
+            project_id: 项目ID
+            graph_id: 图谱ID
+            simulation_requirement: 模拟需求描述
+            document_text: 原始文档内容
+            entities: 过滤后的实体列表
+            enable_twitter: 是否启用Twitter
+            enable_reddit: 是否启用Reddit
+            progress_callback: 进度回调函数(current_step, total_steps, message)
+            locale: 语言偏好 ('zh', 'en', 'ko')
+
+        Returns:
+            SimulationParameters: 完整的模拟参数
+        """
+        # 保存 locale 供内部方法使用
+        self._locale = locale
+
+        logger.info(get_error_message('log_config_start', self._locale).format(simulation_id=simulation_id, count=len(entities)))
+
+        # 计算总步骤数
         num_batches = math.ceil(len(entities) / self.AGENTS_PER_BATCH)
         total_steps = 3 + num_batches
         current_step = 0
@@ -224,6 +262,10 @@ class SimulationConfigGenerator:
         
         reasoning_parts.append(f"Agent configs: {len(all_agent_configs)} generated")
         logger.info("Assigning poster agents to initial posts...")
+        reasoning_parts.append(f"Agent配置: 成功生成 {len(all_agent_configs)} 个")
+        
+        # ========== 为初始帖子分配发布者 Agent ==========
+        logger.info(get_error_message('log_config_assign_posts', self._locale))
         event_config = self._assign_initial_post_agents(event_config, all_agent_configs)
         assigned_count = len([p for p in event_config.initial_posts if p.get("poster_agent_id") is not None])
         reasoning_parts.append(f"Initial posts: {assigned_count} assigned poster")
@@ -267,6 +309,8 @@ class SimulationConfigGenerator:
         )
         
         logger.info(f"Simulation config done: {len(params.agent_configs)} agent configs")
+        logger.info(get_error_message('log_config_done', self._locale).format(count=len(params.agent_configs)))
+        
         return params
 
     def _build_context(
@@ -314,6 +358,8 @@ class SimulationConfigGenerator:
     
     def _call_llm_with_retry(self, prompt: str, system_prompt: str) -> Dict[str, Any]:
         """LLM call with retry and JSON repair."""
+        """带重试的LLM调用，包含JSON修复逻辑"""
+        
         max_attempts = 3
         last_error = None
         for attempt in range(max_attempts):
@@ -441,11 +487,14 @@ class SimulationConfigGenerator:
             try:
                 return json.loads(json_str)
             except Exception:
+            except:  # noqa: E722
+                # 尝试移除所有控制字符
                 json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', json_str)
                 json_str = re.sub(r'\s+', ' ', json_str)
                 try:
                     return json.loads(json_str)
                 except Exception:
+                except:  # noqa: E722
                     pass
         
         return None
@@ -531,6 +580,10 @@ Fields: total_simulation_hours (24-168), minutes_per_round (30-120, suggest 60),
         system_prompt = "You are a social simulation expert. Return pure JSON; time config should follow China timezone activity patterns."
             system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合中国人作息习惯。"
         
+        system_prompt = "你是社交媒体模拟专家。返回纯JSON格式，时间配置需符合中国人作息习惯。"
+        lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
+        system_prompt += lang_inst
+
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
         except Exception as e:
@@ -587,6 +640,14 @@ Fields: total_simulation_hours (24-168), minutes_per_round (30-120, suggest 60),
     ) -> Dict[str, Any]:
         """Generate event config (hot topics, narrative, initial posts with poster_type)."""
         entity_types_available = list(set(e.get_entity_type() or "Unknown" for e in entities))
+        """生成事件配置"""
+        
+        # 获取可用的实体类型列表，供 LLM 参考
+        list(set(
+            e.get_entity_type() or "Unknown" for e in entities
+        ))
+        
+        # 为每种类型列出代表性实体名称
         type_examples = {}
         for e in entities:
             etype = e.get_entity_type() or "Unknown"
@@ -659,6 +720,10 @@ Return JSON only (no markdown):
         system_prompt = "You are a narrative/opinion analysis expert. Return pure JSON. poster_type must exactly match an available entity type."
             system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
         
+        system_prompt = "你是舆论分析专家。返回纯JSON格式。注意 poster_type 必须精确匹配可用实体类型。"
+        lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
+        system_prompt += lang_inst
+
         try:
             return self._call_llm_with_retry(prompt, system_prompt)
         except Exception as e:
@@ -742,6 +807,7 @@ Return JSON only (no markdown):
             })
             
             logger.info(f"Initial post assigned: poster_type='{poster_type}' -> agent_id={matched_agent_id}")
+            logger.info(get_error_message('log_config_post_assign', self._locale).format(poster_type=poster_type, agent_id=matched_agent_id))
         
         event_config.initial_posts = updated_posts
         return event_config
@@ -843,6 +909,10 @@ Return JSON only (no markdown):
         system_prompt = "You are a social media behavior expert. Return pure JSON; configs should follow China timezone activity patterns."
             system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合中国人作息习惯。"
         
+        system_prompt = "你是社交媒体行为分析专家。返回纯JSON，配置需符合中国人作息习惯。"
+        lang_inst = LANGUAGE_INSTRUCTIONS.get(getattr(self, '_locale', 'zh'), LANGUAGE_INSTRUCTIONS['zh'])
+        system_prompt += lang_inst
+
         try:
             result = self._call_llm_with_retry(prompt, system_prompt)
             llm_configs = {cfg["agent_id"]: cfg for cfg in result.get("agent_configs", [])}

@@ -986,6 +986,11 @@ const handleNewProject = async () => {
   } catch (err) {
     console.error('Handle new project error:', err)
     error.value = t('process.projectInitFailed') + (err.message || t('process.unknownError'))
+      error.value = response.error || t('errors.ontologyFailed')
+    }
+  } catch (err) {
+    console.error('Handle new project error:', err)
+    error.value = t('errors.initFailed') + ': ' + (err.message || t('errors.unknown'))
   } finally {
     loading.value = false
   }
@@ -1031,6 +1036,11 @@ const loadProject = async () => {
     console.error('Load project error:', err)
     error.value = 'Failed to load project: ' + (err.message || 'Unknown error')
     error.value = t('process.loadProjectFailedMsg') + (err.message || t('process.unknownError'))
+      error.value = response.error || t('errors.loadProjectFailed')
+    }
+  } catch (err) {
+    console.error('Load project error:', err)
+    error.value = t('errors.loadProjectFailed') + ': ' + (err.message || t('errors.unknown'))
   } finally {
     loading.value = false
   }
@@ -1087,6 +1097,7 @@ const startBuildGraph = async () => {
       error.value = response.error || t('process.startBuildFailed')
       error.value = response.error || 'Failed to start graph build'
       error.value = response.error || t('process.startGraphBuildFailed')
+      error.value = response.error || t('errors.buildGraphFailed')
       buildProgress.value = null
     }
   } catch (err) {
@@ -1094,6 +1105,7 @@ const startBuildGraph = async () => {
     error.value = t('process.startBuildFailed') + (err.message || t('common.unknownError'))
     error.value = 'Failed to start graph build: ' + (err.message || 'Unknown error')
     error.value = t('process.startGraphBuildFailedMsg') + (err.message || t('process.unknownError'))
+    error.value = t('errors.buildGraphFailed') + ': ' + (err.message || t('errors.unknown'))
     buildProgress.value = null
   }
 }

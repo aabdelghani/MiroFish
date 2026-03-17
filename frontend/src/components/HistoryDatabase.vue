@@ -16,6 +16,7 @@
       <div class="section-line"></div>
       <span class="section-title">Simulation History</span>
       <span class="section-title">{{ t.historyTitle }}</span>
+      <span class="section-title">{{ $t('history.title') }}</span>
       <div class="section-line"></div>
     </div>
 
@@ -53,6 +54,10 @@
             >◇</span>
             <span
               class="status-icon available"
+              :title="$t('history.graphBuild')"
+            >◇</span>
+            <span 
+              class="status-icon available" 
               :title="$t('history.envSetup')"
             >◈</span>
             <span
@@ -84,6 +89,7 @@
             <div v-if="project.files.length > 3" class="files-more">
               +{{ project.files.length - 3 }} more files
               {{ t.filesMore.replace("{count}", String(project.files.length - 3)) }}
+              +{{ project.files.length - 3 }}{{ $t('history.moreFiles') }}
             </div>
           </div>
           <!-- Empty file placeholder -->
@@ -91,6 +97,7 @@
             <span class="empty-file-icon">◇</span>
             <span class="empty-file-text">No files</span>
             <span class="empty-file-text">{{ t.noFiles }}</span>
+            <span class="empty-file-text">{{ $t('history.noFiles') }}</span>
           </div>
         </div>
 
@@ -153,6 +160,7 @@
       <span class="loading-spinner"></span>
       <span class="loading-text">Loading...</span>
       <span class="loading-text">{{ t.loading }}</span>
+      <span class="loading-text">{{ $t('common.loading') }}</span>
     </div>
 
     <!-- History replay modal -->
@@ -190,6 +198,8 @@
                 <div class="modal-requirement">{{ selectedProject.simulation_requirement || '无' }}</div>
                 <div class="modal-label">{{ t.simReq }}</div>
                 <div class="modal-requirement">{{ selectedProject.simulation_requirement || t.none }}</div>
+                <div class="modal-label">{{ $t('history.simRequirement') }}</div>
+                <div class="modal-requirement">{{ selectedProject.simulation_requirement || $t('common.none') }}</div>
               </div>
 
               <!-- File list -->
@@ -197,6 +207,7 @@
                 <div class="modal-label">Related Files</div>
                 <div class="modal-label">{{ $t('history.linkedFiles') }}</div>
                 <div class="modal-label">{{ t.linkedFiles }}</div>
+                <div class="modal-label">{{ $t('history.relatedFiles') }}</div>
                 <div class="modal-files" v-if="selectedProject.files && selectedProject.files.length > 0">
                   <div v-for="(file, index) in selectedProject.files" :key="index" class="modal-file-item">
                     <span class="file-tag" :class="getFileType(file.filename)">{{ getFileTypeLabel(file.filename) }}</span>
@@ -205,6 +216,7 @@
                 </div>
                 <div class="modal-empty" v-else>No related files</div>
                 <div class="modal-empty" v-else>{{ t.noLinkedFiles }}</div>
+                <div class="modal-empty" v-else>{{ $t('history.noRelatedFiles') }}</div>
               </div>
             </div>
 
@@ -221,6 +233,7 @@
               <span class="divider-line"></span>
               <span class="divider-text">{{ $t('history.replayTitle') }}</span>
               <span class="divider-text">{{ t.simPlayback }}</span>
+              <span class="divider-text">{{ $t('history.playback') }}</span>
               <span class="divider-line"></span>
             </div>
 
@@ -236,6 +249,7 @@
                 <span class="btn-text">Graph Build</span>
                 <span class="btn-text">{{ $t('history.graphBuild') }}</span>
                 <span class="btn-text">{{ t.step1Title }}</span>
+                <span class="btn-text">{{ $t('history.graphBuildBtn') }}</span>
               </button>
               <button 
                 class="modal-btn btn-simulation" 
@@ -255,6 +269,7 @@
                 <span class="btn-step">Step3</span>
                 <span class="btn-icon">▣</span>
                 <span class="btn-text">反事实注入</span>
+                <span class="btn-text">{{ $t('history.envSetupBtn') }}</span>
               </button>
               <button 
                 class="modal-btn btn-report" 
@@ -265,6 +280,7 @@
                 <span class="btn-icon">◆</span>
                 <span class="btn-text">Analysis Report</span>
                 <span class="btn-text">{{ t.step4Title }}</span>
+                <span class="btn-text">{{ $t('history.reportBtn') }}</span>
               </button>
             </div>
             <!-- Replay limitation hint -->
@@ -306,6 +322,7 @@
               <span class="hint-text">{{ t.noPlaybackHint }}</span>
             <div class="modal-playback-hint">
               <span class="hint-text">Step3 使用历史动作搭建反事实实验室；Step5「深度互动」仍需运行中的模拟环境</span>
+              <span class="hint-text">{{ $t('history.playbackHint') }}</span>
             </div>
           </div>
         </div>
@@ -497,6 +514,7 @@ const getSimulationTitle = (requirement) => {
 const getSimulationTitle = (requirement) => {
   if (!requirement) return t('history.unnamedSim')
   if (!requirement) return t.unnamedSim
+  if (!requirement) return t('history.noName')
   const title = requirement.slice(0, 20)
   return requirement.length > 20 ? title + '...' : title
 }
@@ -517,6 +535,8 @@ const formatRounds = (simulation) => {
   return `${current}/${total} rounds`
   if (total === 0) return t.notStarted
   return `${current}/${total} 轮`
+  if (total === 0) return t('history.notStarted')
+  return `${current}/${total}${t('history.rounds')}`
 }
 
 // Derive file type (for styling)
@@ -559,6 +579,7 @@ const truncateFilename = (filename, maxLength) => {
 const truncateFilename = (filename, maxLength) => {
   if (!filename) return t('history.unknownFile')
   if (!filename) return t.unknownFile
+  if (!filename) return t('history.unknownFile')
   if (filename.length <= maxLength) return filename
   
   const ext = filename.includes('.') ? '.' + filename.split('.').pop() : ''

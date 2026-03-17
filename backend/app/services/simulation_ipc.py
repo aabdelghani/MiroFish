@@ -119,6 +119,9 @@ class SimulationIPCClient:
         
         logger.info(f"Send IPC command: {command_type.value}, command_id={command_id}")
 
+        logger.info(f"Sending IPC command: {command_type.value}, command_id={command_id}")
+        
+        # 等待响应
         response_file = os.path.join(self.responses_dir, f"{command_id}.json")
         start_time = time.time()
         
@@ -136,6 +139,7 @@ class SimulationIPCClient:
                         pass
                     
                     logger.info(f"IPC response received: command_id={command_id}, status={response.status.value}")
+                    logger.info(f"Received IPC response: command_id={command_id}, status={response.status.value}")
                     return response
                 except (json.JSONDecodeError, KeyError) as e:
                     logger.warning(f"Parse response failed: {e}")

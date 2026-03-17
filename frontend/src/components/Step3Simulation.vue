@@ -93,6 +93,7 @@
           {{ isGeneratingReport ? 'Starting...' : 'Generate result report' }} 
           {{ isGeneratingReport ? $t('step3.launching') : $t('step3.generateReport') }} 
           {{ isGeneratingReport ? t.s3_starting : t.s3_gen_report }} 
+          {{ isGeneratingReport ? $t('step3.starting') : $t('step3.startReport') }} 
           <span v-if="!isGeneratingReport" class="arrow-icon">→</span>
           {{ isGeneratingReport ? 'REPORT LINKING...' : 'GENERATE REPORT' }}
         </button>
@@ -342,6 +343,13 @@ import { ref, computed, watch, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
+import { 
+  startSimulation, 
+  stopSimulation,
+  getRunStatus, 
+  getRunStatusDetail
+} from '../api/simulation'
 import { generateReport } from '../api/report'
 import { getRunStatus, getRunStatusDetail, startSimulation, stopSimulation } from '../api/simulation'
 
@@ -470,6 +478,7 @@ const doStartSimulation = async () => {
 async function doStartSimulation() {
   if (!props.simulationId) {
     addLog('Error: missing simulationId')
+    addLog(t('errors.missingSimulationId'))
     return
   }
   
@@ -485,6 +494,7 @@ async function doStartSimulation() {
   startError.value = null
   addLog(t('step3.startingParallel'))
   addLog('Initializing dual-platform simulation workbench...')
+  addLog(t('logs.s3_startingParallelSim'))
   emit('update-status', 'processing')
 
   try {
@@ -508,6 +518,10 @@ async function doStartSimulation() {
     }
     
     addLog(t('step3.graphMemoryEnabled'))
+      addLog(t('logs.s3_setMaxRounds', { rounds: props.maxRounds }))
+    }
+    
+    addLog(t('logs.s3_graphUpdateEnabled'))
     
     const res = await startSimulation(params)
     
@@ -519,6 +533,9 @@ async function doStartSimulation() {
         addLog('✓ ' + t('step3.oldLogsCleared'))
       }
       addLog('✓ ' + t('step3.engineStarted'))
+        addLog(t('logs.s3_oldLogsCleared'))
+      }
+      addLog(t('logs.s3_engineStarted'))
       addLog(`  ├─ PID: ${res.data.process_pid || '-'}`)
       
       addLog(`Max rounds pinned to ${props.maxRounds}`)
@@ -536,6 +553,8 @@ async function doStartSimulation() {
       addLog(`✗ Failed to start: ${res.error || 'Unknown error'}`)
       startError.value = res.error || t('step3.startFailed', { error: '' })
       addLog('✗ ' + t('step3.startFailed', { error: res.error || t('common.unknownError') }))
+      startError.value = res.error || t('errors.startFailed')
+      addLog(`✗ ${t('errors.startFailed')}: ${res.error || t('errors.unknown')}`)
       emit('update-status', 'error')
     }
   } catch (err) {
@@ -547,6 +566,7 @@ async function doStartSimulation() {
     }
   } catch (error) {
     addLog(`启动异常: ${error.message}`)
+    addLog(t('logs.s3_startException', { error: err.message }))
     emit('update-status', 'error')
   } finally {
     isStarting.value = false
@@ -560,6 +580,7 @@ const handleStopSimulation = async () => {
   isStopping.value = true
   addLog('Stopping simulation...')
   addLog(t('step3.stoppingSim'))
+  addLog(t('logs.s3_stoppingSim'))
   
   try {
     const res = await stopSimulation({ simulation_id: props.simulationId })
@@ -567,6 +588,7 @@ const handleStopSimulation = async () => {
     if (res.success) {
       addLog('✓ Simulation stopped')
       addLog('✓ ' + t('step3.simStopped'))
+      addLog(t('logs.s3_simStopped'))
       phase.value = 2
       stopPolling()
       emit('update-status', 'completed')
@@ -579,6 +601,10 @@ const handleStopSimulation = async () => {
     }
   } catch (err) {
     addLog(t('step3.stopError', { error: err.message }))
+      addLog(`${t('errors.stopFailed')}: ${res.error || t('errors.unknown')}`)
+    }
+  } catch (err) {
+    addLog(t('logs.s3_stopException', { error: err.message }))
   } finally {
     isStopping.value = false
   }
@@ -666,6 +692,9 @@ const fetchRunStatus = async () => {
           addLog('✓ ' + t('step3.allPlatformsDone'))
         }
         addLog('✓ ' + t('step3.simCompleted'))
+          addLog(t('logs.s3_allPlatformsCompleted'))
+        }
+        addLog(t('logs.s3_simCompleted'))
         phase.value = 2
         stopPolling()
         emit('update-status', 'completed')
@@ -873,18 +902,21 @@ const handleNextStep = async () => {
   if (!props.simulationId) {
     addLog('Error: missing simulationId')
     addLog(t('step3.missingSimId'))
+    addLog(t('errors.missingSimulationId'))
     return
   }
 
   if (isGeneratingReport.value) {
     addLog('Report generation has already been requested, please wait...')
     addLog(t('step3.reportStarting'))
+    addLog(t('logs.s3_reportRequestSent'))
     return
   }
 
   isGeneratingReport.value = true
   addLog('Starting report generation...')
   addLog(t('step3.reportStarting'))
+  addLog(t('logs.s3_startingReportGen'))
   
 async function handleNextStep() {
   if (!props.simulationId || isGeneratingReport.value) return
@@ -900,6 +932,7 @@ async function handleNextStep() {
     if (res.success && res.data) {
       const reportId = res.data.report_id
       addLog(`✓ Report generation task started: ${reportId}`)
+      addLog(t('logs.s3_reportTaskStarted', { id: reportId }))
       
       // Navigate to the report page
       router.push({ name: 'Report', params: { reportId } })
@@ -930,6 +963,11 @@ async function handleNextStep() {
   } catch (error) {
     addLog(`报告生成异常: ${error.message}`)
   } finally {
+      addLog(`✗ ${t('errors.reportGenFailed')}: ${res.error || t('errors.unknown')}`)
+      isGeneratingReport.value = false
+    }
+  } catch (err) {
+    addLog(t('logs.s3_reportGenException', { error: err.message }))
     isGeneratingReport.value = false
   }
 }
@@ -945,6 +983,7 @@ watch(() => props.systemLogs?.length, () => {
 onMounted(() => {
   addLog('Step 3 simulation run initialized')
   addLog(t('step3.simRunInit'))
+  addLog(t('logs.s3_init'))
   if (props.simulationId) {
     doStartSimulation()
   }

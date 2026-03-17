@@ -19,17 +19,20 @@
             {{ { graph: 'Graph', split: 'Split', workbench: 'Workbench' }[mode] }}
             {{ { graph: $t('nav.graph'), split: $t('nav.split'), workbench: $t('nav.workbench') }[mode] }}
             {{ { graph: t.view_graph, split: t.view_split, workbench: t.view_workbench }[mode] }}
+            {{ { graph: t('mainView.graph'), split: t('mainView.split'), workbench: t('mainView.workbench') }[mode] }}
           </button>
         </div>
       </div>
 
       <div class="header-right">
+        <LanguageSelector light />
         <div class="workflow-step">
           <span class="step-num">Step 5/5</span>
           <span class="step-name">{{ $t('steps.deepInteraction') }}</span>
           <span class="step-name">Deep Interaction</span>
           <span class="step-name">{{ $t('interactionView.stepName') }}</span>
           <span class="step-name">{{ t.step5Title }}</span>
+          <span class="step-name">{{ t('mainView.stepInteraction') }}</span>
         </div>
         <div class="step-divider"></div>
         <span class="status-indicator" :class="statusClass">
@@ -71,10 +74,12 @@
 <script setup>
 import { t, currentLang } from '../i18n'
 import { ref, computed, onMounted, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GraphPanel from '../components/GraphPanel.vue'
 import Step5Interaction from '../components/Step5Interaction.vue'
+import LanguageSelector from '../components/LanguageSelector.vue'
 import { getProject, getGraphData } from '../api/graph'
 import { getSimulation } from '../api/simulation'
 import { getReport } from '../api/report'
@@ -152,6 +157,7 @@ const loadReportData = async () => {
   try {
     addLog(t('interaction.loadingReportData', { id: currentReportId.value }))
     addLog(`Loading report data: ${currentReportId.value}`)
+    addLog(t('logs.iv_loadingReportData', { id: currentReportId.value }))
     
     // Fetch report data to get the simulation_id.
     addLog(t('interactionView.loadingReportData', { id: currentReportId.value }))
@@ -180,6 +186,7 @@ const loadReportData = async () => {
               addLog(t('simulation.projectLoaded', { id: projRes.data.project_id }))
               if (projRes.data.graph_id) await loadGraph(projRes.data.graph_id)
               addLog(`Project loaded: ${projRes.data.project_id}`)
+              addLog(t('logs.iv_projectLoaded', { id: projRes.data.project_id }))
               
               // Fetch graph data.
               addLog(t('interactionView.projectLoaded', { id: projRes.data.project_id }))
@@ -209,6 +216,10 @@ const loadReportData = async () => {
     }
   } catch (err) {
     addLog(`Load exception: ${err.message}`)
+      addLog(t('logs.iv_loadReportFailed', { error: reportRes.error || t('errors.unknown') }))
+    }
+  } catch (err) {
+    addLog(t('logs.iv_loadException', { error: err.message }))
   }
 }
 
@@ -235,6 +246,10 @@ const loadGraph = async (graphId) => {
     }
   } catch (err) {
     addLog(`Graph load failed: ${err.message}`)
+      addLog(t('logs.graphDataLoaded'))
+    }
+  } catch (err) {
+    addLog(t('logs.iv_graphLoadFailed', { error: err.message }))
   } finally {
     graphLoading.value = false
   }
@@ -259,6 +274,7 @@ onMounted(() => {
   addLog('InteractionView initialized')
   addLog(t('interactionView.viewInit'))
   addLog('InteractionView initialized')
+  addLog(t('logs.iv_init'))
   loadReportData()
 })
 </script>

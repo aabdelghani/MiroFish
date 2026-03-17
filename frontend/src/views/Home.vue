@@ -17,6 +17,9 @@
         </button>
         <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
           {{ t.github }} <span class="arrow">↗</span>
+        <LanguageSelector />
+        <a href="https://github.com/666ghj/MiroFish" target="_blank" class="github-link">
+          {{ $t('nav.visitGithub') }} <span class="arrow">↗</span>
         </a>
       </div>
     </nav>
@@ -53,6 +56,13 @@
           <h1 class="main-title">
             {{ t.title1 }}<br>
             <span class="gradient-text">{{ t.title2 }}</span>
+            <span class="orange-tag">{{ $t('home.tagline') }}</span>
+            <span class="version-text">{{ $t('home.version') }}</span>
+          </div>
+          
+          <h1 class="main-title">
+            {{ $t('home.title1') }}<br>
+            <span class="gradient-text">{{ $t('home.title2') }}</span>
           </h1>
           
           <div class="hero-desc">
@@ -82,6 +92,10 @@
             </p>
             <p class="slogan-text">
               {{ t.slogan }}<span class="blinking-cursor">_</span>
+              {{ $t('home.desc1') }}<span class="highlight-bold">{{ $t('home.desc2') }}</span> {{ $t('home.desc3') }}<span class="highlight-orange">{{ $t('home.desc4') }}</span> {{ $t('home.desc5') }}<span class="highlight-code">{{ $t('home.desc6') }}</span>
+            </p>
+            <p class="slogan-text">
+              {{ $t('home.slogan') }}<span class="blinking-cursor">_</span>
             </p>
           </div>
            
@@ -116,6 +130,7 @@
           <h2 class="section-title">{{ t.ready }}</h2>
           <p class="section-desc">
             {{ t.readyDesc }}
+            {{ $t('home.readyDesc') }}
           </p>
           
           <div class="metrics-row">
@@ -197,6 +212,18 @@
             <div class="steps-header">
                <span class="diamond-icon">◇</span> {{ t('home.workflowSeq') }}
                <span class="diamond-icon">◇</span> {{ t.workflow }}
+              <div class="metric-label">{{ $t('home.lowCostDesc') }}</div>
+            </div>
+            <div class="metric-card">
+              <div class="metric-value">{{ $t('home.highAvailable') }}</div>
+              <div class="metric-label">{{ $t('home.highAvailableDesc') }}</div>
+            </div>
+          </div>
+
+          <!-- 项目模拟步骤介绍 -->
+          <div class="steps-container">
+            <div class="steps-header">
+               <span class="diamond-icon">◇</span> {{ $t('home.workflow') }}
             </div>
             <div class="workflow-list">
               <div class="workflow-item">
@@ -294,6 +321,8 @@
                 <span class="console-meta">{{ t('home.seedFormats') }}</span>
                 <span class="console-label">{{ t.seedTab }}</span>
                 <span class="console-meta">{{ t.supportFormats }}</span>
+                <span class="console-label">{{ $t('home.seedLabel') }}</span>
+                <span class="console-meta">{{ $t('home.formatHint') }}</span>
               </div>
               
               <div 
@@ -324,6 +353,7 @@
                   <div class="upload-hint">{{ t('home.browseFiles') }}</div>
                   <div class="upload-title">{{ t.dragUpload }}</div>
                   <div class="upload-hint">{{ t.clickBrowse }}</div>
+                  <div class="upload-hint">{{ $t('home.clickBrowse') }}</div>
                 </div>
                 
                 <div v-else class="file-list">
@@ -363,6 +393,7 @@
               <div class="console-header">
                 <span class="console-label">{{ t('home.promptLabel') }}</span>
                 <span class="console-label">{{ t.simPromptTab }}</span>
+                <span class="console-label">{{ $t('home.promptLabel') }}</span>
               </div>
               <div class="input-wrapper">
                 <textarea
@@ -434,6 +465,7 @@ import { currentLang, toggleLang, t } from '../i18n'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import HistoryDatabase from '../components/HistoryDatabase.vue'
+import LanguageSelector from '../components/LanguageSelector.vue'
 
 const router = useRouter()
 const { t } = useI18n()
@@ -646,6 +678,7 @@ const startSimulation = () => {
 }
 .lang-toggle-btn:hover {
   transform: scale(1.1);
+  gap: 20px;
 }
 
 .github-link {

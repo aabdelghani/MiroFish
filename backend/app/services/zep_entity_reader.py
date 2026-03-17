@@ -123,6 +123,15 @@ class ZepEntityReader:
 
         # 使用适配器获取节点
         nodes = self.kg.get_nodes(graph_id, limit=2000)
+        Args:
+            graph_id: 图谱ID
+
+        Returns:
+            节点列表
+        """
+        logger.info(f"Fetching all nodes for graph {graph_id}...")
+
+        nodes = fetch_all_nodes(self.client, graph_id)
 
         nodes_data = []
         for node in nodes:
@@ -144,6 +153,7 @@ class ZepEntityReader:
             })
 
         logger.info(f"Fetched {len(nodes_data)} nodes")
+        logger.info(f"Retrieved {len(nodes_data)} nodes")
         return nodes_data
 
     def get_all_edges(self, graph_id: str) -> List[Dict[str, Any]]:
@@ -165,6 +175,49 @@ class ZepEntityReader:
                     "attributes": edge.get('attributes', {}),
                 })
             else:
+        Args:
+            graph_id: 图谱ID
+
+        Returns:
+            边列表
+        """
+        logger.info(f"Fetching all edges for graph {graph_id}...")
+
+        edges = fetch_all_edges(self.client, graph_id)
+
+        edges_data = []
+        for edge in edges:
+            edges_data.append({
+                "uuid": getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', ''),
+                "name": edge.name or "",
+                "fact": edge.fact or "",
+                "source_node_uuid": edge.source_node_uuid,
+                "target_node_uuid": edge.target_node_uuid,
+                "attributes": edge.attributes or {},
+            })
+
+        logger.info(f"Retrieved {len(edges_data)} edges")
+        return edges_data
+    
+    def get_node_edges(self, node_uuid: str) -> List[Dict[str, Any]]:
+        """
+        获取指定节点的所有相关边（带重试机制）
+        
+        Args:
+            node_uuid: 节点UUID
+            
+        Returns:
+            边列表
+        """
+        try:
+            # 使用重试机制调用Zep API
+            edges = self._call_with_retry(
+                func=lambda: self.client.graph.node.get_entity_edges(node_uuid=node_uuid),
+                operation_name=f"获取节点边(node={node_uuid[:8]}...)"
+            )
+            
+            edges_data = []
+            for edge in edges:
                 edges_data.append({
                     "uuid": getattr(edge, 'uuid_', None) or getattr(edge, 'uuid', ''),
                     "name": edge.name or "",
@@ -224,6 +277,24 @@ class ZepEntityReader:
         """Filter nodes by predefined entity types (labels beyond Entity/Node). Returns FilteredEntities."""
         logger.info(f"Filtering entities for graph {graph_id}...")
 
+        """
+        筛选出符合预定义实体类型的节点
+        
+        筛选逻辑：
+        - 如果节点的Labels只有一个"Entity"，说明这个实体不符合我们预定义的类型，跳过
+        - 如果节点的Labels包含除"Entity"和"Node"之外的标签，说明符合预定义类型，保留
+        
+        Args:
+            graph_id: 图谱ID
+            defined_entity_types: 预定义的实体类型列表（可选，如果提供则只保留这些类型）
+            enrich_with_edges: 是否获取每个实体的相关边信息
+            
+        Returns:
+            FilteredEntities: 过滤后的实体集合
+        """
+        logger.info(f"Filtering entities from graph {graph_id}...")
+        
+        # 获取所有节点
         all_nodes = self.get_all_nodes(graph_id)
         total_count = len(all_nodes)
         all_edges = self.get_all_edges(graph_id) if enrich_with_edges else []
@@ -311,6 +382,9 @@ class ZepEntityReader:
             filtered_entities.append(entity)
 
         logger.info(f"Filter done: total nodes {total_count}, matched {len(filtered_entities)}, types: {entity_types_found}")
+        
+        logger.info(f"Filtering complete: total nodes {total_count}, matched {len(filtered_entities)}, "
+                   f"entity types: {entity_types_found}")
         
         return FilteredEntities(
             entities=filtered_entities,

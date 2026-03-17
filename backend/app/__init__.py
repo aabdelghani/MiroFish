@@ -64,6 +64,7 @@ def create_app(config_class=Config):
 
         logger.info("Starting MiroFish backend...")
         logger.info("=" * 50)
+        logger.info("Simulation process cleanup handler registered")
     
     # Enable CORS.
     CORS(app, resources={r"/api/*": {"origins": "*"}})
@@ -155,5 +156,6 @@ def create_app(config_class=Config):
     
     if should_log_startup:
         logger.info("MiroFish backend startup complete")
+        logger.info("MiroFish Backend started")
     
     return app

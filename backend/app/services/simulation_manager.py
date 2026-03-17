@@ -13,11 +13,11 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 
-from ..config import Config
 from ..utils.logger import get_logger
-from .zep_entity_reader import ZepEntityReader, FilteredEntities
-from .oasis_profile_generator import OasisProfileGenerator, OasisAgentProfile
-from .simulation_config_generator import SimulationConfigGenerator, SimulationParameters
+from ..utils.error_messages import get_error_message
+from .zep_entity_reader import ZepEntityReader
+from .oasis_profile_generator import OasisProfileGenerator
+from .simulation_config_generator import SimulationConfigGenerator
 
 logger = get_logger('mirofish.simulation')
 
@@ -197,6 +197,7 @@ class SimulationManager:
         
         self._save_simulation_state(state)
         logger.info(f"Created simulation: {simulation_id}, project={project_id}, graph={graph_id}")
+        logger.info(f"Simulation created: {simulation_id}, project={project_id}, graph={graph_id}")
         
         return state
     
@@ -212,6 +213,31 @@ class SimulationManager:
         language: str = "zh"
     ) -> SimulationState:
         """Prepare simulation: read entities, generate profiles, LLM config, save files."""
+        locale: str = 'zh'
+    ) -> SimulationState:
+        """
+        准备模拟环境（全程自动化）
+
+        步骤：
+        1. 从Zep图谱读取并过滤实体
+        2. 为每个实体生成OASIS Agent Profile（可选LLM增强，支持并行）
+        3. 使用LLM智能生成模拟配置参数（时间、活跃度、发言频率等）
+        4. 保存配置文件和Profile文件
+        5. 复制预设脚本到模拟目录
+
+        Args:
+            simulation_id: 模拟ID
+            simulation_requirement: 模拟需求描述（用于LLM生成配置）
+            document_text: 原始文档内容（用于LLM理解背景）
+            defined_entity_types: 预定义的实体类型（可选）
+            use_llm_for_profiles: 是否使用LLM生成详细人设
+            progress_callback: 进度回调函数 (stage, progress, message)
+            parallel_profile_count: 并行生成人设的数量，默认3
+            locale: 语言偏好 ('zh', 'en', 'ko')，用于LLM输出语言
+
+        Returns:
+            SimulationState
+        """
         state = self._load_simulation_state(simulation_id)
         if not state:
             raise ValueError(f"Simulation not found: {simulation_id}")
@@ -255,6 +281,8 @@ class SimulationManager:
                 progress_callback(
                     "generating_profiles", 0,
                     "Starting...",
+                    "generating_profiles", 0, 
+                    get_error_message('sim_profile_start', locale),
                     current=0,
                     total=total_entities
                 )
@@ -291,6 +319,11 @@ class SimulationManager:
                 parallel_count=parallel_profile_count,
                 realtime_output_path=realtime_output_path,
                 output_platform=realtime_platform
+                graph_id=state.graph_id,  # 传入graph_id用于Zep检索
+                parallel_count=parallel_profile_count,  # 并行生成数量
+                realtime_output_path=realtime_output_path,  # 实时保存路径
+                output_platform=realtime_platform,  # 输出格式
+                locale=locale  # 语言偏好
             )
             
             state.profiles_count = len(profiles)
@@ -339,6 +372,8 @@ class SimulationManager:
                 progress_callback(
                     "generating_config", 30,
                     "Calling LLM to generate config...",
+                    "generating_config", 30, 
+                    get_error_message('sim_config_llm_calling', locale),
                     current=1,
                     total=3
                 )
@@ -351,7 +386,8 @@ class SimulationManager:
                 document_text=document_text,
                 entities=filtered.entities,
                 enable_twitter=state.enable_twitter,
-                enable_reddit=state.enable_reddit
+                enable_reddit=state.enable_reddit,
+                locale=locale
             )
             
             if progress_callback:
@@ -378,6 +414,10 @@ class SimulationManager:
             state.status = SimulationStatus.READY
             self._save_simulation_state(state)
             logger.info(f"Simulation ready: {simulation_id}, entities={state.entities_count}, profiles={state.profiles_count}")
+            
+            logger.info(f"Simulation prepared: {simulation_id}, "
+                       f"entities={state.entities_count}, profiles={state.profiles_count}")
+            
             return state
         except Exception as e:
             logger.error(f"Simulation preparation failed: {simulation_id}, error={str(e)}")

@@ -21,6 +21,7 @@ A Simple and Universal Swarm Intelligence Engine, Predicting Anything
 [![Instagram](https://img.shields.io/badge/Instagram-Follow-E4405F?style=flat-square&logo=instagram&logoColor=white)](https://www.instagram.com/mirofish_ai/)
 
 [README](./README.md) | [Alternate Copy](./README-EN.md)
+[English](./README-EN.md) | [中文文档](./README.md) | [한국어](./README-KO.md)
 
 </div>
 
